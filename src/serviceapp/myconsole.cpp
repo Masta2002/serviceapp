@@ -314,19 +314,21 @@ void eConsoleContainer::readyWrite(int what)
 		if (wr < 0)
 		{
 /*			eDebug("[ServiceApp][eConsoleContainer]2 write on fd=%d failed: %m", fd[1]);  */
-			outbuf.pop();
 			delete [] d.data;
+			outbuf.pop();
 			if ( filefd[0] == -1 )
 			/* emit */ dataSent(0);
 		}
 		else
-			d.dataSent += wr;
-		if (d.dataSent == d.len)
 		{
-			outbuf.pop();
-			delete [] d.data;
-			if ( filefd[0] == -1 )
-			/* emit */ dataSent(0);
+			d.dataSent += wr;
+			if (d.dataSent == d.len)
+			{
+				delete [] d.data;
+				outbuf.pop();
+				if ( filefd[0] == -1 )
+				/* emit */ dataSent(0);
+			}
 		}
 	}
 	if ( !outbuf.size() )
