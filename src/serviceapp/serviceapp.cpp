@@ -774,7 +774,7 @@ RESULT eServiceApp::getLength(pts_t& pts) {
 	if (player->getLength(length) < 0) {
 		return -1;
 	}
-	pts = length * 90;
+	pts = (pts_t)length * 90;
 	return 0;
 }
 
@@ -818,7 +818,7 @@ RESULT eServiceApp::getPlayPosition(pts_t& pts) {
 	if (player->getPlayPosition(position) < 0) {
 		return -1;
 	}
-	pts = position * 90;
+	pts = (pts_t)position * 90;
 	return 0;
 }
 
