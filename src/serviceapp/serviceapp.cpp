@@ -225,6 +225,7 @@ eServiceApp::~eServiceApp() {
 	delete player;
 	delete extplayer;
 	delete m_resolver;
+	delete m_selected_subtitle_track;
 
 	if (m_subtitle_widget)
 		m_subtitle_widget->destroy();
@@ -438,9 +439,13 @@ void eServiceApp::pushSubtitles() {
 		int subtitle_fps = eSubtitleSettings::pango_subtitles_fps;
 		if (subtitle_fps != m_prev_subtitle_fps) {
 			m_prev_subtitle_fps = subtitle_fps;
+			// the selected track may have vanished after a getSubtitleList()
+			// refresh -> getTrackPosition returns -1; indexing with that
+			// would read out of bounds. Keep the already-loaded pages then.
 			ssize_t track_pos = getTrackPosition(*m_selected_subtitle_track);
 			const subtitleMap* submap = NULL;
-			submap = m_subtitle_manager.load(m_subtitle_streams[track_pos].path, m_framerate, subtitle_fps);
+			if (track_pos >= 0)
+				submap = m_subtitle_manager.load(m_subtitle_streams[track_pos].path, m_framerate, subtitle_fps);
 			if (submap) {
 				m_prev_subtitle_message = NULL;
 				m_subtitle_pages = submap;
@@ -964,6 +969,7 @@ RESULT eServiceApp::enableSubtitles(iSubtitleUser* user, struct SubtitleTrack& t
 	m_subtitle_sync_timer->stop();
 	m_prev_subtitle_message = NULL;
 	m_subtitle_pages = NULL;
+	delete m_selected_subtitle_track;
 	m_selected_subtitle_track = NULL;
 
 	m_decoder_time_valid_state = 0;
@@ -993,7 +999,10 @@ RESULT eServiceApp::enableSubtitles(iSubtitleUser* user, struct SubtitleTrack& t
 		eWarning("eServiceApp::enableSubtitles - not supported track page_number %d", track.page_number);
 		return -1;
 	}
-	m_selected_subtitle_track = &(m_subtitle_tracks[track_pos]);
+	// own a standalone copy: getSubtitleList() clears m_subtitle_tracks
+	// while playing (the UI calls it to repopulate), which would leave a
+	// pointer into freed vector storage dangling -> UAF in pushSubtitles.
+	m_selected_subtitle_track = new SubtitleTrack(m_subtitle_tracks[track_pos]);
 	m_subtitle_widget = user;
 	return 0;
 }
@@ -1004,6 +1013,7 @@ RESULT eServiceApp::disableSubtitles() {
 	m_prev_subtitle_message = NULL;
 	m_embedded_subtitle_pages.clear();
 	m_subtitle_pages = NULL;
+	delete m_selected_subtitle_track;
 	m_selected_subtitle_track = NULL;
 	if (m_subtitle_widget)
 		m_subtitle_widget->destroy();
@@ -1034,15 +1044,21 @@ RESULT eServiceApp::getCachedSubtitle(struct SubtitleTrack& track) {
 	bool select_embedded = (options->preferEmbeddedSubtitles || external_tracks.empty()) && !embedded_tracks.empty();
 	if (!select_embedded) {
 		struct SubtitleTrack tmp_track = *external_tracks.begin();
-		subtitleStream tmp_stream = m_subtitle_streams[getTrackPosition(tmp_track)];
-		std::string video_base, subtitle_base, extension;
-		splitExtension(m_ref.path, video_base, extension);
-		splitExtension(tmp_stream.path, subtitle_base, extension);
-		if (video_base == subtitle_base || external_tracks.size() == 1) {
-			track = tmp_track;
-			ret = 0;
-		} else {
+		ssize_t tmp_pos = getTrackPosition(tmp_track);
+		if (tmp_pos < 0) {
+			// same unchecked -1 indexing as in pushSubtitles; fall back to embedded tracks
 			select_embedded = !embedded_tracks.empty();
+		} else {
+			subtitleStream tmp_stream = m_subtitle_streams[tmp_pos];
+			std::string video_base, subtitle_base, extension;
+			splitExtension(m_ref.path, video_base, extension);
+			splitExtension(tmp_stream.path, subtitle_base, extension);
+			if (video_base == subtitle_base || external_tracks.size() == 1) {
+				track = tmp_track;
+				ret = 0;
+			} else {
+				select_embedded = !embedded_tracks.empty();
+			}
 		}
 	}
 	if (select_embedded) {
