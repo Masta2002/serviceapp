@@ -908,8 +908,9 @@ RESULT eServiceApp::getTrackInfo(iAudioTrackInfo& trackInfo, unsigned int n) {
 
 	std::string desc = track.description;
 
-	std::map<std::string, std::string> audioReplacements = {{"A_", ""},		  {"EAC3", "AC3+"},		{"MPEG/L3", "AAC"},	 {"IPCM", "AC3"},
-															{"LPCM", "AC3+"}, {"AAC_PLUS", "AAC+"}, {"AAC_LATM", "AAC"}, {"WMA/PRO", "WMA Pro"}};
+	/* exteplayer3 names MPEG-1/2 Layer I/II "A_MPEG/L3"; IPCM and LPCM are PCM, LPCM stays as it is */
+	std::map<std::string, std::string> audioReplacements = {{"A_", ""},		   {"EAC3", "AC3+"},	   {"MPEG/L3", "MP2"},	{"IPCM", "PCM"},
+															{"AAC_PLUS", "AAC+"}, {"AAC_LATM", "AAC"}, {"WMA/PRO", "WMA Pro"}};
 
 	if (!desc.empty()) {
 		for (auto const& x : audioReplacements) {
