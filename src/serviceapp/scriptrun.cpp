@@ -42,7 +42,7 @@ void scriptrun::run(eMainloop *context)
     for (size_t i = 0;  i < m_params.size(); i++)
         args.push_back(m_params[i]);
 
-    char **cargs = (char **) malloc(sizeof(char *) * args.size()+1);
+    char **cargs = (char **) malloc(sizeof(char *) * (args.size()+1));
     for (size_t i=0; i <= args.size(); i++)
     {
         // execvp needs args array terminated with NULL
