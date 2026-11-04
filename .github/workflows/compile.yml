@@ -1,0 +1,44 @@
+name: Compile check
+
+# Compiles the C++ sources against the enigma2 headers of openATV and checks
+# the Python files. Nothing is linked: libenigma2 is not available here.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  compile:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y g++ pkg-config python3-dev libsigc++-3.0-dev \
+          libuchardet-dev libssl-dev libfreetype-dev libfribidi-dev libxml2-dev
+
+    - name: enigma2 and libdvbsi++ headers
+      run: |
+        git clone --depth 1 https://github.com/openatv/enigma2 e2
+        git clone --depth 1 https://github.com/oe-alliance/libdvbsi dvbsi
+        touch e2/config.h
+
+    - name: Compile
+      run: |
+        FLAGS="-std=gnu++20 -fsyntax-only -Wall -Wno-unused -DDEBUG -DHAVE_EPG -DOPENPLI_ISERVICE_VERSION=2 \
+          $(python3-config --includes) -include Python.h \
+          $(pkg-config --cflags sigc++-3.0 uchardet openssl freetype2 fribidi) \
+          -Ie2 -Ie2/include -Idvbsi/include -Isrc/serviceapp"
+        rc=0
+        for f in src/serviceapp/*.cpp src/serviceapp/subtitles/*.cpp; do
+          echo "== $f"
+          g++ $FLAGS "$f" || rc=1
+        done
+        gcc -fsyntax-only -Wall src/serviceapp/cJSON/cJSON.c || rc=1
+        exit $rc
+
+    - name: Python
+      run: python3 -W error -m py_compile src/plugin/*.py
