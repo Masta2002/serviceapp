@@ -295,6 +295,9 @@ int ExtEplayer3::sendSubtitleSelectTrack(int trackId)
 	return processSend(sstm.str());
 }
 
+/* exteplayer3 takes track -1 as "no subtitles" */
+int ExtEplayer3::sendSubtitleDisable(){ return processSend(std::string("s-1\n"));}
+
 int ExtEplayer3::sendSeekTo(int seconds)
 {
 	std::stringstream sstm;

@@ -1021,6 +1021,9 @@ RESULT eServiceApp::disableSubtitles() {
 		m_subtitle_widget->destroy();
 	m_subtitle_widget = 0;
 
+	// an embedded track is decoded by the player until it is told to stop
+	player->subtitleSelectTrack(-1);
+
 	m_decoder_time_valid_state = 0;
 	m_prev_decoder_time = -1;
 	return 0;

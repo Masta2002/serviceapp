@@ -138,6 +138,8 @@ public:
 	virtual int sendUpdateSubtitleTracksList(){ return -1;}
 	virtual int sendUpdateSubtitleTrackCurrent(){ return -1;}
 	virtual int sendSubtitleSelectTrack(int trackId){ return -1;}
+	// stop sending subtitles, only players that support it
+	virtual int sendSubtitleDisable(){ return -1;}
 	virtual int sendSeekTo(int seconds){ return -1;}
 	virtual int sendSeekRelative(int seconds){ return -1;}
 	// speed > 1 winds forwards, < 0 backwards

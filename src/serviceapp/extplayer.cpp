@@ -417,6 +417,17 @@ int PlayerBackend::subtitleGetCurrentTrackNum()
 int PlayerBackend::subtitleSelectTrack(int trackNum)
 {
 	eSingleLocker l_(mStreamsLock);
+	if (trackNum == -1)
+	{
+		// subtitles off: the player stops decoding and sending them
+		mMessageThread.send(Message(Message::tSubtitleSelect, -1));
+		if (pCurrentSubtitle != NULL)
+		{
+			delete pCurrentSubtitle;
+			pCurrentSubtitle = NULL;
+		}
+		return 0;
+	}
 	if (trackNum >= 0 && trackNum < (int) mSubtitleStreams.size())
 	{
 		mMessageThread.send(Message(Message::tSubtitleSelect, mSubtitleStreams[trackNum].id));
@@ -519,7 +530,10 @@ void PlayerBackend::gotMessage(const PlayerBackend::Message& message)
 		case Message::tSubtitleSelect:
 			if(mDebug)
 				eDebug("PlayerBackend::gotMessage - tSubtitleSelect");
-			pPlayer->sendSubtitleSelectTrack(message.dataInt);
+			if (message.dataInt < 0)
+				pPlayer->sendSubtitleDisable();
+			else
+				pPlayer->sendSubtitleSelectTrack(message.dataInt);
 			break;
 		case Message::tSubtitleList:
 			if(mDebug)
