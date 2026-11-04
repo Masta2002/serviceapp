@@ -223,6 +223,7 @@ public:
 	};
 	int setBufferSize(int size) {
 		(void)size;
+		return 0;
 	}
 
 	// iAudioTrackSelection

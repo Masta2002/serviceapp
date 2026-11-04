@@ -424,7 +424,7 @@ void eServiceApp::pullSubtitles() {
 	std::queue<subtitleMessage> pulled;
 	player->getSubtitles(pulled);
 	if (m_debug)
-		eDebug("eServiceApp::pullSubtitles - pulling %d subtitles", pulled.size());
+		eDebug("eServiceApp::pullSubtitles - pulling %zu subtitles", pulled.size());
 	while (!pulled.empty()) {
 		subtitleMessage sub = pulled.front();
 		m_embedded_subtitle_pages.insert(subtitle_pages_map_pair(sub.end_ms, sub));
