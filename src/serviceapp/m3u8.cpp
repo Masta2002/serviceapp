@@ -367,8 +367,11 @@ int M3U8VariantsExplorer::getVariantsFromMasterUrl(const std::string& url, Heade
                 if (!strncmp(lineBuffer, M3U8_STREAM_INFO, 17))
                 {
                     m3u8StreamInfoParsing = true;
+                    m3u8StreamInfo = M3U8StreamInfo(); // no attributes of the previous variant
                     std::string parsed(lineBuffer);
-                    parseStreamInfoAttributes(parsed.substr(18).c_str(), m3u8StreamInfo);
+                    // a bare "#EXT-X-STREAM-INF" without ":attrs" makes substr(18)
+                    // throw std::out_of_range, which aborts enigma2
+                    parseStreamInfoAttributes(parsed.size() > 18 ? parsed.substr(18).c_str() : "", m3u8StreamInfo);
                 }
                 else if (!strncmp(lineBuffer, "#EXT-X-MEDIA:", 13) && strstr(lineBuffer, "TYPE=AUDIO") && strstr(lineBuffer, "URI="))
                 {

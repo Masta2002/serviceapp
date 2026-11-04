@@ -99,7 +99,8 @@ void Url::parseUrl(std::string url)
     }
     else
     {
-        host = url.substr(delim_start);
+        // no path: skip the "://", the host would keep it otherwise
+        host = url.substr(delim_start + 3);
     }
     size_t port_start = host.find(":");
     if (port_start != std::string::npos)
