@@ -31,6 +31,10 @@ extern const std::string EXT3_ARG_LCASE_B;
 extern const std::string EXT3_ARG_5;
 extern const std::string EXT3_ARG_6;
 extern const std::string EXT3_ARG_7;
+extern const std::string EXT3_TRANSCODE_DTS;
+extern const std::string EXT3_TRANSCODE_TRUEHD;
+extern const std::string EXT3_TRANSCODE_HEAAC;
+extern const std::string EXT3_HLS_BEST_VARIANT;
 
 struct ExtEplayer3Options : public IOption
 {

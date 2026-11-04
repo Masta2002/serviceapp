@@ -77,6 +77,11 @@ for key in list(config_serviceapp.exteplayer3.keys()):
 	config_serviceapp.exteplayer3[key].lpcm_injecion = ConfigYesNo(default=False)
 	config_serviceapp.exteplayer3[key].downmix = ConfigYesNo(default=False)
 	config_serviceapp.exteplayer3[key].rtmp_protocol = ConfigSelection(default="auto", choices=["auto", "ffmpeg", "librtmp"])
+	# exteplayer3 186 and newer
+	config_serviceapp.exteplayer3[key].dts_transcode = ConfigYesNo(default=False)
+	config_serviceapp.exteplayer3[key].truehd_transcode = ConfigYesNo(default=False)
+	config_serviceapp.exteplayer3[key].heaac_transcode = ConfigYesNo(default=False)
+	config_serviceapp.exteplayer3[key].hls_best_variant = ConfigYesNo(default=False)
 
 
 def key_to_setting_id(key):
@@ -141,7 +146,11 @@ def init_serviceapp_settings():
 			player_cfg.ac3_swdecoding.value,
 			player_cfg.eac3_swdecoding.value,
 			player_cfg.mp3_swdecoding.value,
-			rtmp_proto_val)
+			rtmp_proto_val,
+			player_cfg.dts_transcode.value,
+			player_cfg.truehd_transcode.value,
+			player_cfg.heaac_transcode.value,
+			player_cfg.hls_best_variant.value)
 
 	if config_serviceapp.servicemp3.player.value == "gstplayer":
 		serviceapp_client.setServiceMP3GstPlayer()
@@ -175,6 +184,12 @@ class ServiceAppSettings(Setup):
 		config_list.append((self.indent + _("Stereo downmix"), exteplayer3_options_cfg.downmix, _("Turn on downmix to stereo, when software decoding is in use")))
 		config_list.append((self.indent + _("LPCM injection"), exteplayer3_options_cfg.lpcm_injecion, _("Software decoder use LPCM for injection (otherwise wav PCM will be used)")))
 		config_list.append((self.indent + _("RTMP protocol implementation"), exteplayer3_options_cfg.rtmp_protocol, _("Set which RTMP protocol implementation will be used for playback of RTMP streams")))
+		# the options of exteplayer3 186 and newer, older versions do not start with them
+		if EXTEPLAYER3_VERSION and EXTEPLAYER3_VERSION >= 186:
+			config_list.append((self.indent + _("DTS to AC3 5.1"), exteplayer3_options_cfg.dts_transcode, _("Transcode DTS and DTS-HD to AC3 5.1, for receivers and amplifiers without DTS.")))
+			config_list.append((self.indent + _("TrueHD to AC3 5.1"), exteplayer3_options_cfg.truehd_transcode, _("Transcode Dolby TrueHD to AC3 5.1.")))
+			config_list.append((self.indent + _("HE-AAC to AAC-LC"), exteplayer3_options_cfg.heaac_transcode, _("Transcode HE-AAC to AAC-LC, for decoders without HE-AAC.")))
+			config_list.append((self.indent + _("Best HLS quality"), exteplayer3_options_cfg.hls_best_variant, _("Play the best variant of a HLS stream instead of the first one. Needs a receiver that decodes it.")))
 
 	def serviceapp_options(self, serviceapp_options_cfg, config_list):
 		config_list.append((self.indent + _("Auto turn on subtitles"), serviceapp_options_cfg.autoturnon_subtitles, _("Automatically turn on subtitles if available.")))

@@ -29,6 +29,11 @@ const std::string  EXT3_ARG_LCASE_B                = "b";
 const std::string  EXT3_ARG_5                      = "5";
 const std::string  EXT3_ARG_6                      = "6";
 const std::string  EXT3_ARG_7                      = "7";
+// exteplayer3 186 and newer
+const std::string  EXT3_TRANSCODE_DTS              = "dts_transcode";
+const std::string  EXT3_TRANSCODE_TRUEHD           = "truehd_transcode";
+const std::string  EXT3_TRANSCODE_HEAAC            = "heaac_transcode";
+const std::string  EXT3_HLS_BEST_VARIANT           = "hls_best_variant";
 const std::string  EXT3_ARGS_LIST                  = "args"; // cmdline like list of exteplayer3 arguments in a form "-arg1=value1-arg2=value2"
 
 SettingMap &ExtEplayer3Options::GetSettingMap()
@@ -64,6 +69,10 @@ ExtEplayer3Options::ExtEplayer3Options()
 	settingMap[EXT3_ARG_5]                      = SettingEntry ("-5", "string");
 	settingMap[EXT3_ARG_6]                      = SettingEntry ("-6", "string");
 	settingMap[EXT3_ARG_7]                      = SettingEntry ("-7", "string");
+	settingMap[EXT3_TRANSCODE_DTS]              = SettingEntry ("-D", "bool");
+	settingMap[EXT3_TRANSCODE_TRUEHD]           = SettingEntry ("-X", "bool");
+	settingMap[EXT3_TRANSCODE_HEAAC]            = SettingEntry ("-Y", "bool");
+	settingMap[EXT3_HLS_BEST_VARIANT]           = SettingEntry ("-Q", "bool");
 	settingMap[EXT3_ARGS_LIST]                  = SettingEntry ("al", "argslist");
 }
 

@@ -1524,8 +1524,13 @@ static PyObject* exteplayer3_set_setting(PyObject* self, PyObject* args) {
 	bool downmix;
 	bool lpcmInjection;
 	int rtmpProtocol;
+	/* optional, exteplayer3 186 and newer */
+	bool dtsTranscode = false;
+	bool truehdTranscode = false;
+	bool heaacTranscode = false;
+	bool hlsBestVariant = false;
 
-	if (!PyArg_ParseTuple(args, "ibbbbbbbbi", &settingId, &aacSwDecoding, &dtsSwDecoding, &wmaSwDecoding, &lpcmInjection, &downmix, &ac3SwDecoding, &eac3SwDecoding, &mp3SwDecoding, &rtmpProtocol))
+	if (!PyArg_ParseTuple(args, "ibbbbbbbbi|bbbb", &settingId, &aacSwDecoding, &dtsSwDecoding, &wmaSwDecoding, &lpcmInjection, &downmix, &ac3SwDecoding, &eac3SwDecoding, &mp3SwDecoding, &rtmpProtocol, &dtsTranscode, &truehdTranscode, &heaacTranscode, &hlsBestVariant))
 		return NULL;
 
 	ExtEplayer3Options* options = NULL;
@@ -1557,6 +1562,10 @@ static PyObject* exteplayer3_set_setting(PyObject* self, PyObject* args) {
 		options->GetSettingMap()[EXT3_LPCM_INJECTION].setValue(lpcmInjection);
 		options->GetSettingMap()[EXT3_RTMP_PROTOCOL].setValue(rtmpProtocol);
 		options->GetSettingMap()[EXT3_DOWNMIX].setValue(downmix);
+		options->GetSettingMap()[EXT3_TRANSCODE_DTS].setValue(dtsTranscode);
+		options->GetSettingMap()[EXT3_TRANSCODE_TRUEHD].setValue(truehdTranscode);
+		options->GetSettingMap()[EXT3_TRANSCODE_HEAAC].setValue(heaacTranscode);
+		options->GetSettingMap()[EXT3_HLS_BEST_VARIANT].setValue(hlsBestVariant);
 	}
 	return Py_BuildValue("b", ret);
 }
