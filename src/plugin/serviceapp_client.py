@@ -54,13 +54,19 @@ def setUseUserSettings():
 	serviceapp.use_user_settings()
 
 
+AUTOTURNON_SUBTITLES_OFF = 0
+AUTOTURNON_SUBTITLES_ALL = 1
+AUTOTURNON_SUBTITLES_FORCED = 2
+
+
 def setServiceAppSettings(settingId, HLSExplorer, autoSelectStream, connectionSpeedInKb, autoTurnOnSubtitles=True):
+	# autoTurnOnSubtitles: False/True as before or AUTOTURNON_SUBTITLES_*
 	return serviceapp.serviceapp_set_setting(
 		settingId,
 		HLSExplorer,
 		autoSelectStream,
 		connectionSpeedInKb,
-		autoTurnOnSubtitles
+		int(autoTurnOnSubtitles)
 	)
 
 

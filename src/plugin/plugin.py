@@ -53,7 +53,8 @@ for key in list(config_serviceapp.options.keys()):
 	config_serviceapp.options[key].hls_explorer = ConfigYesNo(default=True)
 	config_serviceapp.options[key].autoselect_stream = ConfigYesNo(default=True)
 	config_serviceapp.options[key].connection_speed_kb = ConfigInteger(9999999, limits=(0, 9999999))
-	config_serviceapp.options[key].autoturnon_subtitles = ConfigYesNo(default=True)
+	# "False"/"True" are the values of the former yes/no setting
+	config_serviceapp.options[key].autoturnon_subtitles = ConfigSelection(default="True", choices=[("False", _("No")), ("True", _("Yes")), ("forced", _("Forced only"))])
 
 config_serviceapp.gstplayer = ConfigSubDict()
 config_serviceapp.gstplayer["servicemp3"] = ConfigSubsection()
@@ -95,6 +96,14 @@ def key_to_setting_id(key):
 	return setting_id
 
 
+def autoturnon_subtitles_mode(value):
+	if value == "forced":
+		return serviceapp_client.AUTOTURNON_SUBTITLES_FORCED
+	if value == "False":
+		return serviceapp_client.AUTOTURNON_SUBTITLES_OFF
+	return serviceapp_client.AUTOTURNON_SUBTITLES_ALL
+
+
 def init_serviceapp_settings():
 	for key in list(config_serviceapp.options.keys()):
 		setting_id = key_to_setting_id(key)
@@ -104,7 +113,7 @@ def init_serviceapp_settings():
 				serviceapp_cfg.hls_explorer.value,
 				serviceapp_cfg.autoselect_stream.value,
 				serviceapp_cfg.connection_speed_kb.value,
-				serviceapp_cfg.autoturnon_subtitles.value)
+				autoturnon_subtitles_mode(serviceapp_cfg.autoturnon_subtitles.value))
 
 	for key in list(config_serviceapp.gstplayer.keys()):
 		setting_id = key_to_setting_id(key)
@@ -192,7 +201,7 @@ class ServiceAppSettings(Setup):
 			config_list.append((self.indent + _("Best HLS quality"), exteplayer3_options_cfg.hls_best_variant, _("Play the best variant of a HLS stream instead of the first one. Needs a receiver that decodes it.")))
 
 	def serviceapp_options(self, serviceapp_options_cfg, config_list):
-		config_list.append((self.indent + _("Auto turn on subtitles"), serviceapp_options_cfg.autoturnon_subtitles, _("Automatically turn on subtitles if available.")))
+		config_list.append((self.indent + _("Auto turn on subtitles"), serviceapp_options_cfg.autoturnon_subtitles, _("Automatically turn on subtitles if available.") + " " + _("Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages.")))
 		config_list.append((self.indent + _("HLS Explorer"), serviceapp_options_cfg.hls_explorer, _("Turn on explorer to retrieve different quality streams from HLS variant playlist and select them via subservices.")))
 		config_list.append((self.indent + _("Auto select stream"), serviceapp_options_cfg.autoselect_stream, _("Turn on auto-selection of streams according to set Connection speed.")))
 		config_list.append((self.indent + _("Connection speed"), serviceapp_options_cfg.connection_speed_kb, _("Set connection speed in kb/s, according to which you want to have streams auto-selected")))

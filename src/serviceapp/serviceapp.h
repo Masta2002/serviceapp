@@ -14,13 +14,16 @@
 #include "m3u8.h"
 #include "scriptrun.h"
 
+/* auto turn on subtitles: 0 and 1 are the former False/True */
+enum { SUBTITLES_AUTO_OFF = 0, SUBTITLES_AUTO_ALL = 1, SUBTITLES_AUTO_FORCED = 2 };
+
 struct eServiceAppOptions {
-	bool autoTurnOnSubtitles;
+	int autoTurnOnSubtitles;
 	bool preferEmbeddedSubtitles;
 	bool HLSExplorer;
 	bool autoSelectStream;
 	unsigned int connectionSpeedInKb;
-	eServiceAppOptions() : autoTurnOnSubtitles(true), preferEmbeddedSubtitles(false), HLSExplorer(true), autoSelectStream(true), connectionSpeedInKb(std::numeric_limits<unsigned int>::max()) {};
+	eServiceAppOptions() : autoTurnOnSubtitles(SUBTITLES_AUTO_ALL), preferEmbeddedSubtitles(false), HLSExplorer(true), autoSelectStream(true), connectionSpeedInKb(std::numeric_limits<unsigned int>::max()) {};
 };
 
 class eServiceApp : public sigc::trackable,

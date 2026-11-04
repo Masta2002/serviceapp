@@ -1045,14 +1045,66 @@ RESULT eServiceApp::disableSubtitles() {
 	return 0;
 }
 
+/* the space separated language codes of a value like config.autolanguage's "deu ger", "---" is none */
+static void appendLanguageCodes(std::vector<std::string>& langs, const std::string& value) {
+	std::istringstream ss(value);
+	std::string code;
+	while (ss >> code) {
+		if (code == "---")
+			continue;
+		std::transform(code.begin(), code.end(), code.begin(), ::tolower);
+		if (std::find(langs.begin(), langs.end(), code) == langs.end())
+			langs.push_back(code);
+	}
+}
+
 RESULT eServiceApp::getCachedSubtitle(struct SubtitleTrack& track) {
-	if (!options->autoTurnOnSubtitles) {
+	if (options->autoTurnOnSubtitles == SUBTITLES_AUTO_OFF) {
 		eDebug("eServiceApp::getCachedSubtitle - auto-turning disabled in config");
 		return -1;
 	}
 	std::vector<struct SubtitleTrack> tracks;
 	if (getSubtitleList(tracks) < 0 || tracks.empty()) {
 		eDebug("eServiceApp::getCachedSubtitle - no subtitles available");
+		return -1;
+	}
+	if (options->autoTurnOnSubtitles == SUBTITLES_AUTO_FORCED) {
+		/* only an embedded forced track (the foreign parts of the audio) in the
+		 * language of the current audio track, else in the preferred audio
+		 * languages of the box */
+		std::vector<std::string> langs;
+		audioStream audio;
+		if (player->audioGetTrackInfo(audio, player->audioGetCurrentTrackNum()) == 0)
+			appendLanguageCodes(langs, audio.language_code);
+		for (int i = 1; i <= 4; i++) {
+			std::string key = "config.autolanguage.audio_autoselect" + std::to_string(i);
+			appendLanguageCodes(langs, eSimpleConfig::getString(key.c_str(), ""));
+		}
+		std::vector<struct SubtitleTrack> forced_tracks;
+		for (auto const& t : tracks) {
+			if (!isEmbeddedTrack(t))
+				continue;
+			ssize_t pos = getTrackPosition(t);
+			if (pos >= 0 && m_subtitle_streams[pos].forced > 0)
+				forced_tracks.push_back(t);
+		}
+		for (auto const& lang : langs) {
+			for (auto const& t : forced_tracks) {
+				std::string code = t.language_code;
+				std::transform(code.begin(), code.end(), code.begin(), ::tolower);
+				if (code == lang) {
+					track = t;
+					eDebug("eServiceApp::getCachedSubtitle - selected forced track (%s)", code.c_str());
+					return 0;
+				}
+			}
+		}
+		if (langs.empty() && !forced_tracks.empty()) {
+			track = forced_tracks.front();
+			eDebug("eServiceApp::getCachedSubtitle - selected forced track, no audio language known");
+			return 0;
+		}
+		eDebug("eServiceApp::getCachedSubtitle - no forced track in the audio language (%zu forced tracks)", forced_tracks.size());
 		return -1;
 	}
 	// TODO consider language setting
@@ -1774,13 +1826,13 @@ static PyObject* exteplayer3_set_setting(PyObject* self, PyObject* args) {
 static PyObject* serviceapp_set_setting(PyObject* self, PyObject* args) {
 	bool ret = true;
 
-	bool autoTurnOnSubtitles;
+	int autoTurnOnSubtitles;
 	int settingId;
 	bool HLSExplorer;
 	bool autoSelectStream;
 	int32_t connectionSpeedInKb;
 
-	if (!PyArg_ParseTuple(args, "ibbIb", &settingId, &HLSExplorer, &autoSelectStream, &connectionSpeedInKb, &autoTurnOnSubtitles))
+	if (!PyArg_ParseTuple(args, "ibbIi", &settingId, &HLSExplorer, &autoSelectStream, &connectionSpeedInKb, &autoTurnOnSubtitles))
 		return NULL;
 
 	eServiceAppOptions* options = NULL;
@@ -1845,7 +1897,7 @@ static PyMethodDef serviceappMethods[] = {
 	 " HLSExplorer - defines if HLS explorer will be used to retrieve streams from HLS master playlist (True, False))\n"
 	 " autoSelectStream - if there are more streams available, it defines if stream will be auto-selected according to connectionSpeedInKb (True, False)\n"
 	 " connectionSpeedInKb - defines bitrate in kilobits/s according to which will be selected stream from playlist <0, max(int32_t)>\n"
-	 " autoTurnOnSubtitles - auto turn on subtitles if available (True, False)\n"},
+	 " autoTurnOnSubtitles - auto turn on subtitles if available (0/False - off, 1/True - on, 2 - only a forced track in the audio language)\n"},
 	{NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef moduledef = {
