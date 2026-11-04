@@ -61,6 +61,7 @@ struct PlayerMessage
 		error,
 		videoSizeChanged,
 		videoProgressiveChanged,
+		videoGammaChanged,
 		videoFramerateChanged,
 		subtitleAvailable,
 		audioTracksAvailable,
@@ -75,7 +76,9 @@ struct audioStream
 	int id;
 	std::string language_code; /* iso-639, if available. */
 	std::string description; /* clear text codec description */
-	audioStream(): id(-1){};
+	std::string codec_name; /* e.g. "Dolby Atmos", "HE-AAC v2", if the player sends it */
+	int channels; /* channel count, if the player sends it */
+	audioStream(): id(-1), channels(-1){};
 };
 
 
@@ -88,7 +91,8 @@ struct videoStream
 	int height;
 	int framerate;
 	int progressive;
-	videoStream(): id(-1), width(-1), height(-1), framerate(-1), progressive(-1){};
+	int gamma; /* 0 SDR, 1 HDR, 2 HDR10, 3 HLG as iServiceInformation::sGamma, -1 unknown */
+	videoStream(): id(-1), width(-1), height(-1), framerate(-1), progressive(-1), gamma(-1){};
 };
 
 
@@ -225,6 +229,7 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 			videoSizeChanged,
 			videoFramerateChanged,
 			videoProgressiveChanged,
+			videoGammaChanged,
 			subtitleAvailable,
 			windStart,
 			windEnd,

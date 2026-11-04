@@ -305,6 +305,24 @@ void ExtEplayer3::handleProcessStopped(int retval)
 	recvStopped(0);
 }
 
+/* fields that only newer exteplayer3 versions send */
+static void readAudioExtras(cJSON *item, audioStream &a)
+{
+	cJSON *c = cJSON_GetObjectItem(item, "c");
+	if (c != NULL && c->type == cJSON_Number)
+		a.channels = c->valueint;
+	cJSON *d = cJSON_GetObjectItem(item, "d");
+	if (d != NULL && d->type == cJSON_String && d->valuestring != NULL)
+		a.codec_name = d->valuestring;
+}
+
+static void readSubtitleExtras(cJSON *item, subtitleStream &s)
+{
+	cJSON *f = cJSON_GetObjectItem(item, "f");
+	if (f != NULL && f->type == cJSON_Number)
+		s.forced = f->valueint;
+}
+
 void ExtEplayer3::handleJsonOutput(cJSON *json)
 {
 	if (!json->child)
@@ -333,6 +351,14 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 		{
 			v.progressive = progressive->valueint;
 		}
+		/* exteplayer3: 0 SDR, 1 HDR10, 2 HLG, 3 other HDR */
+		cJSON *hdr = cJSON_GetObjectItem(value, "hdr");
+		if (hdr != NULL && hdr->type == cJSON_Number)
+		{
+			static const int gamma[] = {0, 2, 3, 1};
+			if (hdr->valueint >= 0 && hdr->valueint <= 3)
+				v.gamma = gamma[hdr->valueint];
+		}
 		recvVideoTrackCurrent(0, v);
 	}
 	else if (!strcmp(key, "a_s"))
@@ -351,6 +377,7 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 		a.id = cJSON_GetObjectItem(value, "id")->valueint;
 		a.description = cJSON_GetObjectItem(value, "e")->valuestring;
 		a.language_code = cJSON_GetObjectItem(value, "n")->valuestring;
+		readAudioExtras(value, a);
 		recvAudioTrackCurrent(0, a);
 	}
 	else if (!strcmp(key, "a_l"))
@@ -363,6 +390,7 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 			a.id = cJSON_GetObjectItem(subitem, "id")->valueint;
 			a.description = cJSON_GetObjectItem(subitem, "e")->valuestring;
 			a.language_code = cJSON_GetObjectItem(subitem, "n")->valuestring;
+			readAudioExtras(subitem, a);
 			streams.push_back(a);
 		}
 		recvAudioTracksList(0, streams);
@@ -383,6 +411,7 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 		s.id = cJSON_GetObjectItem(value, "id")->valueint;
 		s.description = cJSON_GetObjectItem(value, "e")->valuestring;
 		s.language_code = cJSON_GetObjectItem(value, "n")->valuestring;
+		readSubtitleExtras(value, s);
 		recvSubtitleTrackCurrent(0, s);
 	}
 	else if (!strcmp(key, "s_l"))
@@ -395,6 +424,7 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 			s.id = cJSON_GetObjectItem(subitem, "id")->valueint;
 			s.description = cJSON_GetObjectItem(subitem, "e")->valuestring;
 			s.language_code = cJSON_GetObjectItem(subitem, "n")->valuestring;
+			readSubtitleExtras(subitem, s);
 			streams.push_back(s);
 		}
 		recvSubtitleTracksList(0, streams);

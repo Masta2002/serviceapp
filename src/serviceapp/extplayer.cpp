@@ -557,6 +557,11 @@ void PlayerBackend::gotMessage(const PlayerBackend::Message& message)
 				eDebug("PlayerBackend::gotMessage - videoProgressiveChanged");
 			gotPlayerMessage(PlayerMessage::videoProgressiveChanged);
 			break;
+		case Message::videoGammaChanged:
+			if(mDebug)
+				eDebug("PlayerBackend::gotMessage - videoGammaChanged");
+			gotPlayerMessage(PlayerMessage::videoGammaChanged);
+			break;
 		case Message::audioSelect:
 			if(mDebug)
 				eDebug("PlayerBackend::gotMessage - audioSelect");
@@ -758,6 +763,8 @@ void PlayerBackend::recvVideoTrackCurrent(int status, videoStream& stream)
 		pCurrentVideo = new videoStream(stream);
 		if (stream.progressive >= 0 && prev.progressive != stream.progressive)
 			mMessageMain.send(Message(Message::videoProgressiveChanged));
+		if (stream.gamma >= 0 && prev.gamma != stream.gamma)
+			mMessageMain.send(Message(Message::videoGammaChanged));
 		if (stream.framerate > 0 && prev.framerate != stream.framerate)
 			mMessageMain.send(Message(Message::videoFramerateChanged));
 		if ((stream.width > 0 && prev.width != stream.width) || (stream.height > 0 && prev.height != stream.height))

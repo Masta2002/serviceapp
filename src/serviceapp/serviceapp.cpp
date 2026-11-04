@@ -186,7 +186,7 @@ DEFINE_REF(eServiceApp);
 
 eServiceApp::eServiceApp(eServiceReference ref)
 	: m_ref(ref), m_subservices_checked(false), player(0), extplayer(0), m_resolver(0), m_resolve_uri("resolve://"), m_event_started(false), m_paused(false), m_debug(false), m_framerate(-1),
-	  m_width(-1), m_height(-1), m_progressive(-1), m_subtitle_pages(0), m_selected_subtitle_track(0), m_prev_subtitle_message(0), m_prev_subtitle_fps(1), m_prev_decoder_time(-1),
+	  m_width(-1), m_height(-1), m_progressive(-1), m_gamma(-1), m_subtitle_pages(0), m_selected_subtitle_track(0), m_prev_subtitle_message(0), m_prev_subtitle_fps(1), m_prev_decoder_time(-1),
 	  m_decoder_time_valid_state(0) {
 	options = createOptions(ref);
 	if (!ref.alternativeurl.empty())
@@ -383,6 +383,9 @@ void eServiceApp::addEmbeddedTrack(std::vector<struct SubtitleTrack>& subtitleli
 	track.magazine_number = 0;
 	track.pid = pid;
 	track.language_code = s.language_code;
+	if (s.forced) {
+		track.title = "forced";
+	}
 
 	subtitlelist.push_back(track);
 	m_subtitle_tracks.push_back(track);
@@ -619,6 +622,16 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 				m_progressive = v.progressive;
 			}
 			m_event(this, evVideoProgressiveChanged);
+			break;
+		}
+		case PlayerMessage::videoGammaChanged: {
+			if (m_debug)
+				eDebug("eServiceApp::gotExtPlayerMessage - videoGammaChanged");
+			videoStream v;
+			if (!player->videoGetTrackInfo(v, 0)) {
+				m_gamma = v.gamma;
+			}
+			m_event(this, evVideoGammaChanged);
 			break;
 		}
 		case PlayerMessage::windStart:
@@ -905,6 +918,21 @@ RESULT eServiceApp::getTrackInfo(iAudioTrackInfo& trackInfo, unsigned int n) {
 		}
 	}
 
+	/* newer exteplayer3 versions name the codec ("Dolby Atmos", "HE-AAC v2")
+	 * and send the channel count */
+	if (!track.codec_name.empty()) {
+		desc = track.codec_name;
+	}
+	if (track.channels > 0) {
+		static const char* layouts[] = {"", "1.0", "2.0", "2.1", "4.0", "5.0", "5.1", "6.1", "7.1"};
+		char buf[16];
+		if (track.channels < 9)
+			snprintf(buf, sizeof(buf), " %s", layouts[track.channels]);
+		else
+			snprintf(buf, sizeof(buf), " %dch", track.channels);
+		desc += buf;
+	}
+
 	trackInfo.m_description = desc;
 	trackInfo.m_language = track.language_code;
 	return 0;
@@ -1140,6 +1168,8 @@ int eServiceApp::getInfo(int w) {
 			return m_framerate;
 		case sProgressive:
 			return m_progressive;
+		case sGamma:
+			return m_gamma;
 		case sAspect: {
 			if (m_height <= 0 || m_width <= 0) {
 				return -1;
@@ -1265,7 +1295,7 @@ std::string eServiceApp::getInfoString(int w) {
 	switch (w) {
 		case sVideoInfo: {
 			char buff[100];
-			snprintf(buff, sizeof(buff), "%d|%d|%d|%d|%d|%d", m_width, m_height, m_framerate, m_progressive, getInfo(sAspect), -1);
+			snprintf(buff, sizeof(buff), "%d|%d|%d|%d|%d|%d", m_width, m_height, m_framerate, m_progressive, getInfo(sAspect), m_gamma);
 			std::string videoInfo = buff;
 			return videoInfo;
 		}
