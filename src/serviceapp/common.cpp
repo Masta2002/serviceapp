@@ -210,6 +210,7 @@ int detectEncoding(const std::string &content, std::string &encoding)
     if (retval != 0)
     {
         fprintf(stderr, "uchardet error: handle data error.\n");
+        uchardet_delete(handle);
         return 1;
     }
     uchardet_data_end(handle);
@@ -222,37 +223,24 @@ int detectEncoding(const std::string &content, std::string &encoding)
 #ifndef NO_PYTHON
 int convertToUTF8(const std::string &input_string, const std::string &input_encoding, std::string &output_string)
 {
-    PyObject *py_string, *py_unicode;
-    py_string = PyUnicode_FromStringAndSize(input_string.c_str(), input_string.length());
-    if (py_string == NULL)
-    {
-        PyErr_Print();
-        return 1;
-    }
-
-    // NEW
-    //py_unicode = PyCodec_Decode(py_string, input_encoding.c_str(), "strict");
-
-    // PyUnicode_AsDecodedObject is deprecated
-    py_unicode = PyUnicode_AsDecodedObject(py_string, input_encoding.c_str(), "strict");
-
+    // decode the raw bytes from input_encoding to str, then take its utf-8 form
+    PyObject *py_unicode = PyUnicode_Decode(input_string.data(), input_string.length(), input_encoding.c_str(), "strict");
     if (py_unicode == NULL)
     {
-        Py_DECREF(py_string);
         PyErr_Print();
         return 1;
     }
-    Py_DECREF(py_string);
-    py_string = PyUnicode_AsUTF8String(py_unicode);
-    if (py_string == NULL)
+    Py_ssize_t size = 0;
+    const char *utf8 = PyUnicode_AsUTF8AndSize(py_unicode, &size);
+    if (utf8 == NULL)
     {
         Py_DECREF(py_unicode);
         PyErr_Print();
         return 1;
     }
+    // utf8 belongs to py_unicode, copy it before the release
+    output_string.assign(utf8, size);
     Py_DECREF(py_unicode);
-    output_string = PyUnicode_AsUTF8(py_string);
-    Py_DECREF(py_string);
     return 0;
 }
 
