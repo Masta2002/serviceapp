@@ -183,6 +183,54 @@ RESULT eServiceFactoryApp::offlineOperations(const eServiceReference& ref, ePtr<
 	return 0;
 }
 
+/* The native 4097 factory of enigma2 (eServiceFactoryMP3::instance). It stays
+   alive when "replace servicemp3" takes over the 4097 registration. The member
+   is private, so it is looked up by its symbol name; weak, so images without it
+   still load the plugin. Only the iServiceHandler interface is used. */
+extern iServiceHandler* g_nativeServiceMP3Factory __asm__("_ZN18eServiceFactoryMP38instanceE") __attribute__((weak));
+
+/* Recordings are done by the native 4097 recorder of enigma2, the same one
+   that records 4097 streams. Player options (sapp_*) are dropped from the
+   header part, they are no HTTP headers. */
+RESULT eServiceFactoryApp::record(const eServiceReference& ref, ePtr<iRecordableService>& ptr) {
+	ptr = 0;
+	if (ref.path.find("://") == std::string::npos)
+		return -1;
+
+	eServiceReference recref(ref);
+	recref.type = idServiceMP3;
+	size_t pos = recref.path.find('#');
+	if (pos != std::string::npos) {
+		std::string fragment = recref.path.substr(pos + 1);
+		std::string kept;
+		size_t start = 0;
+		while (start <= fragment.size()) {
+			size_t end = fragment.find('&', start);
+			if (end == std::string::npos)
+				end = fragment.size();
+			std::string part = fragment.substr(start, end - start);
+			if (!part.empty() && part.compare(0, 5, "sapp_") != 0)
+				kept += (kept.empty() ? "" : "&") + part;
+			start = end + 1;
+		}
+		recref.path = recref.path.substr(0, pos);
+		if (!kept.empty())
+			recref.path += "#" + kept;
+	}
+
+	iServiceHandler* native = &g_nativeServiceMP3Factory ? g_nativeServiceMP3Factory : NULL;
+	if (native)
+		return native->record(recref, ptr);
+	if (!gReplaceServiceMP3) {
+		ePtr<iServiceHandler> sc;
+		eServiceCenter::getInstance(sc);
+		if (sc)
+			return sc->record(recref, ptr);
+	}
+	eDebug("[eServiceFactoryApp] record: no native 4097 recorder available");
+	return -1;
+}
+
 
 DEFINE_REF(eServiceApp);
 

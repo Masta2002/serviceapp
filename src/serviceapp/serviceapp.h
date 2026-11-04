@@ -292,10 +292,7 @@ public:
 		ptr = new eServiceApp(ref);
 		return 0;
 	};
-	RESULT record(const eServiceReference&, ePtr<iRecordableService>& ptr) {
-		ptr = 0;
-		return -1;
-	};
+	RESULT record(const eServiceReference& ref, ePtr<iRecordableService>& ptr);
 	RESULT list(const eServiceReference&, ePtr<iListableService>& ptr) {
 		ptr = 0;
 		return -1;

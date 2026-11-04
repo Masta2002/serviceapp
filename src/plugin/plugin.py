@@ -18,6 +18,20 @@ from . import _, _ngettext
 from . import serviceapp_client
 
 
+# enigma2 only allows recordings of its own reference types; 5001/5002 streams
+# are recorded by serviceapp through the native 4097 recorder.
+try:
+	from ServiceReference import ServiceReference as _ServiceReference
+	_orig_is_recordable = _ServiceReference.isRecordable
+
+	def _serviceapp_is_recordable(self):
+		return _orig_is_recordable(self) or (self.ref.type in (5001, 5002) and "://" in self.ref.getPath())
+
+	_ServiceReference.isRecordable = _serviceapp_is_recordable
+except (ImportError, AttributeError):
+	pass
+
+
 SINKS_DEFAULT = ("", "")
 SINKS_EXPERIMENTAL = ("dvbvideosinkexp", "dvbaudiosinkexp")
 
