@@ -90,7 +90,7 @@ int ExtEplayer3Options::update(const std::string &key, const std::string &val)
 				entry.setValue(0);
 			else
 			{
-				eWarning("ExtEplayer3Options::update - invalid value '%s' for '%s' setting, allowed values are 0|1", key.c_str(), val.c_str());
+				eWarning("ExtEplayer3Options::update - invalid value '%s' for '%s' setting, allowed values are 0|1", val.c_str(), key.c_str());
 				ret = -2;
 			}
 		}
@@ -317,19 +317,13 @@ void ExtEplayer3::handleProcessStopped(int retval)
 /* fields that only newer exteplayer3 versions send */
 static void readAudioExtras(cJSON *item, audioStream &a)
 {
-	cJSON *c = cJSON_GetObjectItem(item, "c");
-	if (c != NULL && c->type == cJSON_Number)
-		a.channels = c->valueint;
-	cJSON *d = cJSON_GetObjectItem(item, "d");
-	if (d != NULL && d->type == cJSON_String && d->valuestring != NULL)
-		a.codec_name = d->valuestring;
+	a.channels = cJsonGetInt(item, "c", a.channels);
+	a.codec_name = cJsonGetStr(item, "d");
 }
 
 static void readSubtitleExtras(cJSON *item, subtitleStream &s)
 {
-	cJSON *f = cJSON_GetObjectItem(item, "f");
-	if (f != NULL && f->type == cJSON_Number)
-		s.forced = f->valueint;
+	s.forced = cJsonGetInt(item, "f", s.forced);
 }
 
 void ExtEplayer3::handleJsonOutput(cJSON *json)
@@ -339,42 +333,43 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 		return;
 	}
 	const char *key = json->child->string;
+	if (!key)
+		return;
 	cJSON* value = cJSON_GetObjectItem(json, key);
 
 	if (!strcmp(key, "PLAYBACK_PLAY"))
 	{
-		if (!cJSON_GetObjectItem(value, "sts")->valueint)
+		if (!cJsonGetInt(value, "sts"))
 			recvStarted(0);
 	}
 	else if (!strcmp(key, "v_c"))
 	{
 		videoStream v;
-		v.id = cJSON_GetObjectItem(value, "id")->valueint;
-		v.description = cJSON_GetObjectItem(value, "e")->valuestring;
-		v.language_code = cJSON_GetObjectItem(value, "n")->valuestring;
-		v.width = cJSON_GetObjectItem(value, "w")->valueint;
-		v.height = cJSON_GetObjectItem(value, "h")->valueint;
-		v.framerate = cJSON_GetObjectItem(value, "f")->valueint;
-		cJSON *progressive = cJSON_GetObjectItem(value, "p");
+		v.id = cJsonGetInt(value, "id");
+		v.description = cJsonGetStr(value, "e");
+		v.language_code = cJsonGetStr(value, "n");
+		v.width = cJsonGetInt(value, "w");
+		v.height = cJsonGetInt(value, "h");
+		v.framerate = cJsonGetInt(value, "f");
+		cJSON *progressive = value ? cJSON_GetObjectItem(value, "p") : NULL;
 		if (progressive != NULL)
 		{
 			v.progressive = progressive->valueint;
 		}
 		/* exteplayer3: 0 SDR, 1 HDR10, 2 HLG, 3 other HDR */
-		cJSON *hdr = cJSON_GetObjectItem(value, "hdr");
-		if (hdr != NULL && hdr->type == cJSON_Number)
+		int hdr = cJsonGetInt(value, "hdr", -1);
+		if (hdr >= 0 && hdr <= 3)
 		{
 			static const int gamma[] = {0, 2, 3, 1};
-			if (hdr->valueint >= 0 && hdr->valueint <= 3)
-				v.gamma = gamma[hdr->valueint];
+			v.gamma = gamma[hdr];
 		}
 		recvVideoTrackCurrent(0, v);
 	}
 	else if (!strcmp(key, "a_s"))
 	{
-		if (!cJSON_GetObjectItem(value, "sts")->valueint)
+		if (!cJsonGetInt(value, "sts"))
 		{
-			int s = cJSON_GetObjectItem(value, "id")->valueint;
+			int s = cJsonGetInt(value, "id");
 			recvAudioTrackSelected(0, s);
 			return;
 		}
@@ -383,9 +378,9 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	else if (!strcmp(key, "a_c"))
 	{
 		audioStream a;
-		a.id = cJSON_GetObjectItem(value, "id")->valueint;
-		a.description = cJSON_GetObjectItem(value, "e")->valuestring;
-		a.language_code = cJSON_GetObjectItem(value, "n")->valuestring;
+		a.id = cJsonGetInt(value, "id");
+		a.description = cJsonGetStr(value, "e");
+		a.language_code = cJsonGetStr(value, "n");
 		readAudioExtras(value, a);
 		recvAudioTrackCurrent(0, a);
 	}
@@ -396,9 +391,9 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 		{
 			cJSON *subitem=cJSON_GetArrayItem(value,i);
 			audioStream a;
-			a.id = cJSON_GetObjectItem(subitem, "id")->valueint;
-			a.description = cJSON_GetObjectItem(subitem, "e")->valuestring;
-			a.language_code = cJSON_GetObjectItem(subitem, "n")->valuestring;
+			a.id = cJsonGetInt(subitem, "id");
+			a.description = cJsonGetStr(subitem, "e");
+			a.language_code = cJsonGetStr(subitem, "n");
 			readAudioExtras(subitem, a);
 			streams.push_back(a);
 		}
@@ -406,9 +401,9 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	}
 	else if (!strcmp(key, "s_s"))
 	{
-		if (!cJSON_GetObjectItem(value, "sts")->valueint)
+		if (!cJsonGetInt(value, "sts"))
 		{
-			int s = cJSON_GetObjectItem(value, "id")->valueint;
+			int s = cJsonGetInt(value, "id");
 			recvSubtitleTrackSelected(0, s);
 			return;
 		}
@@ -417,9 +412,9 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	else if (!strcmp(key, "s_c"))
 	{
 		subtitleStream s;
-		s.id = cJSON_GetObjectItem(value, "id")->valueint;
-		s.description = cJSON_GetObjectItem(value, "e")->valuestring;
-		s.language_code = cJSON_GetObjectItem(value, "n")->valuestring;
+		s.id = cJsonGetInt(value, "id");
+		s.description = cJsonGetStr(value, "e");
+		s.language_code = cJsonGetStr(value, "n");
 		readSubtitleExtras(value, s);
 		recvSubtitleTrackCurrent(0, s);
 	}
@@ -430,9 +425,9 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 		{
 			cJSON *subitem=cJSON_GetArrayItem(value,i);
 			subtitleStream s;
-			s.id = cJSON_GetObjectItem(subitem, "id")->valueint;
-			s.description = cJSON_GetObjectItem(subitem, "e")->valuestring;
-			s.language_code = cJSON_GetObjectItem(subitem, "n")->valuestring;
+			s.id = cJsonGetInt(subitem, "id");
+			s.description = cJsonGetStr(subitem, "e");
+			s.language_code = cJsonGetStr(subitem, "n");
 			readSubtitleExtras(subitem, s);
 			streams.push_back(s);
 		}
@@ -441,28 +436,28 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	else if (!strcmp(key, "s_a"))
 	{
 		subtitleMessage s;
-		s.start_ms = cJSON_GetObjectItem(value, "s")->valueint;
-		s.end_ms = cJSON_GetObjectItem(value, "e")->valueint;
+		s.start_ms = cJsonGetInt(value, "s");
+		s.end_ms = cJsonGetInt(value, "e");
 		s.duration_ms = s.end_ms - s.start_ms;
-		s.text = cJSON_GetObjectItem(value, "t")->valuestring;
+		s.text = cJsonGetStr(value, "t");
 		recvSubtitleMessage(s);
 	}
 	else if (!strcmp(key, "PLAYBACK_LENGTH"))
 	{
-		if (!cJSON_GetObjectItem(value, "sts")->valueint)
+		if (!cJsonGetInt(value, "sts"))
 		{
-			float l = cJSON_GetObjectItem(value, "length")->valuedouble;
+			float l = cJsonGetDouble(value, "length");
 			recvLength(0, l * 1000);
 		}
 	}
 	else if (!strcmp(key, "J"))
 	{
-		int positionInMs = cJSON_GetObjectItem(value, "ms")->valueint;
+		int positionInMs = cJsonGetInt(value, "ms");
 		recvPosition(0, positionInMs);
 	}
 	else if (!strcmp(key, "PLAYBACK_STOP"))
 	{
-		if (!cJSON_GetObjectItem(value, "sts")->valueint)
+		if (!cJsonGetInt(value, "sts"))
 		{
 			//recvStopped(0);
 			return;
@@ -471,7 +466,7 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	}
 	else if (!strcmp(key, "PLAYBACK_CONTINUE"))
 	{
-		if (!cJSON_GetObjectItem(value, "sts")->valueint)
+		if (!cJsonGetInt(value, "sts"))
 		{
 			recvResumed(0);
 			return;
@@ -480,7 +475,7 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	}
 	else if (!strcmp(key, "PLAYBACK_PAUSE"))
 	{
-		if (!cJSON_GetObjectItem(value, "sts")->valueint)
+		if (!cJsonGetInt(value, "sts"))
 		{
 			recvPaused(0);
 			return;
@@ -489,13 +484,13 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	}
 	else if (!strcmp(key, "PLAYBACK_FASTFORWARD"))
 	{
-		if (cJSON_GetObjectItem(value, "sts")->valueint)
+		if (cJsonGetInt(value, "sts"))
 		{
 		}
 	}
 	else if (!strcmp(key, "PLAYBACK_SEEK_ABS"))
 	{
-		if (!cJSON_GetObjectItem(value, "sts")->valueint)
+		if (!cJsonGetInt(value, "sts"))
 		{
 			recvSeekTo(0, 0);
 			return;
@@ -504,7 +499,7 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	}
 	else if (!strcmp(key, "PLAYBACK_SEEK"))
 	{
-		if (!cJSON_GetObjectItem(value, "sts")->valueint)
+		if (!cJsonGetInt(value, "sts"))
 		{
 			recvSeekRelative(0, 0);
 			return;
@@ -513,12 +508,11 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	}
 	else if (!strcmp(key, "PLAYBACK_TRICK_END"))
 	{
-		recvWindEnd(cJSON_GetObjectItem(value, "dir")->valueint);
+		recvWindEnd(cJsonGetInt(value, "dir"));
 	}
 	else if (!strcmp(key, "EPLAYER3_EXTENDED"))
 	{
-		cJSON *trick = cJSON_GetObjectItem(value, "trick");
-		mCanWind = trick && trick->valueint;
+		mCanWind = cJsonGetInt(value, "trick") != 0;
 	}
 	else
 	{

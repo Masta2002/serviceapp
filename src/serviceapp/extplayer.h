@@ -11,6 +11,24 @@
 #include "myconsole.h"
 #include "subtitles/subtitles.h"
 
+/* null and type safe cJSON reads: the external player can crash or send
+ * incomplete JSON, a missing key or a non-string value must not crash */
+static inline int cJsonGetInt(cJSON *obj, const char *key, int def = 0)
+{
+	cJSON *n = obj ? cJSON_GetObjectItem(obj, key) : NULL;
+	return (n && n->type == cJSON_Number) ? n->valueint : def;
+}
+static inline double cJsonGetDouble(cJSON *obj, const char *key, double def = 0.0)
+{
+	cJSON *n = obj ? cJSON_GetObjectItem(obj, key) : NULL;
+	return (n && n->type == cJSON_Number) ? n->valuedouble : def;
+}
+static inline std::string cJsonGetStr(cJSON *obj, const char *key)
+{
+	cJSON *n = obj ? cJSON_GetObjectItem(obj, key) : NULL;
+	return (n && n->type == cJSON_String && n->valuestring) ? std::string(n->valuestring) : std::string();
+}
+
 #ifndef eLog
  #define eLog(lvl,...)
 #endif
@@ -330,6 +348,9 @@ public:
 	}
 	~PlayerBackend()
 	{
+		// join the backend thread first: its recv* callbacks use and
+		// replace the pCurrent... / pErrorMessage objects
+		stop();
 		if (pErrorMessage != NULL)
 			delete pErrorMessage;
 		if (pCurrentVideo != NULL)
@@ -338,7 +359,6 @@ public:
 			delete pCurrentAudio;
 		if (pCurrentSubtitle != NULL)
 			delete pCurrentSubtitle;
-		stop();
 		pthread_mutex_destroy(&mWaitMutex);
 		pthread_cond_destroy(&mWaitCond);
 		pthread_mutex_destroy(&mWaitForStopMutex);
