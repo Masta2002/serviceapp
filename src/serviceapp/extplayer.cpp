@@ -17,51 +17,42 @@ void PlayerApp::handleJsonStr(const std::string& data)
 }
 void PlayerApp::handleOutput(const std::string& mydata)
 {
-	//FIXME
 	std::size_t pos = 0;
 	std::size_t startpos = 0;
 
+	/* one line at a time: a line that is not JSON (e.g. debug text on the
+	 * same stderr channel) is dropped alone, the JSON lines after it in the
+	 * same buffer are still handled */
 	while((pos = mydata.find('\n', pos)) != std::string::npos)
 	{
+		std::string line = mydata.substr(startpos, pos - startpos);
 		if (truncated)
 		{
-			if (pos == 0 || mydata[pos-1] != '}')
-			{
-				jsonstr = "";
-				truncated = 0;
-				return;
-			}
-			handleJsonStr(jsonstr + mydata.substr(startpos, pos - startpos));
+			line = jsonstr + line;
 			jsonstr = "";
 			truncated = 0;
 		}
-		else
-		{
-			if (mydata[0] != '{')
-			{
-				jsonstr = "";
-				truncated = 0;
-				return;
-			}
-			handleJsonStr(mydata.substr(startpos, pos - startpos));
-			jsonstr = "";
-			truncated = 0;
-		}
+		if (!line.empty() && line[0] == '{')
+			handleJsonStr(line);
 		pos+=1;
 		startpos = pos;
 	}
-	if (startpos != std::string::npos && startpos != mydata.length())
+	if (startpos < mydata.length())
 	{
-		//std::cout << "remains: " << mydata.length()-startpos;
-		if (mydata[mydata.length()-1] == '}')
+		/* a chunk without a newline continues a fragment kept before */
+		std::string rest = mydata.substr(startpos);
+		if (truncated)
+			rest = jsonstr + rest;
+		if (rest[0] == '{' && rest[rest.length()-1] == '}')
 		{
-			handleJsonStr(mydata.substr(startpos, mydata.length() - pos));
+			handleJsonStr(rest);
+			jsonstr = "";
 			truncated = 0;
 		}
 		else
 		{
 			truncated = 1;
-			jsonstr = mydata.substr(startpos);
+			jsonstr = rest;
 		}
 	}
 }
