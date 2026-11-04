@@ -19,6 +19,8 @@
 #include <lib/dvb/idvb.h>
 #include <lib/dvb/db.h>
 #include <lib/gui/esubtitle.h>
+#include <endian.h>
+#include <netinet/in.h>
 
 #include "exteplayer3.h"
 #include "gstplayer.h"
@@ -187,10 +189,12 @@ DEFINE_REF(eServiceApp);
 eServiceApp::eServiceApp(eServiceReference ref)
 	: m_ref(ref), m_subservices_checked(false), player(0), extplayer(0), m_resolver(0), m_resolve_uri("resolve://"), m_event_started(false), m_paused(false), m_debug(false), m_framerate(-1),
 	  m_width(-1), m_height(-1), m_progressive(-1), m_gamma(-1), m_subtitle_pages(0), m_selected_subtitle_track(0), m_prev_subtitle_message(0), m_prev_subtitle_fps(1), m_prev_decoder_time(-1),
-	  m_decoder_time_valid_state(0) {
+	  m_decoder_time_valid_state(0), m_cuesheet_changed(0), m_cutlist_enabled(0), m_cuesheet_loaded(false), m_is_streaming(false), m_last_seek_pos(0),
+	  m_media_length(0) {
 	options = createOptions(ref);
 	if (!ref.alternativeurl.empty())
 		m_ref.path = ref.alternativeurl;
+	m_is_streaming = (m_ref.path.find("://") != std::string::npos);
 	// Keep the original service identity, even if a resolver changes its URL.
 	m_audioCacheReference = replace_all(ref.toString(), ",", "_");
 	if (eSettings::audio_usecache && !getHeaders(m_ref.path).count("sapp_audio_id")) {
@@ -561,6 +565,8 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 		case PlayerMessage::start:
 			if (m_debug)
 				eDebug("eServiceApp::gotExtPlayerMessage - start");
+			if (!m_is_streaming && !m_cuesheet_loaded)
+				loadCuesheet();
 			m_event_updated_info_timer->start(1000, true);
 			if (m_cachedAudioTrack >= 0)
 				player->audioGetNumberOfTracks(0); // Asynchronous; do not wait on the GUI thread.
@@ -741,6 +747,8 @@ RESULT eServiceApp::start() {
 RESULT eServiceApp::stop() {
 	if (m_debug)
 		eDebug("eServiceApp::stop");
+	if (!m_is_streaming && m_cuesheet_loaded)
+		saveCuesheet();
 	if (m_resolver)
 		m_resolver->stop();
 	player->stop();
@@ -781,6 +789,7 @@ RESULT eServiceApp::getLength(pts_t& pts) {
 		return -1;
 	}
 	pts = (pts_t)length * 90;
+	m_media_length = pts;
 	return 0;
 }
 
@@ -825,6 +834,7 @@ RESULT eServiceApp::getPlayPosition(pts_t& pts) {
 		return -1;
 	}
 	pts = (pts_t)position * 90;
+	m_last_seek_pos = pts;
 	return 0;
 }
 
@@ -1349,6 +1359,170 @@ std::string eServiceApp::getInfoString(int w) {
 	return "";
 }
 
+
+// iCueSheet
+/* a resume position this close to the end starts the file from the beginning */
+static const pts_t RESUME_END_MARGIN = 10 * 90000;
+
+PyObject* eServiceApp::getCutList() {
+	ePyObject list = PyList_New(0);
+
+	for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end(); ++i) {
+		ePyObject tuple = PyTuple_New(2);
+		PyTuple_SET_ITEM(tuple, 0, PyLong_FromLongLong(i->where));
+		PyTuple_SET_ITEM(tuple, 1, PyLong_FromLong(i->what));
+		PyList_Append(list, tuple);
+		Py_DECREF(tuple);
+	}
+
+	return list;
+}
+
+void eServiceApp::setCutList(ePyObject list) {
+	if (!PyList_Check(list))
+		return;
+	int size = PyList_Size(list);
+
+	m_cue_entries.clear();
+
+	for (int i = 0; i < size; ++i) {
+		ePyObject tuple = PyList_GET_ITEM(list, i);
+		if (!PyTuple_Check(tuple) || PyTuple_Size(tuple) != 2)
+			continue;
+		ePyObject ppts = PyTuple_GET_ITEM(tuple, 0), ptype = PyTuple_GET_ITEM(tuple, 1);
+		if (!(PyLong_Check(ppts) && PyLong_Check(ptype)))
+			continue;
+		pts_t pts = PyLong_AsLongLong(ppts);
+		int type = PyLong_AsLong(ptype);
+		m_cue_entries.insert(cueEntry(pts, type));
+	}
+	m_cuesheet_changed = 1;
+	m_event((iPlayableService*)this, evCuesheetChanged);
+}
+
+void eServiceApp::setCutListEnable(int enable) {
+	m_cutlist_enabled = enable;
+}
+
+void eServiceApp::loadCuesheet() {
+	if (m_cuesheet_loaded)
+		return;
+	eDebug("eServiceApp::loadCuesheet");
+	m_cuesheet_loaded = true;
+
+	m_cue_entries.clear();
+
+	std::string filename = m_ref.path + ".cuts";
+
+	FILE* f = fopen(filename.c_str(), "rb");
+
+	if (f) {
+		while (1) {
+			unsigned long long where;
+			unsigned int what;
+
+			if (!fread(&where, sizeof(where), 1, f))
+				break;
+			if (!fread(&what, sizeof(what), 1, f))
+				break;
+
+			where = be64toh(where);
+			what = ntohl(what);
+
+			if (what < 256)
+				m_cue_entries.insert(cueEntry(where, what));
+		}
+		fclose(f);
+		eDebug("eServiceApp::loadCuesheet - cuts file has %zd entries", m_cue_entries.size());
+	} else
+		eDebug("eServiceApp::loadCuesheet - cuts file not found");
+
+	/* a last position at (or after) the end would resume into the end of the
+	 * file: drop it, so playback starts from the beginning */
+	pts_t length = 0;
+	for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end(); ++i) {
+		if (i->what == 5) /* CUT_TYPE_LENGTH */
+			length = i->where;
+	}
+	if (length > 0) {
+		for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end();) {
+			if (i->what == 3 && i->where >= length - RESUME_END_MARGIN) { /* CUT_TYPE_LAST */
+				eDebug("eServiceApp::loadCuesheet - last position %lld too close to the end %lld, ignored", (long long)i->where, (long long)length);
+				i = m_cue_entries.erase(i);
+			} else
+				++i;
+		}
+	}
+
+	m_cuesheet_changed = 0;
+	m_event((iPlayableService*)this, evCuesheetChanged);
+}
+
+void eServiceApp::saveCuesheet() {
+	std::string filename = m_ref.path;
+
+	if (::access(filename.c_str(), R_OK) < 0)
+		return;
+
+	filename.append(".cuts");
+
+	/* the latest values, the GUI may have stopped asking for them */
+	pts_t tmp;
+	getPlayPosition(tmp);
+	getLength(tmp);
+
+	/* save old CUT_TYPE_LAST as CUT_TYPE_SAVEDLAST before replacing it */
+	pts_t old_last = 0;
+	for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end();) {
+		if (i->what == 3) { /* CUT_TYPE_LAST */
+			old_last = i->where;
+			i = m_cue_entries.erase(i);
+		} else if (i->what == 4) /* CUT_TYPE_SAVEDLAST */
+			i = m_cue_entries.erase(i);
+		else
+			++i;
+	}
+	if (old_last > 0)
+		m_cue_entries.insert(cueEntry(old_last, 4));
+
+	/* no resume position near the end: the next start begins from 0 */
+	if ((m_cutlist_enabled & 2) == 0 && m_last_seek_pos > 900000 && (m_media_length <= 0 || m_last_seek_pos < m_media_length - RESUME_END_MARGIN)) {
+		m_cue_entries.insert(cueEntry(m_last_seek_pos, 3));
+		eDebug("eServiceApp::saveCuesheet - last play position saved: %lld", (long long)m_last_seek_pos);
+	}
+
+	/* update CUT_TYPE_LENGTH with the media length */
+	for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end();) {
+		if (i->what == 5) /* CUT_TYPE_LENGTH */
+			i = m_cue_entries.erase(i);
+		else
+			++i;
+	}
+	if (m_media_length > 0)
+		m_cue_entries.insert(cueEntry(m_media_length, 5));
+
+	if (m_cue_entries.empty()) {
+		if (::access(filename.c_str(), F_OK) == 0)
+			remove(filename.c_str());
+		return;
+	}
+
+	FILE* f = fopen(filename.c_str(), "wb");
+	if (f) {
+		unsigned long long where;
+		unsigned int what;
+
+		for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end(); ++i) {
+			where = htobe64(i->where);
+			what = htonl(i->what);
+			fwrite(&where, sizeof(where), 1, f);
+			fwrite(&what, sizeof(what), 1, f);
+		}
+		fclose(f);
+		eDebug("eServiceApp::saveCuesheet - cuts file has been written");
+	}
+	m_cuesheet_changed = 0;
+}
 
 DEFINE_REF(eStaticServiceAppInfo);
 

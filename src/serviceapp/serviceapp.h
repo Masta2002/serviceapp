@@ -7,6 +7,7 @@
 #include <lib/dvb/subtitle.h>
 #include <lib/service/iservice.h>
 #include <limits>
+#include <set>
 
 #include "common.h"
 #include "extplayer.h"
@@ -31,7 +32,8 @@ class eServiceApp : public sigc::trackable,
 					public iAudioTrackSelection,
 					public iSubtitleOutput,
 					public iSubserviceList,
-					public iServiceInformation {
+					public iServiceInformation,
+					public iCueSheet {
 	DECLARE_REF(eServiceApp);
 
 	eServiceReference m_ref;
@@ -97,6 +99,24 @@ class eServiceApp : public sigc::trackable,
 #endif
 	void gotExtPlayerMessage(int message);
 
+	/* cuesheet */
+	struct cueEntry {
+		pts_t where;
+		unsigned int what;
+		bool operator<(const struct cueEntry& o) const {
+			return where < o.where;
+		}
+		cueEntry(const pts_t& where, unsigned int what) : where(where), what(what) {}
+	};
+	std::multiset<cueEntry> m_cue_entries;
+	int m_cuesheet_changed, m_cutlist_enabled;
+	bool m_cuesheet_loaded;
+	bool m_is_streaming;
+	pts_t m_last_seek_pos;
+	pts_t m_media_length;
+	void loadCuesheet();
+	void saveCuesheet();
+
 public:
 	eServiceApp(eServiceReference ref);
 	~eServiceApp();
@@ -151,8 +171,8 @@ public:
 		return -1;
 	};
 	RESULT cueSheet(ePtr<iCueSheet>& ptr) {
-		ptr = 0;
-		return -1;
+		ptr = this;
+		return 0;
 	};
 	RESULT subtitle(ePtr<iSubtitleOutput>& ptr) {
 		ptr = this;
@@ -221,6 +241,11 @@ public:
 	// iSubserviceList
 	int getNumberOfSubservices();
 	RESULT getSubservice(eServiceReference& subservice, unsigned int n);
+
+	// iCueSheet
+	PyObject* getCutList();
+	void setCutList(SWIG_PYOBJECT(ePyObject));
+	void setCutListEnable(int enable);
 
 	// iServiceInformation
 	RESULT getName(std::string& name);
