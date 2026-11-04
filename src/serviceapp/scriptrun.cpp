@@ -60,7 +60,15 @@ void scriptrun::run(eMainloop *context)
                 eDebugNoNewLine("%s ", cargs[i]);
         }
     }
-    m_console->execute(context, cargs[0], cargs);
+    int ret = m_console->execute(context, cargs[0], cargs);
+    // vfork suspends the parent until execvp, so freeing here is safe
+    for (size_t i=0; i < args.size(); i++)
+        free(cargs[i]);
+    free(cargs);
+    // if the process never started, appClosed will never fire and the
+    // caller would wait forever; drive the end-of-script path ourselves
+    if (ret < 0)
+        scriptEnded(-1);
 }
 
 void scriptrun::stop()
@@ -69,14 +77,23 @@ void scriptrun::stop()
         m_console->sendCtrlC();
 }
 
+void scriptrun::kill()
+{
+    /* SIGKILL, the pipes stay open: their hangup ends the script run */
+    if (m_console)
+        m_console->sendKill();
+}
+
 ResolveUrl::ResolveUrl(const std::string &url):
 
+    m_scriptrun(0),
     m_url(url),
     m_success(0),
-    mStopped(false),
     mThreadRunning(false),
+    mStopped(false),
     mMessageMain(eApp, 1),
-    mMessageThread(this, 1)
+    mMessageThread(this, 1),
+    mWaitForStop(false)
 {
     eDebug("ResolveUrl::ResolveUrl %s", url.c_str());
     CONNECT(mMessageThread.recv_msg, ResolveUrl::gotMessage);
@@ -117,7 +134,16 @@ void ResolveUrl::stop()
     mStopped = true;
     if (mThreadRunning)
     {
+        // SIGINT, wait up to 10s for the script to end (scriptEnded clears
+        // mWaitForStop), then SIGKILL - otherwise a hung script that ignores
+        // SIGINT blocks the join below and the enigma2 main thread forever
+        mWaitForStop = true;
+        WaitThread t(mWaitForStopMutex, mWaitForStopCond, mWaitForStop, 10000);
+        t.run();
         mMessageThread.send(Message(Message::tStop));
+        t.kill();
+        if (t.isTimedOut() && m_scriptrun)
+            m_scriptrun->kill();
     }
     kill();
 }
@@ -125,7 +151,10 @@ void ResolveUrl::stop()
 std::string ResolveUrl::getUrl()
 {
     std::string url = m_scriptrun->getStdOut();
-    url = url.substr(0, url.size() - 1);
+    // strip trailing newlines only, a script using printf without a
+    // newline would lose the last character
+    while (!url.empty() && (url[url.size() - 1] == '\n' || url[url.size() - 1] == '\r'))
+        url.erase(url.size() - 1);
     return url;
 }
 
