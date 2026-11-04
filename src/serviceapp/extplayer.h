@@ -280,6 +280,8 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 	unsigned int mTimerDelay;
 
 	eSingleLock mSubLock;
+	// protects mAudioStreams/mSubtitleStreams/pCurrent*/pErrorMessage (parser thread vs e2 main thread)
+	eSingleLock mStreamsLock;
 	
 	pthread_mutex_t mWaitMutex;
 	pthread_cond_t mWaitCond;
@@ -315,7 +317,7 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 	void recvVideoTrackCurrent(int status, videoStream& stream);
 	void recvSeekTo(int status, int seconds){eDebug("PlayerBackend::recvSeekTo %ds", seconds);}
 	void recvSeekRelative(int status, int seconds){eDebug("PlayerBackend::recvSeekRelative %ds", seconds);}
-	void recvErrorMessage(errorMessage& message){ if (pErrorMessage) delete pErrorMessage; pErrorMessage = new errorMessage(message);};
+	void recvErrorMessage(errorMessage& message){ eSingleLocker l_(mStreamsLock); if (pErrorMessage) delete pErrorMessage; pErrorMessage = new errorMessage(message);};
 	void recvSubtitleMessage(subtitleMessage& sub);
 	void recvWindEnd(int direction){mMessageMain.send(Message(direction < 0 ? Message::windStart : Message::windEnd));}
 

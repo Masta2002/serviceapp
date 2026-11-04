@@ -338,6 +338,7 @@ int PlayerBackend::getLength(int& mseconds)
 
 int PlayerBackend::getErrorMessage(errorMessage& error)
 {
+	eSingleLocker l_(mStreamsLock);
 	if (!playbackStarted || !pErrorMessage)
 	{
 		return -1;
@@ -353,12 +354,14 @@ int PlayerBackend::audioGetNumberOfTracks(int timeout)
 		Message m (Message::tAudioList);
 		sendMessage(m, timeout);
 	}
+	eSingleLocker l_(mStreamsLock);
 	return mAudioStreams.size();
 }
 
 int PlayerBackend::audioGetCurrentTrackNum()
 {
 	int trackNum = 0, j=0;
+	eSingleLocker l_(mStreamsLock);
 	int trackId = pCurrentAudio ? pCurrentAudio->id : 0;
 	for (std::vector<audioStream>::const_iterator i(mAudioStreams.begin()); i!=mAudioStreams.end(); i++, j++)
 	{
@@ -373,6 +376,7 @@ int PlayerBackend::audioGetCurrentTrackNum()
 
 int PlayerBackend::audioSelectTrack(int trackNum)
 {
+	eSingleLocker l_(mStreamsLock);
 	if (trackNum >= 0 && trackNum < (int) mAudioStreams.size())
 	{
 		mMessageThread.send(Message(Message::tAudioSelect, mAudioStreams[trackNum].id));
@@ -383,6 +387,7 @@ int PlayerBackend::audioSelectTrack(int trackNum)
 
 int PlayerBackend::audioGetTrackInfo(audioStream& trackInfo, int trackNum)
 {
+	eSingleLocker l_(mStreamsLock);
 	if (trackNum >= 0 && trackNum < (int) mAudioStreams.size())
 	{
 		trackInfo = mAudioStreams[trackNum];
@@ -398,12 +403,14 @@ int PlayerBackend::subtitleGetNumberOfTracks(int timeout)
 		Message m(Message::tSubtitleList);
 		sendMessage(m, timeout);
 	}
+	eSingleLocker l_(mStreamsLock);
 	return mSubtitleStreams.size();
 }
 
 int PlayerBackend::subtitleGetCurrentTrackNum()
 {
 	int trackNum = 0, j=0;
+	eSingleLocker l_(mStreamsLock);
 	int trackId = pCurrentSubtitle ? pCurrentSubtitle->id : 0;
 	for (std::vector<subtitleStream>::const_iterator i(mSubtitleStreams.begin()); i!=mSubtitleStreams.end(); i++, j++)
 	{
@@ -418,6 +425,7 @@ int PlayerBackend::subtitleGetCurrentTrackNum()
 
 int PlayerBackend::subtitleSelectTrack(int trackNum)
 {
+	eSingleLocker l_(mStreamsLock);
 	if (trackNum >= 0 && trackNum < (int) mSubtitleStreams.size())
 	{
 		mMessageThread.send(Message(Message::tSubtitleSelect, mSubtitleStreams[trackNum].id));
@@ -428,6 +436,7 @@ int PlayerBackend::subtitleSelectTrack(int trackNum)
 
 int PlayerBackend::subtitleGetTrackInfo(subtitleStream& trackInfo, int trackNum)
 {
+	eSingleLocker l_(mStreamsLock);
 	if (trackNum >= 0 && trackNum < (int) mSubtitleStreams.size())
 	{
 		trackInfo = mSubtitleStreams[trackNum];
@@ -438,6 +447,7 @@ int PlayerBackend::subtitleGetTrackInfo(subtitleStream& trackInfo, int trackNum)
 
 int PlayerBackend::videoGetTrackInfo(videoStream& trackInfo, int trackNum)
 {
+	eSingleLocker l_(mStreamsLock);
 	if (pCurrentVideo == NULL)
 		return -1;
 	trackInfo = *pCurrentVideo;
@@ -668,7 +678,10 @@ void PlayerBackend::recvAudioTracksList(int status, std::vector<audioStream>& st
 {
 	if(!status)
 	{
-		mAudioStreams = streams;
+		{
+			eSingleLocker l_(mStreamsLock);
+			mAudioStreams = streams;
+		}
 		mMessageMain.send(Message(Message::audioList));
 	}
 	recvMessage();
@@ -680,6 +693,7 @@ void PlayerBackend::recvAudioTrackCurrent(int status, audioStream& stream)
 		eDebug("PlayerBackend::recvAudioTrackCurrent - status = %d", status);
 	if(!status)
 	{
+		eSingleLocker l_(mStreamsLock);
 		if (pCurrentAudio != NULL)
 		{
 			delete pCurrentAudio;
@@ -695,6 +709,7 @@ void PlayerBackend::recvAudioTrackSelected(int status, int trackId)
 		eDebug("PlayerBackend::recvAudioTrackSelected - status = %d, trackId = %d", status, trackId);
 	if (!status)
 	{
+		eSingleLocker l_(mStreamsLock);
 		for (std::vector<audioStream>::const_iterator i(mAudioStreams.begin()); i!=mAudioStreams.end(); i++)
 		{
 			if (trackId == i->id)
@@ -714,7 +729,10 @@ void PlayerBackend::recvAudioTrackSelected(int status, int trackId)
 void PlayerBackend::recvSubtitleTracksList(int status, std::vector<subtitleStream>& streams)
 { 
 	if(!status) 
+	{
+		eSingleLocker l_(mStreamsLock);
 		mSubtitleStreams = streams;
+	}
 	recvMessage();
 }
 
@@ -724,6 +742,7 @@ void PlayerBackend::recvSubtitleTrackCurrent(int status, subtitleStream& stream)
 		eDebug("PlayerBackend::recvSubtitleTrackCurrent - status = %d", status);
 	if(!status)
 	{
+		eSingleLocker l_(mStreamsLock);
 		if (pCurrentSubtitle != NULL)
 		{
 			delete pCurrentSubtitle;
@@ -739,6 +758,7 @@ void PlayerBackend::recvSubtitleTrackSelected(int status, int trackId)
 		eDebug("PlayerBackend::recvSubtitleTrackSelected - status = %d, trackId = %d", status, trackId);
 	if (!status)
 	{
+		eSingleLocker l_(mStreamsLock);
 		for (std::vector<subtitleStream>::const_iterator i(mSubtitleStreams.begin()); i!=mSubtitleStreams.end(); i++)
 		{
 			if (trackId == i->id)
@@ -761,6 +781,7 @@ void PlayerBackend::recvVideoTrackCurrent(int status, videoStream& stream)
 		eDebug("PlayerBackend::recvVideoTrackCurrent - status = %d", status);
 	if (!status)
 	{
+		eSingleLocker l_(mStreamsLock);
 		videoStream prev;
 		if (pCurrentVideo != NULL)
 		{
