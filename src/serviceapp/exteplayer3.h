@@ -65,6 +65,7 @@ class ExtEplayer3: public PlayerApp, public BasePlayer
 	int sendUpdatePosition();
 	int sendUpdateAudioTracksList();
 	int sendUpdateAudioTrackCurrent();
+	int sendPollAudioTrackCurrent();
 	int sendAudioSelectTrack(int trackId);
 	int sendUpdateSubtitleTracksList();
 	int sendUpdateSubtitleTrackCurrent();

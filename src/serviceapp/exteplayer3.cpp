@@ -277,6 +277,8 @@ int ExtEplayer3::sendUpdateLength(){ return processSend(std::string("l\n"));}
 int ExtEplayer3::sendUpdatePosition(){ return processSend(std::string("j\n"));}
 int ExtEplayer3::sendUpdateAudioTracksList(){ return processSend(std::string("al\n"));}
 int ExtEplayer3::sendUpdateAudioTrackCurrent(){ return processSend(std::string("ac\n"));}
+/* exteplayer3 keeps channels and codec name of the current track live */
+int ExtEplayer3::sendPollAudioTrackCurrent(){ return sendUpdateAudioTrackCurrent();}
 
 int ExtEplayer3::sendAudioSelectTrack(int trackId)
 {

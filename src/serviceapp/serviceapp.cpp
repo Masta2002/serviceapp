@@ -571,6 +571,12 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 		case PlayerMessage::audioTracksAvailable:
 			restoreAudioTrack();
 			break;
+		case PlayerMessage::audioChanged:
+			// live channel count or codec of the current audio track changed
+			if (m_debug)
+				eDebug("eServiceApp::gotExtPlayerMessage - audioChanged");
+			m_event(this, evUpdatedInfo);
+			break;
 		case PlayerMessage::stop:
 			if (m_debug)
 				eDebug("eServiceApp::gotExtPlayerMessage - stop");

@@ -6,6 +6,7 @@
 #include <lib/base/thread.h>
 #include <lib/python/connections.h>
 
+#include <map>
 
 #include "cJSON/cJSON.h"
 #include "myconsole.h"
@@ -83,6 +84,7 @@ struct PlayerMessage
 		videoFramerateChanged,
 		subtitleAvailable,
 		audioTracksAvailable,
+		audioChanged,
 		windStart,
 		windEnd,
 	};
@@ -134,6 +136,9 @@ public:
 	virtual int sendUpdatePosition(){ return -1;}
 	virtual int sendUpdateAudioTracksList(){ return -1;}
 	virtual int sendUpdateAudioTrackCurrent(){ return -1;}
+	// periodic re-check of the current audio track, only players that report
+	// live channel count / codec changes
+	virtual int sendPollAudioTrackCurrent(){ return -1;}
 	virtual int sendAudioSelectTrack(int trackId){ return -1;}
 	virtual int sendUpdateSubtitleTracksList(){ return -1;}
 	virtual int sendUpdateSubtitleTrackCurrent(){ return -1;}
@@ -251,6 +256,7 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 			videoProgressiveChanged,
 			videoGammaChanged,
 			subtitleAvailable,
+			audioChanged,
 			windStart,
 			windEnd,
 			error,
@@ -276,6 +282,10 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 	std::vector<audioStream> mAudioStreams;
 	std::vector<subtitleStream> mSubtitleStreams;
 	std::queue<subtitleMessage> mSubtitles;
+	// last live channels/codec per track id from "ac", the track list is the
+	// player's open-time snapshot
+	std::map<int, audioStream> mLiveAudio;
+	unsigned int mAudioCheckCounter;
 
 	eFixedMessagePump<Message> mMessageMain, mMessageThread;
 	ePtr<eTimer> mTimer;
@@ -335,6 +345,7 @@ public:
 		pCurrentVideo(NULL),
 		pCurrentSubtitle(NULL),
 		pErrorMessage(NULL),
+		mAudioCheckCounter(0),
 		mMessageMain(eApp, 1),
 		mMessageThread(this, 1),
 		mTimerDelay(100), // updated play position timer

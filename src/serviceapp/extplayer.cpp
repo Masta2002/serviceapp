@@ -217,6 +217,15 @@ void PlayerBackend::recvMessage()
 void PlayerBackend::_updatePosition()
 {
 	pPlayer->sendUpdatePosition();
+
+	/* every 20 ticks (2 s) re-check the current audio track: an ad break or
+	 * programme change can switch 5.1 to 2.0 or DD+ to Atmos on the same
+	 * track, see recvAudioTrackCurrent() */
+	if (++mAudioCheckCounter >= 20)
+	{
+		mAudioCheckCounter = 0;
+		pPlayer->sendPollAudioTrackCurrent();
+	}
 }
 
 int PlayerBackend::start(const std::string& path, const std::map<std::string,std::string>& headers)
@@ -594,6 +603,11 @@ void PlayerBackend::gotMessage(const PlayerBackend::Message& message)
 				eDebug("PlayerBackend::gotMessage - audioList");
 			gotPlayerMessage(PlayerMessage::audioTracksAvailable);
 			break;
+		case Message::audioChanged:
+			if(mDebug)
+				eDebug("PlayerBackend::gotMessage - audioChanged");
+			gotPlayerMessage(PlayerMessage::audioChanged);
+			break;
 		case Message::error:
 			if(mDebug)
 				eDebug("PlayerBackend::gotMessage - error");
@@ -686,6 +700,17 @@ void PlayerBackend::recvAudioTracksList(int status, std::vector<audioStream>& st
 		{
 			eSingleLocker l_(mStreamsLock);
 			mAudioStreams = streams;
+			// keep what the player learned live, the list is the open-time snapshot
+			for (std::vector<audioStream>::iterator i(mAudioStreams.begin()); i != mAudioStreams.end(); ++i)
+			{
+				std::map<int, audioStream>::const_iterator l(mLiveAudio.find(i->id));
+				if (l == mLiveAudio.end())
+					continue;
+				if (l->second.channels > 0)
+					i->channels = l->second.channels;
+				if (!l->second.codec_name.empty())
+					i->codec_name = l->second.codec_name;
+			}
 		}
 		mMessageMain.send(Message(Message::audioList));
 	}
@@ -698,6 +723,7 @@ void PlayerBackend::recvAudioTrackCurrent(int status, audioStream& stream)
 		eDebug("PlayerBackend::recvAudioTrackCurrent - status = %d", status);
 	if(!status)
 	{
+		bool changed = false;
 		eSingleLocker l_(mStreamsLock);
 		if (pCurrentAudio != NULL)
 		{
@@ -705,6 +731,35 @@ void PlayerBackend::recvAudioTrackCurrent(int status, audioStream& stream)
 			pCurrentAudio = NULL;
 		}
 		pCurrentAudio = new audioStream(stream);
+
+		/* the answer to the periodic "ac" carries the live channel count and
+		 * codec name; update the track list entry the track info reads */
+		if (stream.channels > 0 || !stream.codec_name.empty())
+		{
+			audioStream &live = mLiveAudio[stream.id];
+			if (stream.channels > 0)
+				live.channels = stream.channels;
+			if (!stream.codec_name.empty())
+				live.codec_name = stream.codec_name;
+			for (std::vector<audioStream>::iterator i(mAudioStreams.begin()); i != mAudioStreams.end(); ++i)
+			{
+				if (i->id != stream.id)
+					continue;
+				if (stream.channels > 0 && i->channels != stream.channels)
+				{
+					i->channels = stream.channels;
+					changed = true;
+				}
+				if (!stream.codec_name.empty() && i->codec_name != stream.codec_name)
+				{
+					i->codec_name = stream.codec_name;
+					changed = true;
+				}
+				break;
+			}
+		}
+		if (changed)
+			mMessageMain.send(Message(Message::audioChanged));
 	}
 } 
 
