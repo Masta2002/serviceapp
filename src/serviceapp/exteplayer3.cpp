@@ -52,11 +52,11 @@ ExtEplayer3Options::ExtEplayer3Options()
 	settingMap[EXT3_LPCM_INJECTION]             = SettingEntry ("-l", "bool");
 	settingMap[EXT3_DOWNMIX]                    = SettingEntry ("-s", "bool");
 	settingMap[EXT3_NO_PCM_RESAMPLING]          = SettingEntry ("-r", "bool");
-	settingMap[EXT3_FLV2MPEG4_CONVERTER]        = SettingEntry ("-4", "bool");
+	settingMap[EXT3_FLV2MPEG4_CONVERTER]        = SettingEntry ("-4", "int");
 	settingMap[EXT3_PLAYBACK_INIFITY_LOOP]      = SettingEntry ("-i", "bool");
 	settingMap[EXT3_PLAYBACK_LIVETS]            = SettingEntry ("-v", "bool");
 	settingMap[EXT3_RTMP_PROTOCOL]              = SettingEntry ("-n", "int");
-	settingMap[EXT3_PLAYBACK_PROGRESSIVE]       = SettingEntry ("-o", "bool");
+	settingMap[EXT3_PLAYBACK_PROGRESSIVE]       = SettingEntry ("-o", "int");
 	settingMap[EXT3_NICE_VALUE]                 = SettingEntry ("-p", "int");
 	settingMap[EXT3_PLAYBACK_MPEGTS_PROGRAM]    = SettingEntry ("-P", "int");
 	settingMap[EXT3_PLAYBACK_AUDIO_TRACK_ID]    = SettingEntry ("-t", "int");

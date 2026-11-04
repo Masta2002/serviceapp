@@ -54,6 +54,10 @@ def setUseUserSettings():
 	serviceapp.use_user_settings()
 
 
+def canRecord():
+	return bool(serviceapp.can_record())
+
+
 AUTOTURNON_SUBTITLES_OFF = 0
 AUTOTURNON_SUBTITLES_ALL = 1
 AUTOTURNON_SUBTITLES_FORCED = 2

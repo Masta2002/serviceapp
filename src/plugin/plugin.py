@@ -27,7 +27,8 @@ try:
 	def _serviceapp_is_recordable(self):
 		return _orig_is_recordable(self) or (self.ref.type in (5001, 5002) and "://" in self.ref.getPath())
 
-	_ServiceReference.isRecordable = _serviceapp_is_recordable
+	if serviceapp_client.canRecord():
+		_ServiceReference.isRecordable = _serviceapp_is_recordable
 except (ImportError, AttributeError):
 	pass
 
@@ -147,6 +148,8 @@ def init_serviceapp_settings():
 				player_cfg.buffer_size.value,
 				player_cfg.buffer_duration.value)
 
+	# the options of exteplayer3 186 and newer, an older player does not start with them
+	new_options = EXTEPLAYER3_VERSION is not None and EXTEPLAYER3_VERSION >= 186
 	for key in list(config_serviceapp.exteplayer3.keys()):
 		setting_id = key_to_setting_id(key)
 		player_cfg = config_serviceapp.exteplayer3[key]
@@ -170,10 +173,10 @@ def init_serviceapp_settings():
 			player_cfg.eac3_swdecoding.value,
 			player_cfg.mp3_swdecoding.value,
 			rtmp_proto_val,
-			player_cfg.dts_transcode.value,
-			player_cfg.truehd_transcode.value,
-			player_cfg.heaac_transcode.value,
-			player_cfg.hls_best_variant.value)
+			new_options and player_cfg.dts_transcode.value,
+			new_options and player_cfg.truehd_transcode.value,
+			new_options and player_cfg.heaac_transcode.value,
+			new_options and player_cfg.hls_best_variant.value)
 
 	if config_serviceapp.servicemp3.player.value == "gstplayer":
 		serviceapp_client.setServiceMP3GstPlayer()
@@ -182,6 +185,30 @@ def init_serviceapp_settings():
 
 
 init_serviceapp_settings()
+
+
+def _exteplayer3_version_from_output(data):
+	for line in data.splitlines():
+		try:
+			return int(loads(line)["EPLAYER3_EXTENDED"]["version"])
+		except (ValueError, KeyError, TypeError):
+			pass
+	return None
+
+
+def _exteplayer3_version_detected(data, retval, extra_args):
+	global EXTEPLAYER3_VERSION
+	version = _exteplayer3_version_from_output(data)
+	if version is not None and version != EXTEPLAYER3_VERSION:
+		EXTEPLAYER3_VERSION = version
+		print("[ServiceApp] found exteplayer3 - %d version" % version)
+		init_serviceapp_settings()
+
+
+# the version of the installed exteplayer3 decides which options it gets
+_version_console = Console()
+if serviceapp_client.isExtEplayer3Available():
+	_version_console.ePopen("exteplayer3", _exteplayer3_version_detected)
 
 
 class ServiceAppSettings(Setup):

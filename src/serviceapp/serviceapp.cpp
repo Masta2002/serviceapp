@@ -238,7 +238,7 @@ eServiceApp::eServiceApp(eServiceReference ref)
 	: m_ref(ref), m_subservices_checked(false), player(0), extplayer(0), m_resolver(0), m_resolve_uri("resolve://"), m_event_started(false), m_paused(false), m_debug(false), m_framerate(-1),
 	  m_width(-1), m_height(-1), m_progressive(-1), m_gamma(-1), m_subtitle_pages(0), m_selected_subtitle_track(0), m_prev_subtitle_message(0), m_prev_subtitle_fps(1), m_prev_decoder_time(-1),
 	  m_decoder_time_valid_state(0), m_cuesheet_changed(0), m_cutlist_enabled(0), m_cuesheet_loaded(false), m_is_streaming(false), m_last_seek_pos(0),
-	  m_media_length(0) {
+	  m_media_length(0), m_pending_seek(-1) {
 	options = createOptions(ref);
 	if (!ref.alternativeurl.empty())
 		m_ref.path = ref.alternativeurl;
@@ -615,6 +615,12 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 				eDebug("eServiceApp::gotExtPlayerMessage - start");
 			if (!m_is_streaming && !m_cuesheet_loaded)
 				loadCuesheet();
+			if (m_pending_seek >= 0) {
+				/* a resume seek that came before the player accepted commands */
+				eDebug("eServiceApp::gotExtPlayerMessage - deferred seek to %lld", (long long)m_pending_seek);
+				player->seekTo(int(m_pending_seek / 90000));
+				m_pending_seek = -1;
+			}
 			m_event_updated_info_timer->start(1000, true);
 			if (m_cachedAudioTrack >= 0)
 				player->audioGetNumberOfTracks(0); // Asynchronous; do not wait on the GUI thread.
@@ -731,6 +737,10 @@ RESULT eServiceApp::start() {
 		m_event(this, evStart);
 		m_event_started = true;
 	}
+	/* the cut list of a local file does not need the player: load it now, the
+	   resume check of the GUI runs a second after evStart */
+	if (!m_is_streaming && !m_cuesheet_loaded)
+		loadCuesheet();
 	std::string path_str(m_ref.path);
 
 	if (path_str.find(m_resolve_uri) == 0) {
@@ -855,7 +865,10 @@ RESULT eServiceApp::seekTo(pts_t to) {
 		stop();
 		return 0;
 	}
-	player->seekTo(int(to / 90000));
+	if (player->seekTo(int(to / 90000)) < 0)
+		m_pending_seek = to; /* the player has not started yet, seek when it has */
+	else
+		m_pending_seek = -1;
 
 	m_prev_decoder_time = -1;
 	m_decoder_time_valid_state = 0;
@@ -1640,7 +1653,27 @@ RESULT eStaticServiceAppInfo::getName(const eServiceReference& ref, std::string&
 }
 
 int eStaticServiceAppInfo::getLength(const eServiceReference& ref) {
-	return -1;
+	/* the length saved in the cut list of a local file (CUT_TYPE_LENGTH), in
+	   seconds, as servicemp3 reports it */
+	if (ref.path.empty() || ref.path.find("://") != std::string::npos)
+		return -1;
+	std::string filename = ref.path + ".cuts";
+	FILE* f = fopen(filename.c_str(), "rb");
+	if (!f)
+		return -1;
+	int length = -1;
+	while (1) {
+		unsigned long long where;
+		unsigned int what;
+		if (!fread(&where, sizeof(where), 1, f) || !fread(&what, sizeof(what), 1, f))
+			break;
+		if (ntohl(what) == 5) {
+			length = (int)(be64toh(where) / 90000);
+			break;
+		}
+	}
+	fclose(f);
+	return length;
 }
 
 int eStaticServiceAppInfo::getInfo(const eServiceReference& ref, int w) {
@@ -1816,7 +1849,7 @@ static PyObject* exteplayer3_set_setting(PyObject* self, PyObject* args) {
 	bool ret = true;
 
 	int settingId;
-	bool aacSwDecoding;
+	unsigned char aacSwDecoding; /* 0 off, 1 ADTS, 2 LATM: no bool, "b" writes a byte */
 	bool ac3SwDecoding;
 	bool eac3SwDecoding;
 	bool dtsSwDecoding;
@@ -1868,6 +1901,12 @@ static PyObject* exteplayer3_set_setting(PyObject* self, PyObject* args) {
 		options->GetSettingMap()[EXT3_TRANSCODE_HEAAC].setValue(heaacTranscode);
 		options->GetSettingMap()[EXT3_HLS_BEST_VARIANT].setValue(hlsBestVariant);
 	}
+	return Py_BuildValue("b", ret);
+}
+
+static PyObject* serviceapp_can_record(PyObject* self, PyObject* args) {
+	/* recordings need the native 4097 recorder, see eServiceFactoryApp::record */
+	bool ret = (&g_nativeServiceMP3Factory != NULL) || !gReplaceServiceMP3;
 	return Py_BuildValue("b", ret);
 }
 
@@ -1939,6 +1978,7 @@ static PyMethodDef serviceappMethods[] = {
 	 " eac3SwDecoding - (True, False)\n"
 	 " mp3SwDecoding - (True, False)\n"
 	 " rtmpProtocol - (0|1|2)\n"},
+	{"can_record", serviceapp_can_record, METH_NOARGS, "recording of 5001/5002 streams is available"},
 	{"serviceapp_set_setting", serviceapp_set_setting, METH_VARARGS,
 	 "set serviceapp settings (setting_id, HLSExplorer, autoSelectStream, connectionSpeedInKb, autoTurnOnSubtitles\n\n"
 	 " setting_id - (0 - servicemp3, 1 - servicegst, 2 - serviceextep3, 3 - user)\n"

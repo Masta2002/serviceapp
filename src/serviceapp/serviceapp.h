@@ -117,6 +117,7 @@ class eServiceApp : public sigc::trackable,
 	bool m_is_streaming;
 	pts_t m_last_seek_pos;
 	pts_t m_media_length;
+	pts_t m_pending_seek;
 	void loadCuesheet();
 	void saveCuesheet();
 

@@ -190,6 +190,14 @@ void ResolveUrl::thread_finished()
 {
     //eDebug("ResolveUrl::thread_finished");
     mThreadRunning = false;
+    // stop() may have started waiting after scriptEnded() had already run
+    pthread_mutex_lock(&mWaitForStopMutex);
+    if (mWaitForStop)
+    {
+        mWaitForStop = false;
+        pthread_cond_signal(&mWaitForStopCond);
+    }
+    pthread_mutex_unlock(&mWaitForStopMutex);
 }
 
 void ResolveUrl::gotMessage(const ResolveUrl::Message &message)
