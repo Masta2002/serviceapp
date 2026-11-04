@@ -1,0 +1,5 @@
+# LF in the repository for every text file (enigma2 / OE build on Linux)
+* text=auto eol=lf
+*.sh text eol=lf
+*.po text eol=lf
+*.pot text eol=lf

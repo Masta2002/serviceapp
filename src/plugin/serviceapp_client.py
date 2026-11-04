@@ -58,6 +58,14 @@ def canRecord():
 	return bool(serviceapp.can_record())
 
 
+def getVersion():
+	# version of serviceapp (AC_INIT of configure.ac); an older library has none
+	try:
+		return serviceapp.version()
+	except AttributeError:
+		return None
+
+
 AUTOTURNON_SUBTITLES_OFF = 0
 AUTOTURNON_SUBTITLES_ALL = 1
 AUTOTURNON_SUBTITLES_FORCED = 2

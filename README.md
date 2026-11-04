@@ -12,6 +12,33 @@
     <td><b>🏗️ Build</b></td>
     <td>
       <a href="https://github.com/oe-mirrors/serviceapp/actions/workflows/compile.yml"><img alt="Compile check" src="https://github.com/oe-mirrors/serviceapp/actions/workflows/compile.yml/badge.svg"></a>
+      <a href="https://github.com/oe-mirrors/serviceapp/actions/workflows/build.yml"><img alt="Build" src="https://github.com/oe-mirrors/serviceapp/actions/workflows/build.yml/badge.svg"></a>
+      <a href="https://github.com/oe-mirrors/serviceapp/actions/workflows/static-analysis.yml"><img alt="Static analysis" src="https://github.com/oe-mirrors/serviceapp/actions/workflows/static-analysis.yml/badge.svg"></a>
+      <br>
+      <a href="https://github.com/oe-mirrors/serviceapp/actions/workflows/ruff.yml"><img alt="Ruff" src="https://github.com/oe-mirrors/serviceapp/actions/workflows/ruff.yml/badge.svg"></a>
+      <a href="https://github.com/oe-mirrors/serviceapp/actions/workflows/translations.yml"><img alt="Translations" src="https://github.com/oe-mirrors/serviceapp/actions/workflows/translations.yml/badge.svg"></a>
+      <a href="https://github.com/oe-mirrors/serviceapp/actions/workflows/hygiene.yml"><img alt="Hygiene" src="https://github.com/oe-mirrors/serviceapp/actions/workflows/hygiene.yml/badge.svg"></a>
+    </td>
+  </tr>
+  <tr>
+    <td><b>🔍 Code quality</b></td>
+    <td>
+      <a href="https://sonarcloud.io/summary/new_code?id=Masta2002_serviceapp"><img alt="Quality Gate" src="https://sonarcloud.io/api/project_badges/measure?project=Masta2002_serviceapp&metric=alert_status"></a>
+      <a href="https://sonarcloud.io/summary/new_code?id=Masta2002_serviceapp"><img alt="Reliability" src="https://sonarcloud.io/api/project_badges/measure?project=Masta2002_serviceapp&metric=reliability_rating"></a>
+      <a href="https://sonarcloud.io/summary/new_code?id=Masta2002_serviceapp"><img alt="Security" src="https://sonarcloud.io/api/project_badges/measure?project=Masta2002_serviceapp&metric=security_rating"></a>
+      <a href="https://sonarcloud.io/summary/new_code?id=Masta2002_serviceapp"><img alt="Maintainability" src="https://sonarcloud.io/api/project_badges/measure?project=Masta2002_serviceapp&metric=sqale_rating"></a>
+      <br>
+      <a href="https://sonarcloud.io/summary/new_code?id=Masta2002_serviceapp"><img alt="Bugs" src="https://sonarcloud.io/api/project_badges/measure?project=Masta2002_serviceapp&metric=bugs"></a>
+      <a href="https://sonarcloud.io/summary/new_code?id=Masta2002_serviceapp"><img alt="Vulnerabilities" src="https://sonarcloud.io/api/project_badges/measure?project=Masta2002_serviceapp&metric=vulnerabilities"></a>
+      <a href="https://sonarcloud.io/summary/new_code?id=Masta2002_serviceapp"><img alt="Code smells" src="https://sonarcloud.io/api/project_badges/measure?project=Masta2002_serviceapp&metric=code_smells"></a>
+      <a href="https://sonarcloud.io/summary/new_code?id=Masta2002_serviceapp"><img alt="Lines of code" src="https://sonarcloud.io/api/project_badges/measure?project=Masta2002_serviceapp&metric=ncloc"></a>
+    </td>
+  </tr>
+  <tr>
+    <td><b>📦 Releases</b></td>
+    <td>
+      <a href="https://github.com/oe-mirrors/serviceapp/tags"><img alt="Latest version" src="https://img.shields.io/github/v/tag/oe-mirrors/serviceapp?filter=v*&label=Latest%20version&color=darkviolet"></a>
+      <a href="https://github.com/oe-mirrors/serviceapp/releases/latest"><img alt="Release date" src="https://img.shields.io/github/release-date/oe-mirrors/serviceapp?label=From&color=darkviolet"></a>
     </td>
   </tr>
   <tr>
@@ -207,7 +234,9 @@ Languages: de, en, es, fi, fr, hu, it, lv, nl, pl, pt, ru, tr, uk, zh_CN
 It rebuilds `ServiceApp.pot`, merges it into every `.po` of `LANGS` (no fuzzy
 guesses, nothing rewritten when only the date changed) and checks them with
 `msgfmt -c`. A new language needs its entry in `LANGS`. Corrections and new
-languages are welcome as pull requests.
+languages are welcome as pull requests, see [CONTRIBUTING](CONTRIBUTING.md).
+The workflow "Update translation templates" does the same on GitHub and opens
+a pull request with the result.
 
 ## 🛠️ Build
 
@@ -220,8 +249,25 @@ autoreconf -i
 make && make install
 ```
 
-The GitHub workflow `compile.yml` compiles every source against the headers of
-openATV enigma2 (`g++ -fsyntax-only`) and checks the Python files.
+The version is the one of `AC_INIT` in `configure.ac` (shown in the settings);
+when it changes on `openATV`, the workflow `tag_release.yml` creates the tag
+`v<version>` and a GitHub release.
+
+GitHub workflows:
+
+| Workflow | What it does |
+|---|---|
+| `compile.yml` | every source against the openATV enigma2 headers (`g++ -fsyntax-only`), Python 3.12 to 3.14 |
+| `build.yml` | the real autotools build and install, source lists of `Makefile.am`, undefined symbols, version, the test program |
+| `static-analysis.yml` | cppcheck and clang-tidy (advisory) |
+| `ruff.yml` | ruff on the Python plugin |
+| `translations.yml` | `LANGS`, `msgfmt -c`, `.pot` up to date |
+| `translations-update.yml` | regenerates `.pot` / `.po` and opens a pull request (by hand) |
+| `hygiene.yml`, `normalize.yml` | line ends, file modes, whitespace: check, and fix as a commit on `openATV` |
+| `sonarcloud.yml` | CI analysis on SonarCloud, off while the project uses Automatic Analysis (steps in the file) |
+| `tag_release.yml` | tag and release when the version changes |
+
+Contributions: see [CONTRIBUTING](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## 🧪 Debug and log
 

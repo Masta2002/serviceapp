@@ -1,0 +1,72 @@
+name: Update translation templates
+
+# The mechanical part of the translation upkeep, as in E2iPlayer: runs
+# src/locale/updateallpo.sh (xgettext of the _() and SAPP_TR() strings,
+# msgmerge into every language of LANGS) on the branch it is started on and,
+# only if something changed, opens (or updates) ONE pull request against that
+# branch. Nothing is pushed directly and nothing is translated: new strings
+# come as untranslated msgid entries and fall back to English until a human
+# translates them.
+#
+# Manual trigger only (Actions tab -> "Update translation templates" -> Run
+# workflow). The automatic run after each merge is prepared below; the
+# translation check (translations.yml) already proves that the script
+# reproduces the committed files on the runner.
+
+on:
+  workflow_dispatch:
+  # automatic runs after each merge to openATV:
+  # push:
+  #   branches: [ openATV ]
+  #   paths:
+  #     - 'src/plugin/**/*.py'
+  #     - 'src/serviceapp/**'
+  #     - 'src/locale/updateallpo.sh'
+  #     - 'src/locale/Makefile.am'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: translation-templates-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  update-pot:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install gettext
+        run: |
+          sudo apt-get -q update
+          sudo apt-get install -y gettext gawk
+
+      - name: Regenerate .pot / .po
+        working-directory: src/locale
+        run: |
+          chmod +x updateallpo.sh
+          ./updateallpo.sh
+          git status --short .
+
+      - name: Open or update the translation-templates pull request
+        uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1  # v8.1.3
+        with:
+          add-paths: src/locale/**
+          branch: chore/translation-templates-${{ github.ref_name }}
+          base: ${{ github.ref_name }}
+          delete-branch: true
+          commit-message: "translation templates: regenerate .pot / .po"
+          title: "translation templates: regenerate .pot / .po"
+          body: |
+            Automated `xgettext` + `msgmerge` run via `src/locale/updateallpo.sh`
+            on `${{ github.ref_name }}`.
+
+            * mechanical extraction only - **no strings were translated**
+            * new strings appear as `msgstr ""` and fall back to English at
+              runtime until someone translates them
+            * strings of the C++ part come from `SAPP_TR("...")`
+
+            Merge to pick up new or changed strings. Translations themselves
+            go in separate commits.

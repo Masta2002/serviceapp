@@ -1,0 +1,192 @@
+name: Build
+
+# The real autotools build (autoreconf, configure, make, make install) on a
+# normal runner, against the enigma2 headers of openatv/enigma2 and
+# oe-alliance/libdvbsi. libenigma2 itself is not there: it is never linked,
+# serviceapp.so is a module whose enigma2 and Python symbols are resolved
+# by the enigma2 process on the box, so the link succeeds with them
+# undefined (as in the image build).
+#
+# What this catches beyond compile.yml (-fsyntax-only):
+#   - errors in configure.ac / Makefile.am (syntax, a source or .py missing
+#     from the lists, install paths, the .mo build of LANGS)
+#   - the configure probes against the current openatv headers: the
+#     iservice.h probe must give OPENPLI_ISERVICE_VERSION=2, mhw.h must be
+#     found (HAVE_EPG) - otherwise the image build silently builds another
+#     variant
+#   - members of ServiceApp's own classes that are declared and used but
+#     defined nowhere: undefined in serviceapp.so, the box would fail to
+#     load the module ("undefined symbol" when enigma2 starts)
+# Job "test program": test/Makefile, the host program around m3u8.cpp,
+# wrappers.cpp and common.cpp (NO_PYTHON, NO_UCHARDET), compiled and linked
+# for real, so missing definitions there fail at link time.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  autotools:
+    name: autotools build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      E2ROOT: ${{ github.workspace }}/../e2root
+      DESTDIR: ${{ github.workspace }}/../install
+      PLUGINDIR: /usr/lib/enigma2/python/Plugins/SystemPlugins/ServiceApp
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Install packages
+      run: |
+        sudo apt-get update -q
+        sudo apt-get install -y -q build-essential autoconf automake libtool pkgconf gettext \
+          python3-dev libsigc++-3.0-dev libuchardet-dev libssl-dev libfreetype-dev libfribidi-dev libxml2-dev
+
+    # the headers as the enigma2 package installs them: <prefix>/include/enigma2
+    # with lib/ and include/ below it, and an enigma2.pc that points there
+    - name: enigma2 and libdvbsi++ headers
+      run: |
+        mkdir -p "$E2ROOT/include" "$E2ROOT/lib/pkgconfig"
+        git clone -q --depth 1 https://github.com/openatv/enigma2 "$E2ROOT/include/enigma2"
+        git clone -q --depth 1 https://github.com/oe-alliance/libdvbsi "$E2ROOT/dvbsi"
+        touch "$E2ROOT/include/enigma2/config.h"
+        echo "openatv/enigma2 $(git -C "$E2ROOT/include/enigma2" rev-parse --short HEAD), libdvbsi $(git -C "$E2ROOT/dvbsi" rev-parse --short HEAD)" >> "$GITHUB_STEP_SUMMARY"
+        cat > "$E2ROOT/lib/pkgconfig/enigma2.pc" <<EOF
+        prefix=$E2ROOT
+        includedir=\${prefix}/include
+        Name: enigma2
+        Description: enigma2 headers (CI stand-in, no library)
+        Version: 0
+        Requires: sigc++-3.0 freetype2 fribidi
+        Cflags: -I\${includedir}/enigma2 -I\${includedir}/enigma2/include -I\${prefix}/dvbsi/include
+        EOF
+        PKG_CONFIG_PATH="$E2ROOT/lib/pkgconfig" pkg-config --cflags enigma2
+
+    - name: autoreconf
+      run: autoreconf -fi
+
+    # CPPFLAGS: the mhw.h probe asks for <enigma2/lib/dvb/lowlevel/mhw.h>
+    # PYTHON_CPPFLAGS: ax_python_devel.m4 puts a sysroot prefix taken from the
+    # libdir in front of the include path for OE cross builds; on this native
+    # host that gives -I/x86_64-linux-gnu/usr/include/python3.x
+    - name: configure
+      run: |
+        export PKG_CONFIG_PATH="$E2ROOT/lib/pkgconfig"
+        ./configure --prefix=/usr \
+          PYTHON_CPPFLAGS="$(python3-config --includes)" \
+          CPPFLAGS="-I$E2ROOT/include $(pkg-config --cflags enigma2)" \
+          CXXFLAGS="-O2 -Wall" CFLAGS="-O2 -Wall" \
+          || { cat config.log; exit 1; }
+
+    - name: configure results
+      run: |
+        defs=$(sed -n 's/^DEFS = //p' src/serviceapp/Makefile)
+        echo "DEFS: $defs"
+        echo "configure DEFS: \`$defs\`" >> "$GITHUB_STEP_SUMMARY"
+        rc=0
+        case " $defs " in
+          *"-DOPENPLI_ISERVICE_VERSION=2 "*) ;;
+          *) echo "::error title=configure::the iservice.h probe of configure.ac no longer matches openatv's iPlayableService (OPENPLI_ISERVICE_VERSION is not 2)"
+             grep -n -A30 'openpli iservice.h version' config.log | head -60
+             rc=1 ;;
+        esac
+        case " $defs " in
+          *"-DHAVE_EPG"*) ;;
+          *) echo "::warning title=configure::mhw.h not found, the build has no EPG support (HAVE_EPG)" ;;
+        esac
+        exit $rc
+
+    - name: make
+      run: make -j"$(nproc)" V=1
+
+    - name: make install
+      run: |
+        make install DESTDIR="$DESTDIR"
+        find "$DESTDIR" -type f | sort | sed "s|^$DESTDIR||"
+        rc=0
+        for f in serviceapp.so __init__.py plugin.py serviceapp_client.py; do
+          [ -f "$DESTDIR$PLUGINDIR/$f" ] || { echo "::error title=make install::$PLUGINDIR/$f not installed"; rc=1; }
+        done
+        for l in $(sed -n 's/^LANGS[[:space:]]*=[[:space:]]*//p' src/locale/Makefile.am); do
+          [ -f "$DESTDIR$PLUGINDIR/locale/$l/LC_MESSAGES/ServiceApp.mo" ] || { echo "::error title=make install::locale $l not installed"; rc=1; }
+        done
+        exit $rc
+
+    # every source / Python file of the tree is in Makefile.am (a file left
+    # out is not built / not installed; for a .cpp that also shows up below
+    # as undefined symbols, but only if something calls into it)
+    - name: Makefile.am lists
+      run: |
+        rc=0
+        for f in $(cd src/serviceapp && git ls-files '*.cpp' '*.c'); do
+          grep -qE "(^|[[:space:]])$f([[:space:]]|$)" src/serviceapp/Makefile.am \
+            || { echo "::error file=src/serviceapp/Makefile.am::$f is not in serviceapp_la_SOURCES"; rc=1; }
+        done
+        for f in $(cd src/plugin && git ls-files '*.py'); do
+          grep -qE "^plugin_PYTHON.*(=|[[:space:]])$f([[:space:]]|$)" src/plugin/Makefile.am \
+            || { echo "::error file=src/plugin/Makefile.am::$f is not in plugin_PYTHON"; rc=1; }
+        done
+        exit $rc
+
+    # Undefined symbols of serviceapp.so that belong to a class declared in
+    # ServiceApp's own headers: such a member is defined nowhere, enigma2
+    # cannot load the module. Symbols of enigma2, Python, libstdc++ and so
+    # on stay undefined on purpose and are not listed.
+    - name: Own symbols defined
+      run: |
+        so=src/serviceapp/.libs/serviceapp.so
+        # git pathspec: * also matches /, so subtitles/ and cJSON/ are included
+        classes=$(git ls-files 'src/serviceapp/*.h' \
+          | xargs sed -n 's/^[[:space:]]*\(class\|struct\)[[:space:]]\+\([A-Za-z_][A-Za-z0-9_]*\)[^;]*$/\2/p' | sort -u)
+        echo "own classes: $(echo $classes)"
+        nm -DC --undefined-only "$so" | sed 's/^[[:space:]]*U //' > "$RUNNER_TEMP/undefined.txt"
+        echo "$(wc -l < "$RUNNER_TEMP/undefined.txt") undefined symbols in total"
+        for c in $classes; do
+          # a member, or vtable/typeinfo (= first non-inline virtual not defined)
+          grep -E "^((typeinfo|vtable) for $c\$|(non-virtual thunk to )?$c::)" "$RUNNER_TEMP/undefined.txt"
+        done > "$RUNNER_TEMP/missing.txt" || true
+        if [ -s "$RUNNER_TEMP/missing.txt" ]; then
+          while read -r s; do echo "::error title=undefined symbol::$s"; done < "$RUNNER_TEMP/missing.txt"
+          exit 1
+        fi
+        echo "no undefined members of own classes"
+
+    # serviceapp.version() returns PACKAGE_VERSION of AC_INIT, which configure
+    # passes as -DPACKAGE_VERSION (no config header); without it the plugin
+    # would show "unknown"
+    - name: Version in the library
+      run: |
+        version=$(sed -n 's/^AC_INIT(\[serviceapp\], \[\([^]]*\)\].*/\1/p' configure.ac)
+        echo "AC_INIT version: $version"
+        # -n 3: strings prints only runs of 4 characters by default, "0.6" has 3
+        if ! strings -n 3 src/serviceapp/.libs/serviceapp.so | grep -qxF "$version"; then
+          echo "::error title=version::serviceapp.so does not contain the version $version of AC_INIT"
+          exit 1
+        fi
+        echo "serviceapp.so has version $version" >> "$GITHUB_STEP_SUMMARY"
+
+  test-program:
+    name: test program
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Install packages
+      run: |
+        sudo apt-get update -q
+        sudo apt-get install -y -q build-essential libssl-dev
+
+    - name: make -C test
+      run: |
+        make -C test CXX=g++
+        ./test/explore_m3u8 || true

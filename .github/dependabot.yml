@@ -1,0 +1,26 @@
+# Keeps the GitHub Actions of .github/workflows/ and the pinned lint tools
+# of .github/workflows/requirements-lint.txt up to date. Monthly, all
+# action updates in one pull request.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "ci"
+
+  - package-ecosystem: "pip"
+    directory: "/.github/workflows"
+    schedule:
+      interval: "monthly"
+    groups:
+      lint-tools:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "ci"

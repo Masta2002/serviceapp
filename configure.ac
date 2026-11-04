@@ -1,4 +1,4 @@
-AC_INIT([serviceapp], [0.1], [mx3ldev@gmail.com])
+AC_INIT([serviceapp], [0.6], [mx3ldev@gmail.com])
 AM_INIT_AUTOMAKE([subdir-objects foreign dist-bzip2 no-define tar-pax])
 AC_CONFIG_MACRO_DIR([m4])
 LT_INIT
@@ -73,7 +73,10 @@ AC_LINK_IFELSE(
         AC_DEFINE(OPENPLI_ISERVICE_VERSION, 1)
     ])
 
-AC_PATH_PROG(MSGFMT, msgfmt, AC_MSG_ERROR(Could not find msgfmt))
+AC_PATH_PROG(MSGFMT, msgfmt, no)
+if test "$MSGFMT" = no; then
+    AC_MSG_ERROR([msgfmt not found, install gettext])
+fi
 
 CXXFLAGS="$SAVE_CXXFLAGS"
 LDFLAGS="$SAVE_LDFLAGS"

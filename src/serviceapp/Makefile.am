@@ -29,6 +29,20 @@ serviceapp_la_SOURCES = \
 	subtitles/subtitles.cpp \
 	subtitles/subrip.cpp
 
+noinst_HEADERS = \
+	common.h \
+	exteplayer3.h \
+	extplayer.h \
+	gstplayer.h \
+	m3u8.h \
+	myconsole.h \
+	scriptrun.h \
+	serviceapp.h \
+	wrappers.h \
+	cJSON/cJSON.h \
+	subtitles/subrip.h \
+	subtitles/subtitles.h
+
 serviceapp_la_LDFLAGS = \
 	@UCHARDET_LIBS@ \
 	@OPENSSL_LIBS@ \
