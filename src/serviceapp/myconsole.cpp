@@ -34,7 +34,14 @@ int bidirpipe(int pfd[], const char *cmd , const char * const argv[], const char
 		if (close(pfdout[0]) == -1 || close(pfdout[1]) == -1 || close(pfdin[0]) == -1 || close(pfdin[1]) == -1 || close(pfderr[0]) == -1 || close(pfderr[1]) == -1 )
 			_exit(0);
 
-		for (unsigned int i=3; i < 90; ++i )
+		/* enigma2 holds far more than 90 fds (sockets, timers, dvb devices),
+		 * everything above the old limit leaked into the player */
+		long maxfd = sysconf(_SC_OPEN_MAX);
+		if (maxfd <= 0)
+			maxfd = 1024;
+		else if (maxfd > 65536)
+			maxfd = 65536;
+		for (long i=3; i < maxfd; ++i )
 			close(i);
 
 		if (cwd && chdir(cwd) < 0)
@@ -314,19 +321,21 @@ void eConsoleContainer::readyWrite(int what)
 		if (wr < 0)
 		{
 /*			eDebug("[ServiceApp][eConsoleContainer]2 write on fd=%d failed: %m", fd[1]);  */
-			outbuf.pop();
 			delete [] d.data;
+			outbuf.pop();
 			if ( filefd[0] == -1 )
 			/* emit */ dataSent(0);
 		}
 		else
-			d.dataSent += wr;
-		if (d.dataSent == d.len)
 		{
-			outbuf.pop();
-			delete [] d.data;
-			if ( filefd[0] == -1 )
-			/* emit */ dataSent(0);
+			d.dataSent += wr;
+			if (d.dataSent == d.len)
+			{
+				delete [] d.data;
+				outbuf.pop();
+				if ( filefd[0] == -1 )
+				/* emit */ dataSent(0);
+			}
 		}
 	}
 	if ( !outbuf.size() )

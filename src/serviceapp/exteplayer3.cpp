@@ -29,6 +29,11 @@ const std::string  EXT3_ARG_LCASE_B                = "b";
 const std::string  EXT3_ARG_5                      = "5";
 const std::string  EXT3_ARG_6                      = "6";
 const std::string  EXT3_ARG_7                      = "7";
+// exteplayer3 186 and newer
+const std::string  EXT3_TRANSCODE_DTS              = "dts_transcode";
+const std::string  EXT3_TRANSCODE_TRUEHD           = "truehd_transcode";
+const std::string  EXT3_TRANSCODE_HEAAC            = "heaac_transcode";
+const std::string  EXT3_HLS_BEST_VARIANT           = "hls_best_variant";
 const std::string  EXT3_ARGS_LIST                  = "args"; // cmdline like list of exteplayer3 arguments in a form "-arg1=value1-arg2=value2"
 
 SettingMap &ExtEplayer3Options::GetSettingMap()
@@ -47,11 +52,11 @@ ExtEplayer3Options::ExtEplayer3Options()
 	settingMap[EXT3_LPCM_INJECTION]             = SettingEntry ("-l", "bool");
 	settingMap[EXT3_DOWNMIX]                    = SettingEntry ("-s", "bool");
 	settingMap[EXT3_NO_PCM_RESAMPLING]          = SettingEntry ("-r", "bool");
-	settingMap[EXT3_FLV2MPEG4_CONVERTER]        = SettingEntry ("-4", "bool");
+	settingMap[EXT3_FLV2MPEG4_CONVERTER]        = SettingEntry ("-4", "int");
 	settingMap[EXT3_PLAYBACK_INIFITY_LOOP]      = SettingEntry ("-i", "bool");
 	settingMap[EXT3_PLAYBACK_LIVETS]            = SettingEntry ("-v", "bool");
 	settingMap[EXT3_RTMP_PROTOCOL]              = SettingEntry ("-n", "int");
-	settingMap[EXT3_PLAYBACK_PROGRESSIVE]       = SettingEntry ("-o", "bool");
+	settingMap[EXT3_PLAYBACK_PROGRESSIVE]       = SettingEntry ("-o", "int");
 	settingMap[EXT3_NICE_VALUE]                 = SettingEntry ("-p", "int");
 	settingMap[EXT3_PLAYBACK_MPEGTS_PROGRAM]    = SettingEntry ("-P", "int");
 	settingMap[EXT3_PLAYBACK_AUDIO_TRACK_ID]    = SettingEntry ("-t", "int");
@@ -64,6 +69,10 @@ ExtEplayer3Options::ExtEplayer3Options()
 	settingMap[EXT3_ARG_5]                      = SettingEntry ("-5", "string");
 	settingMap[EXT3_ARG_6]                      = SettingEntry ("-6", "string");
 	settingMap[EXT3_ARG_7]                      = SettingEntry ("-7", "string");
+	settingMap[EXT3_TRANSCODE_DTS]              = SettingEntry ("-D", "bool");
+	settingMap[EXT3_TRANSCODE_TRUEHD]           = SettingEntry ("-X", "bool");
+	settingMap[EXT3_TRANSCODE_HEAAC]            = SettingEntry ("-Y", "bool");
+	settingMap[EXT3_HLS_BEST_VARIANT]           = SettingEntry ("-Q", "bool");
 	settingMap[EXT3_ARGS_LIST]                  = SettingEntry ("al", "argslist");
 }
 
@@ -81,7 +90,7 @@ int ExtEplayer3Options::update(const std::string &key, const std::string &val)
 				entry.setValue(0);
 			else
 			{
-				eWarning("ExtEplayer3Options::update - invalid value '%s' for '%s' setting, allowed values are 0|1", key.c_str(), val.c_str());
+				eWarning("ExtEplayer3Options::update - invalid value '%s' for '%s' setting, allowed values are 0|1", val.c_str(), key.c_str());
 				ret = -2;
 			}
 		}
@@ -268,6 +277,8 @@ int ExtEplayer3::sendUpdateLength(){ return processSend(std::string("l\n"));}
 int ExtEplayer3::sendUpdatePosition(){ return processSend(std::string("j\n"));}
 int ExtEplayer3::sendUpdateAudioTracksList(){ return processSend(std::string("al\n"));}
 int ExtEplayer3::sendUpdateAudioTrackCurrent(){ return processSend(std::string("ac\n"));}
+/* exteplayer3 keeps channels and codec name of the current track live */
+int ExtEplayer3::sendPollAudioTrackCurrent(){ return sendUpdateAudioTrackCurrent();}
 
 int ExtEplayer3::sendAudioSelectTrack(int trackId)
 {
@@ -285,6 +296,9 @@ int ExtEplayer3::sendSubtitleSelectTrack(int trackId)
 	sstm << "s" << trackId << std::endl;
 	return processSend(sstm.str());
 }
+
+/* exteplayer3 takes track -1 as "no subtitles" */
+int ExtEplayer3::sendSubtitleDisable(){ return processSend(std::string("s-1\n"));}
 
 int ExtEplayer3::sendSeekTo(int seconds)
 {
@@ -305,6 +319,18 @@ void ExtEplayer3::handleProcessStopped(int retval)
 	recvStopped(0);
 }
 
+/* fields that only newer exteplayer3 versions send */
+static void readAudioExtras(cJSON *item, audioStream &a)
+{
+	a.channels = cJsonGetInt(item, "c", a.channels);
+	a.codec_name = cJsonGetStr(item, "d");
+}
+
+static void readSubtitleExtras(cJSON *item, subtitleStream &s)
+{
+	s.forced = cJsonGetInt(item, "f", s.forced);
+}
+
 void ExtEplayer3::handleJsonOutput(cJSON *json)
 {
 	if (!json->child)
@@ -312,34 +338,43 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 		return;
 	}
 	const char *key = json->child->string;
+	if (!key)
+		return;
 	cJSON* value = cJSON_GetObjectItem(json, key);
 
 	if (!strcmp(key, "PLAYBACK_PLAY"))
 	{
-		if (!cJSON_GetObjectItem(value, "sts")->valueint)
+		if (!cJsonGetInt(value, "sts"))
 			recvStarted(0);
 	}
 	else if (!strcmp(key, "v_c"))
 	{
 		videoStream v;
-		v.id = cJSON_GetObjectItem(value, "id")->valueint;
-		v.description = cJSON_GetObjectItem(value, "e")->valuestring;
-		v.language_code = cJSON_GetObjectItem(value, "n")->valuestring;
-		v.width = cJSON_GetObjectItem(value, "w")->valueint;
-		v.height = cJSON_GetObjectItem(value, "h")->valueint;
-		v.framerate = cJSON_GetObjectItem(value, "f")->valueint;
-		cJSON *progressive = cJSON_GetObjectItem(value, "p");
+		v.id = cJsonGetInt(value, "id");
+		v.description = cJsonGetStr(value, "e");
+		v.language_code = cJsonGetStr(value, "n");
+		v.width = cJsonGetInt(value, "w");
+		v.height = cJsonGetInt(value, "h");
+		v.framerate = cJsonGetInt(value, "f");
+		cJSON *progressive = value ? cJSON_GetObjectItem(value, "p") : NULL;
 		if (progressive != NULL)
 		{
 			v.progressive = progressive->valueint;
+		}
+		/* exteplayer3: 0 SDR, 1 HDR10, 2 HLG, 3 other HDR */
+		int hdr = cJsonGetInt(value, "hdr", -1);
+		if (hdr >= 0 && hdr <= 3)
+		{
+			static const int gamma[] = {0, 2, 3, 1};
+			v.gamma = gamma[hdr];
 		}
 		recvVideoTrackCurrent(0, v);
 	}
 	else if (!strcmp(key, "a_s"))
 	{
-		if (!cJSON_GetObjectItem(value, "sts")->valueint)
+		if (!cJsonGetInt(value, "sts"))
 		{
-			int s = cJSON_GetObjectItem(value, "id")->valueint;
+			int s = cJsonGetInt(value, "id");
 			recvAudioTrackSelected(0, s);
 			return;
 		}
@@ -348,9 +383,10 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	else if (!strcmp(key, "a_c"))
 	{
 		audioStream a;
-		a.id = cJSON_GetObjectItem(value, "id")->valueint;
-		a.description = cJSON_GetObjectItem(value, "e")->valuestring;
-		a.language_code = cJSON_GetObjectItem(value, "n")->valuestring;
+		a.id = cJsonGetInt(value, "id");
+		a.description = cJsonGetStr(value, "e");
+		a.language_code = cJsonGetStr(value, "n");
+		readAudioExtras(value, a);
 		recvAudioTrackCurrent(0, a);
 	}
 	else if (!strcmp(key, "a_l"))
@@ -360,18 +396,19 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 		{
 			cJSON *subitem=cJSON_GetArrayItem(value,i);
 			audioStream a;
-			a.id = cJSON_GetObjectItem(subitem, "id")->valueint;
-			a.description = cJSON_GetObjectItem(subitem, "e")->valuestring;
-			a.language_code = cJSON_GetObjectItem(subitem, "n")->valuestring;
+			a.id = cJsonGetInt(subitem, "id");
+			a.description = cJsonGetStr(subitem, "e");
+			a.language_code = cJsonGetStr(subitem, "n");
+			readAudioExtras(subitem, a);
 			streams.push_back(a);
 		}
 		recvAudioTracksList(0, streams);
 	}
 	else if (!strcmp(key, "s_s"))
 	{
-		if (!cJSON_GetObjectItem(value, "sts")->valueint)
+		if (!cJsonGetInt(value, "sts"))
 		{
-			int s = cJSON_GetObjectItem(value, "id")->valueint;
+			int s = cJsonGetInt(value, "id");
 			recvSubtitleTrackSelected(0, s);
 			return;
 		}
@@ -380,9 +417,10 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	else if (!strcmp(key, "s_c"))
 	{
 		subtitleStream s;
-		s.id = cJSON_GetObjectItem(value, "id")->valueint;
-		s.description = cJSON_GetObjectItem(value, "e")->valuestring;
-		s.language_code = cJSON_GetObjectItem(value, "n")->valuestring;
+		s.id = cJsonGetInt(value, "id");
+		s.description = cJsonGetStr(value, "e");
+		s.language_code = cJsonGetStr(value, "n");
+		readSubtitleExtras(value, s);
 		recvSubtitleTrackCurrent(0, s);
 	}
 	else if (!strcmp(key, "s_l"))
@@ -392,9 +430,10 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 		{
 			cJSON *subitem=cJSON_GetArrayItem(value,i);
 			subtitleStream s;
-			s.id = cJSON_GetObjectItem(subitem, "id")->valueint;
-			s.description = cJSON_GetObjectItem(subitem, "e")->valuestring;
-			s.language_code = cJSON_GetObjectItem(subitem, "n")->valuestring;
+			s.id = cJsonGetInt(subitem, "id");
+			s.description = cJsonGetStr(subitem, "e");
+			s.language_code = cJsonGetStr(subitem, "n");
+			readSubtitleExtras(subitem, s);
 			streams.push_back(s);
 		}
 		recvSubtitleTracksList(0, streams);
@@ -402,28 +441,28 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	else if (!strcmp(key, "s_a"))
 	{
 		subtitleMessage s;
-		s.start_ms = cJSON_GetObjectItem(value, "s")->valueint;
-		s.end_ms = cJSON_GetObjectItem(value, "e")->valueint;
+		s.start_ms = cJsonGetInt(value, "s");
+		s.end_ms = cJsonGetInt(value, "e");
 		s.duration_ms = s.end_ms - s.start_ms;
-		s.text = cJSON_GetObjectItem(value, "t")->valuestring;
+		s.text = cJsonGetStr(value, "t");
 		recvSubtitleMessage(s);
 	}
 	else if (!strcmp(key, "PLAYBACK_LENGTH"))
 	{
-		if (!cJSON_GetObjectItem(value, "sts")->valueint)
+		if (!cJsonGetInt(value, "sts"))
 		{
-			float l = cJSON_GetObjectItem(value, "length")->valuedouble;
+			float l = cJsonGetDouble(value, "length");
 			recvLength(0, l * 1000);
 		}
 	}
 	else if (!strcmp(key, "J"))
 	{
-		int positionInMs = cJSON_GetObjectItem(value, "ms")->valueint;
+		int positionInMs = cJsonGetInt(value, "ms");
 		recvPosition(0, positionInMs);
 	}
 	else if (!strcmp(key, "PLAYBACK_STOP"))
 	{
-		if (!cJSON_GetObjectItem(value, "sts")->valueint)
+		if (!cJsonGetInt(value, "sts"))
 		{
 			//recvStopped(0);
 			return;
@@ -432,7 +471,7 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	}
 	else if (!strcmp(key, "PLAYBACK_CONTINUE"))
 	{
-		if (!cJSON_GetObjectItem(value, "sts")->valueint)
+		if (!cJsonGetInt(value, "sts"))
 		{
 			recvResumed(0);
 			return;
@@ -441,7 +480,7 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	}
 	else if (!strcmp(key, "PLAYBACK_PAUSE"))
 	{
-		if (!cJSON_GetObjectItem(value, "sts")->valueint)
+		if (!cJsonGetInt(value, "sts"))
 		{
 			recvPaused(0);
 			return;
@@ -450,13 +489,13 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	}
 	else if (!strcmp(key, "PLAYBACK_FASTFORWARD"))
 	{
-		if (cJSON_GetObjectItem(value, "sts")->valueint)
+		if (cJsonGetInt(value, "sts"))
 		{
 		}
 	}
 	else if (!strcmp(key, "PLAYBACK_SEEK_ABS"))
 	{
-		if (!cJSON_GetObjectItem(value, "sts")->valueint)
+		if (!cJsonGetInt(value, "sts"))
 		{
 			recvSeekTo(0, 0);
 			return;
@@ -465,7 +504,7 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	}
 	else if (!strcmp(key, "PLAYBACK_SEEK"))
 	{
-		if (!cJSON_GetObjectItem(value, "sts")->valueint)
+		if (!cJsonGetInt(value, "sts"))
 		{
 			recvSeekRelative(0, 0);
 			return;
@@ -474,12 +513,11 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	}
 	else if (!strcmp(key, "PLAYBACK_TRICK_END"))
 	{
-		recvWindEnd(cJSON_GetObjectItem(value, "dir")->valueint);
+		recvWindEnd(cJsonGetInt(value, "dir"));
 	}
 	else if (!strcmp(key, "EPLAYER3_EXTENDED"))
 	{
-		cJSON *trick = cJSON_GetObjectItem(value, "trick");
-		mCanWind = trick && trick->valueint;
+		mCanWind = cJsonGetInt(value, "trick") != 0;
 	}
 	else
 	{

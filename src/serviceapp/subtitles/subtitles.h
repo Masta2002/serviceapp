@@ -18,7 +18,8 @@ struct subtitleStream
     std::string language_code; /* iso-639, if available. */
     std::string description; /* clear text codec description */
     std::string path; /* path to external subtitle */
-    subtitleStream(): id(-1){};
+    int forced; /* 1 for a forced track */
+    subtitleStream(): id(-1), forced(0){};
 };
 
 struct subtitleMessage

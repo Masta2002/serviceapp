@@ -19,6 +19,8 @@
 #include <lib/dvb/idvb.h>
 #include <lib/dvb/db.h>
 #include <lib/gui/esubtitle.h>
+#include <endian.h>
+#include <netinet/in.h>
 
 #include "exteplayer3.h"
 #include "gstplayer.h"
@@ -181,16 +183,66 @@ RESULT eServiceFactoryApp::offlineOperations(const eServiceReference& ref, ePtr<
 	return 0;
 }
 
+/* The native 4097 factory of enigma2 (eServiceFactoryMP3::instance). It stays
+   alive when "replace servicemp3" takes over the 4097 registration. The member
+   is private, so it is looked up by its symbol name; weak, so images without it
+   still load the plugin. Only the iServiceHandler interface is used. */
+extern iServiceHandler* g_nativeServiceMP3Factory __asm__("_ZN18eServiceFactoryMP38instanceE") __attribute__((weak));
+
+/* Recordings are done by the native 4097 recorder of enigma2, the same one
+   that records 4097 streams. Player options (sapp_*) are dropped from the
+   header part, they are no HTTP headers. */
+RESULT eServiceFactoryApp::record(const eServiceReference& ref, ePtr<iRecordableService>& ptr) {
+	ptr = 0;
+	if (ref.path.find("://") == std::string::npos)
+		return -1;
+
+	eServiceReference recref(ref);
+	recref.type = idServiceMP3;
+	size_t pos = recref.path.find('#');
+	if (pos != std::string::npos) {
+		std::string fragment = recref.path.substr(pos + 1);
+		std::string kept;
+		size_t start = 0;
+		while (start <= fragment.size()) {
+			size_t end = fragment.find('&', start);
+			if (end == std::string::npos)
+				end = fragment.size();
+			std::string part = fragment.substr(start, end - start);
+			if (!part.empty() && part.compare(0, 5, "sapp_") != 0)
+				kept += (kept.empty() ? "" : "&") + part;
+			start = end + 1;
+		}
+		recref.path = recref.path.substr(0, pos);
+		if (!kept.empty())
+			recref.path += "#" + kept;
+	}
+
+	iServiceHandler* native = &g_nativeServiceMP3Factory ? g_nativeServiceMP3Factory : NULL;
+	if (native)
+		return native->record(recref, ptr);
+	if (!gReplaceServiceMP3) {
+		ePtr<iServiceHandler> sc;
+		eServiceCenter::getInstance(sc);
+		if (sc)
+			return sc->record(recref, ptr);
+	}
+	eDebug("[eServiceFactoryApp] record: no native 4097 recorder available");
+	return -1;
+}
+
 
 DEFINE_REF(eServiceApp);
 
 eServiceApp::eServiceApp(eServiceReference ref)
 	: m_ref(ref), m_subservices_checked(false), player(0), extplayer(0), m_resolver(0), m_resolve_uri("resolve://"), m_event_started(false), m_paused(false), m_debug(false), m_framerate(-1),
-	  m_width(-1), m_height(-1), m_progressive(-1), m_subtitle_pages(0), m_selected_subtitle_track(0), m_prev_subtitle_message(0), m_prev_subtitle_fps(1), m_prev_decoder_time(-1),
-	  m_decoder_time_valid_state(0) {
+	  m_width(-1), m_height(-1), m_progressive(-1), m_gamma(-1), m_subtitle_pages(0), m_selected_subtitle_track(0), m_prev_subtitle_message(0), m_prev_subtitle_fps(1), m_prev_decoder_time(-1),
+	  m_decoder_time_valid_state(0), m_cuesheet_changed(0), m_cutlist_enabled(0), m_cuesheet_loaded(false), m_is_streaming(false), m_last_seek_pos(0),
+	  m_media_length(0), m_pending_seek(-1) {
 	options = createOptions(ref);
 	if (!ref.alternativeurl.empty())
 		m_ref.path = ref.alternativeurl;
+	m_is_streaming = (m_ref.path.find("://") != std::string::npos);
 	// Keep the original service identity, even if a resolver changes its URL.
 	m_audioCacheReference = replace_all(ref.toString(), ",", "_");
 	if (eSettings::audio_usecache && !getHeaders(m_ref.path).count("sapp_audio_id")) {
@@ -225,6 +277,7 @@ eServiceApp::~eServiceApp() {
 	delete player;
 	delete extplayer;
 	delete m_resolver;
+	delete m_selected_subtitle_track;
 
 	if (m_subtitle_widget)
 		m_subtitle_widget->destroy();
@@ -383,6 +436,9 @@ void eServiceApp::addEmbeddedTrack(std::vector<struct SubtitleTrack>& subtitleli
 	track.magazine_number = 0;
 	track.pid = pid;
 	track.language_code = s.language_code;
+	if (s.forced) {
+		track.title = "forced";
+	}
 
 	subtitlelist.push_back(track);
 	m_subtitle_tracks.push_back(track);
@@ -416,7 +472,7 @@ void eServiceApp::pullSubtitles() {
 	std::queue<subtitleMessage> pulled;
 	player->getSubtitles(pulled);
 	if (m_debug)
-		eDebug("eServiceApp::pullSubtitles - pulling %d subtitles", pulled.size());
+		eDebug("eServiceApp::pullSubtitles - pulling %zu subtitles", pulled.size());
 	while (!pulled.empty()) {
 		subtitleMessage sub = pulled.front();
 		m_embedded_subtitle_pages.insert(subtitle_pages_map_pair(sub.end_ms, sub));
@@ -435,9 +491,13 @@ void eServiceApp::pushSubtitles() {
 		int subtitle_fps = eSubtitleSettings::pango_subtitles_fps;
 		if (subtitle_fps != m_prev_subtitle_fps) {
 			m_prev_subtitle_fps = subtitle_fps;
+			// the selected track may have vanished after a getSubtitleList()
+			// refresh -> getTrackPosition returns -1; indexing with that
+			// would read out of bounds. Keep the already-loaded pages then.
 			ssize_t track_pos = getTrackPosition(*m_selected_subtitle_track);
 			const subtitleMap* submap = NULL;
-			submap = m_subtitle_manager.load(m_subtitle_streams[track_pos].path, m_framerate, subtitle_fps);
+			if (track_pos >= 0)
+				submap = m_subtitle_manager.load(m_subtitle_streams[track_pos].path, m_framerate, subtitle_fps);
 			if (submap) {
 				m_prev_subtitle_message = NULL;
 				m_subtitle_pages = submap;
@@ -553,6 +613,14 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 		case PlayerMessage::start:
 			if (m_debug)
 				eDebug("eServiceApp::gotExtPlayerMessage - start");
+			if (!m_is_streaming && !m_cuesheet_loaded)
+				loadCuesheet();
+			if (m_pending_seek >= 0) {
+				/* a resume seek that came before the player accepted commands */
+				eDebug("eServiceApp::gotExtPlayerMessage - deferred seek to %lld", (long long)m_pending_seek);
+				player->seekTo(int(m_pending_seek / 90000));
+				m_pending_seek = -1;
+			}
 			m_event_updated_info_timer->start(1000, true);
 			if (m_cachedAudioTrack >= 0)
 				player->audioGetNumberOfTracks(0); // Asynchronous; do not wait on the GUI thread.
@@ -562,6 +630,12 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 			break;
 		case PlayerMessage::audioTracksAvailable:
 			restoreAudioTrack();
+			break;
+		case PlayerMessage::audioChanged:
+			// live channel count or codec of the current audio track changed
+			if (m_debug)
+				eDebug("eServiceApp::gotExtPlayerMessage - audioChanged");
+			m_event(this, evUpdatedInfo);
 			break;
 		case PlayerMessage::stop:
 			if (m_debug)
@@ -621,6 +695,16 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 			m_event(this, evVideoProgressiveChanged);
 			break;
 		}
+		case PlayerMessage::videoGammaChanged: {
+			if (m_debug)
+				eDebug("eServiceApp::gotExtPlayerMessage - videoGammaChanged");
+			videoStream v;
+			if (!player->videoGetTrackInfo(v, 0)) {
+				m_gamma = v.gamma;
+			}
+			m_event(this, evVideoGammaChanged);
+			break;
+		}
 		case PlayerMessage::windStart:
 			m_event(this, evSOF);
 			break;
@@ -653,6 +737,10 @@ RESULT eServiceApp::start() {
 		m_event(this, evStart);
 		m_event_started = true;
 	}
+	/* the cut list of a local file does not need the player: load it now, the
+	   resume check of the GUI runs a second after evStart */
+	if (!m_is_streaming && !m_cuesheet_loaded)
+		loadCuesheet();
 	std::string path_str(m_ref.path);
 
 	if (path_str.find(m_resolve_uri) == 0) {
@@ -717,6 +805,8 @@ RESULT eServiceApp::start() {
 RESULT eServiceApp::stop() {
 	if (m_debug)
 		eDebug("eServiceApp::stop");
+	if (!m_is_streaming && m_cuesheet_loaded)
+		saveCuesheet();
 	if (m_resolver)
 		m_resolver->stop();
 	player->stop();
@@ -756,7 +846,8 @@ RESULT eServiceApp::getLength(pts_t& pts) {
 	if (player->getLength(length) < 0) {
 		return -1;
 	}
-	pts = length * 90;
+	pts = (pts_t)length * 90;
+	m_media_length = pts;
 	return 0;
 }
 
@@ -774,7 +865,10 @@ RESULT eServiceApp::seekTo(pts_t to) {
 		stop();
 		return 0;
 	}
-	player->seekTo(int(to / 90000));
+	if (player->seekTo(int(to / 90000)) < 0)
+		m_pending_seek = to; /* the player has not started yet, seek when it has */
+	else
+		m_pending_seek = -1;
 
 	m_prev_decoder_time = -1;
 	m_decoder_time_valid_state = 0;
@@ -800,7 +894,8 @@ RESULT eServiceApp::getPlayPosition(pts_t& pts) {
 	if (player->getPlayPosition(position) < 0) {
 		return -1;
 	}
-	pts = position * 90;
+	pts = (pts_t)position * 90;
+	m_last_seek_pos = pts;
 	return 0;
 }
 
@@ -890,8 +985,9 @@ RESULT eServiceApp::getTrackInfo(iAudioTrackInfo& trackInfo, unsigned int n) {
 
 	std::string desc = track.description;
 
-	std::map<std::string, std::string> audioReplacements = {{"A_", ""},		  {"EAC3", "AC3+"},		{"MPEG/L3", "AAC"},	 {"IPCM", "AC3"},
-															{"LPCM", "AC3+"}, {"AAC_PLUS", "AAC+"}, {"AAC_LATM", "AAC"}, {"WMA/PRO", "WMA Pro"}};
+	/* exteplayer3 names MPEG-1/2 Layer I/II "A_MPEG/L3"; IPCM and LPCM are PCM, LPCM stays as it is */
+	std::map<std::string, std::string> audioReplacements = {{"A_", ""},		   {"EAC3", "AC3+"},	   {"MPEG/L3", "MP2"},	{"IPCM", "PCM"},
+															{"AAC_PLUS", "AAC+"}, {"AAC_LATM", "AAC"}, {"WMA/PRO", "WMA Pro"}};
 
 	if (!desc.empty()) {
 		for (auto const& x : audioReplacements) {
@@ -905,8 +1001,24 @@ RESULT eServiceApp::getTrackInfo(iAudioTrackInfo& trackInfo, unsigned int n) {
 		}
 	}
 
+	/* newer exteplayer3 versions name the codec ("Dolby Atmos", "HE-AAC v2")
+	 * and send the channel count */
+	if (!track.codec_name.empty()) {
+		desc = track.codec_name;
+	}
+	if (track.channels > 0) {
+		static const char* layouts[] = {"", "1.0", "2.0", "2.1", "4.0", "5.0", "5.1", "6.1", "7.1"};
+		char buf[16];
+		if (track.channels < 9)
+			snprintf(buf, sizeof(buf), " %s", layouts[track.channels]);
+		else
+			snprintf(buf, sizeof(buf), " %dch", track.channels);
+		desc += buf;
+	}
+
 	trackInfo.m_description = desc;
 	trackInfo.m_language = track.language_code;
+	trackInfo.m_pid = track.id;
 	return 0;
 }
 
@@ -936,6 +1048,7 @@ RESULT eServiceApp::enableSubtitles(iSubtitleUser* user, struct SubtitleTrack& t
 	m_subtitle_sync_timer->stop();
 	m_prev_subtitle_message = NULL;
 	m_subtitle_pages = NULL;
+	delete m_selected_subtitle_track;
 	m_selected_subtitle_track = NULL;
 
 	m_decoder_time_valid_state = 0;
@@ -965,7 +1078,10 @@ RESULT eServiceApp::enableSubtitles(iSubtitleUser* user, struct SubtitleTrack& t
 		eWarning("eServiceApp::enableSubtitles - not supported track page_number %d", track.page_number);
 		return -1;
 	}
-	m_selected_subtitle_track = &(m_subtitle_tracks[track_pos]);
+	// own a standalone copy: getSubtitleList() clears m_subtitle_tracks
+	// while playing (the UI calls it to repopulate), which would leave a
+	// pointer into freed vector storage dangling -> UAF in pushSubtitles.
+	m_selected_subtitle_track = new SubtitleTrack(m_subtitle_tracks[track_pos]);
 	m_subtitle_widget = user;
 	return 0;
 }
@@ -976,24 +1092,80 @@ RESULT eServiceApp::disableSubtitles() {
 	m_prev_subtitle_message = NULL;
 	m_embedded_subtitle_pages.clear();
 	m_subtitle_pages = NULL;
+	delete m_selected_subtitle_track;
 	m_selected_subtitle_track = NULL;
 	if (m_subtitle_widget)
 		m_subtitle_widget->destroy();
 	m_subtitle_widget = 0;
+
+	// an embedded track is decoded by the player until it is told to stop
+	player->subtitleSelectTrack(-1);
 
 	m_decoder_time_valid_state = 0;
 	m_prev_decoder_time = -1;
 	return 0;
 }
 
+/* the space separated language codes of a value like config.autolanguage's "deu ger", "---" is none */
+static void appendLanguageCodes(std::vector<std::string>& langs, const std::string& value) {
+	std::istringstream ss(value);
+	std::string code;
+	while (ss >> code) {
+		if (code == "---")
+			continue;
+		std::transform(code.begin(), code.end(), code.begin(), ::tolower);
+		if (std::find(langs.begin(), langs.end(), code) == langs.end())
+			langs.push_back(code);
+	}
+}
+
 RESULT eServiceApp::getCachedSubtitle(struct SubtitleTrack& track) {
-	if (!options->autoTurnOnSubtitles) {
+	if (options->autoTurnOnSubtitles == SUBTITLES_AUTO_OFF) {
 		eDebug("eServiceApp::getCachedSubtitle - auto-turning disabled in config");
 		return -1;
 	}
 	std::vector<struct SubtitleTrack> tracks;
 	if (getSubtitleList(tracks) < 0 || tracks.empty()) {
 		eDebug("eServiceApp::getCachedSubtitle - no subtitles available");
+		return -1;
+	}
+	if (options->autoTurnOnSubtitles == SUBTITLES_AUTO_FORCED) {
+		/* only an embedded forced track (the foreign parts of the audio) in the
+		 * language of the current audio track, else in the preferred audio
+		 * languages of the box */
+		std::vector<std::string> langs;
+		audioStream audio;
+		if (player->audioGetTrackInfo(audio, player->audioGetCurrentTrackNum()) == 0)
+			appendLanguageCodes(langs, audio.language_code);
+		for (int i = 1; i <= 4; i++) {
+			std::string key = "config.autolanguage.audio_autoselect" + std::to_string(i);
+			appendLanguageCodes(langs, eSimpleConfig::getString(key.c_str(), ""));
+		}
+		std::vector<struct SubtitleTrack> forced_tracks;
+		for (auto const& t : tracks) {
+			if (!isEmbeddedTrack(t))
+				continue;
+			ssize_t pos = getTrackPosition(t);
+			if (pos >= 0 && m_subtitle_streams[pos].forced > 0)
+				forced_tracks.push_back(t);
+		}
+		for (auto const& lang : langs) {
+			for (auto const& t : forced_tracks) {
+				std::string code = t.language_code;
+				std::transform(code.begin(), code.end(), code.begin(), ::tolower);
+				if (code == lang) {
+					track = t;
+					eDebug("eServiceApp::getCachedSubtitle - selected forced track (%s)", code.c_str());
+					return 0;
+				}
+			}
+		}
+		if (langs.empty() && !forced_tracks.empty()) {
+			track = forced_tracks.front();
+			eDebug("eServiceApp::getCachedSubtitle - selected forced track, no audio language known");
+			return 0;
+		}
+		eDebug("eServiceApp::getCachedSubtitle - no forced track in the audio language (%zu forced tracks)", forced_tracks.size());
 		return -1;
 	}
 	// TODO consider language setting
@@ -1006,15 +1178,21 @@ RESULT eServiceApp::getCachedSubtitle(struct SubtitleTrack& track) {
 	bool select_embedded = (options->preferEmbeddedSubtitles || external_tracks.empty()) && !embedded_tracks.empty();
 	if (!select_embedded) {
 		struct SubtitleTrack tmp_track = *external_tracks.begin();
-		subtitleStream tmp_stream = m_subtitle_streams[getTrackPosition(tmp_track)];
-		std::string video_base, subtitle_base, extension;
-		splitExtension(m_ref.path, video_base, extension);
-		splitExtension(tmp_stream.path, subtitle_base, extension);
-		if (video_base == subtitle_base || external_tracks.size() == 1) {
-			track = tmp_track;
-			ret = 0;
-		} else {
+		ssize_t tmp_pos = getTrackPosition(tmp_track);
+		if (tmp_pos < 0) {
+			// same unchecked -1 indexing as in pushSubtitles; fall back to embedded tracks
 			select_embedded = !embedded_tracks.empty();
+		} else {
+			subtitleStream tmp_stream = m_subtitle_streams[tmp_pos];
+			std::string video_base, subtitle_base, extension;
+			splitExtension(m_ref.path, video_base, extension);
+			splitExtension(tmp_stream.path, subtitle_base, extension);
+			if (video_base == subtitle_base || external_tracks.size() == 1) {
+				track = tmp_track;
+				ret = 0;
+			} else {
+				select_embedded = !embedded_tracks.empty();
+			}
 		}
 	}
 	if (select_embedded) {
@@ -1140,6 +1318,8 @@ int eServiceApp::getInfo(int w) {
 			return m_framerate;
 		case sProgressive:
 			return m_progressive;
+		case sGamma:
+			return m_gamma;
 		case sAspect: {
 			if (m_height <= 0 || m_width <= 0) {
 				return -1;
@@ -1265,7 +1445,7 @@ std::string eServiceApp::getInfoString(int w) {
 	switch (w) {
 		case sVideoInfo: {
 			char buff[100];
-			snprintf(buff, sizeof(buff), "%d|%d|%d|%d|%d|%d", m_width, m_height, m_framerate, m_progressive, getInfo(sAspect), -1);
+			snprintf(buff, sizeof(buff), "%d|%d|%d|%d|%d|%d", m_width, m_height, m_framerate, m_progressive, getInfo(sAspect), m_gamma);
 			std::string videoInfo = buff;
 			return videoInfo;
 		}
@@ -1293,6 +1473,170 @@ std::string eServiceApp::getInfoString(int w) {
 }
 
 
+// iCueSheet
+/* a resume position this close to the end starts the file from the beginning */
+static const pts_t RESUME_END_MARGIN = 10 * 90000;
+
+PyObject* eServiceApp::getCutList() {
+	ePyObject list = PyList_New(0);
+
+	for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end(); ++i) {
+		ePyObject tuple = PyTuple_New(2);
+		PyTuple_SET_ITEM(tuple, 0, PyLong_FromLongLong(i->where));
+		PyTuple_SET_ITEM(tuple, 1, PyLong_FromLong(i->what));
+		PyList_Append(list, tuple);
+		Py_DECREF(tuple);
+	}
+
+	return list;
+}
+
+void eServiceApp::setCutList(ePyObject list) {
+	if (!PyList_Check(list))
+		return;
+	int size = PyList_Size(list);
+
+	m_cue_entries.clear();
+
+	for (int i = 0; i < size; ++i) {
+		ePyObject tuple = PyList_GET_ITEM(list, i);
+		if (!PyTuple_Check(tuple) || PyTuple_Size(tuple) != 2)
+			continue;
+		ePyObject ppts = PyTuple_GET_ITEM(tuple, 0), ptype = PyTuple_GET_ITEM(tuple, 1);
+		if (!(PyLong_Check(ppts) && PyLong_Check(ptype)))
+			continue;
+		pts_t pts = PyLong_AsLongLong(ppts);
+		int type = PyLong_AsLong(ptype);
+		m_cue_entries.insert(cueEntry(pts, type));
+	}
+	m_cuesheet_changed = 1;
+	m_event((iPlayableService*)this, evCuesheetChanged);
+}
+
+void eServiceApp::setCutListEnable(int enable) {
+	m_cutlist_enabled = enable;
+}
+
+void eServiceApp::loadCuesheet() {
+	if (m_cuesheet_loaded)
+		return;
+	eDebug("eServiceApp::loadCuesheet");
+	m_cuesheet_loaded = true;
+
+	m_cue_entries.clear();
+
+	std::string filename = m_ref.path + ".cuts";
+
+	FILE* f = fopen(filename.c_str(), "rb");
+
+	if (f) {
+		while (1) {
+			unsigned long long where;
+			unsigned int what;
+
+			if (!fread(&where, sizeof(where), 1, f))
+				break;
+			if (!fread(&what, sizeof(what), 1, f))
+				break;
+
+			where = be64toh(where);
+			what = ntohl(what);
+
+			if (what < 256)
+				m_cue_entries.insert(cueEntry(where, what));
+		}
+		fclose(f);
+		eDebug("eServiceApp::loadCuesheet - cuts file has %zd entries", m_cue_entries.size());
+	} else
+		eDebug("eServiceApp::loadCuesheet - cuts file not found");
+
+	/* a last position at (or after) the end would resume into the end of the
+	 * file: drop it, so playback starts from the beginning */
+	pts_t length = 0;
+	for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end(); ++i) {
+		if (i->what == 5) /* CUT_TYPE_LENGTH */
+			length = i->where;
+	}
+	if (length > 0) {
+		for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end();) {
+			if (i->what == 3 && i->where >= length - RESUME_END_MARGIN) { /* CUT_TYPE_LAST */
+				eDebug("eServiceApp::loadCuesheet - last position %lld too close to the end %lld, ignored", (long long)i->where, (long long)length);
+				i = m_cue_entries.erase(i);
+			} else
+				++i;
+		}
+	}
+
+	m_cuesheet_changed = 0;
+	m_event((iPlayableService*)this, evCuesheetChanged);
+}
+
+void eServiceApp::saveCuesheet() {
+	std::string filename = m_ref.path;
+
+	if (::access(filename.c_str(), R_OK) < 0)
+		return;
+
+	filename.append(".cuts");
+
+	/* the latest values, the GUI may have stopped asking for them */
+	pts_t tmp;
+	getPlayPosition(tmp);
+	getLength(tmp);
+
+	/* save old CUT_TYPE_LAST as CUT_TYPE_SAVEDLAST before replacing it */
+	pts_t old_last = 0;
+	for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end();) {
+		if (i->what == 3) { /* CUT_TYPE_LAST */
+			old_last = i->where;
+			i = m_cue_entries.erase(i);
+		} else if (i->what == 4) /* CUT_TYPE_SAVEDLAST */
+			i = m_cue_entries.erase(i);
+		else
+			++i;
+	}
+	if (old_last > 0)
+		m_cue_entries.insert(cueEntry(old_last, 4));
+
+	/* no resume position near the end: the next start begins from 0 */
+	if ((m_cutlist_enabled & 2) == 0 && m_last_seek_pos > 900000 && (m_media_length <= 0 || m_last_seek_pos < m_media_length - RESUME_END_MARGIN)) {
+		m_cue_entries.insert(cueEntry(m_last_seek_pos, 3));
+		eDebug("eServiceApp::saveCuesheet - last play position saved: %lld", (long long)m_last_seek_pos);
+	}
+
+	/* update CUT_TYPE_LENGTH with the media length */
+	for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end();) {
+		if (i->what == 5) /* CUT_TYPE_LENGTH */
+			i = m_cue_entries.erase(i);
+		else
+			++i;
+	}
+	if (m_media_length > 0)
+		m_cue_entries.insert(cueEntry(m_media_length, 5));
+
+	if (m_cue_entries.empty()) {
+		if (::access(filename.c_str(), F_OK) == 0)
+			remove(filename.c_str());
+		return;
+	}
+
+	FILE* f = fopen(filename.c_str(), "wb");
+	if (f) {
+		unsigned long long where;
+		unsigned int what;
+
+		for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end(); ++i) {
+			where = htobe64(i->where);
+			what = htonl(i->what);
+			fwrite(&where, sizeof(where), 1, f);
+			fwrite(&what, sizeof(what), 1, f);
+		}
+		fclose(f);
+		eDebug("eServiceApp::saveCuesheet - cuts file has been written");
+	}
+	m_cuesheet_changed = 0;
+}
+
 DEFINE_REF(eStaticServiceAppInfo);
 
 RESULT eStaticServiceAppInfo::getName(const eServiceReference& ref, std::string& name) {
@@ -1309,7 +1653,27 @@ RESULT eStaticServiceAppInfo::getName(const eServiceReference& ref, std::string&
 }
 
 int eStaticServiceAppInfo::getLength(const eServiceReference& ref) {
-	return -1;
+	/* the length saved in the cut list of a local file (CUT_TYPE_LENGTH), in
+	   seconds, as servicemp3 reports it */
+	if (ref.path.empty() || ref.path.find("://") != std::string::npos)
+		return -1;
+	std::string filename = ref.path + ".cuts";
+	FILE* f = fopen(filename.c_str(), "rb");
+	if (!f)
+		return -1;
+	int length = -1;
+	while (1) {
+		unsigned long long where;
+		unsigned int what;
+		if (!fread(&where, sizeof(where), 1, f) || !fread(&what, sizeof(what), 1, f))
+			break;
+		if (ntohl(what) == 5) {
+			length = (int)(be64toh(where) / 90000);
+			break;
+		}
+	}
+	fclose(f);
+	return length;
 }
 
 int eStaticServiceAppInfo::getInfo(const eServiceReference& ref, int w) {
@@ -1485,7 +1849,7 @@ static PyObject* exteplayer3_set_setting(PyObject* self, PyObject* args) {
 	bool ret = true;
 
 	int settingId;
-	bool aacSwDecoding;
+	unsigned char aacSwDecoding; /* 0 off, 1 ADTS, 2 LATM: no bool, "b" writes a byte */
 	bool ac3SwDecoding;
 	bool eac3SwDecoding;
 	bool dtsSwDecoding;
@@ -1494,8 +1858,13 @@ static PyObject* exteplayer3_set_setting(PyObject* self, PyObject* args) {
 	bool downmix;
 	bool lpcmInjection;
 	int rtmpProtocol;
+	/* optional, exteplayer3 186 and newer */
+	bool dtsTranscode = false;
+	bool truehdTranscode = false;
+	bool heaacTranscode = false;
+	bool hlsBestVariant = false;
 
-	if (!PyArg_ParseTuple(args, "ibbbbbbbbi", &settingId, &aacSwDecoding, &dtsSwDecoding, &wmaSwDecoding, &lpcmInjection, &downmix, &ac3SwDecoding, &eac3SwDecoding, &mp3SwDecoding, &rtmpProtocol))
+	if (!PyArg_ParseTuple(args, "ibbbbbbbbi|bbbb", &settingId, &aacSwDecoding, &dtsSwDecoding, &wmaSwDecoding, &lpcmInjection, &downmix, &ac3SwDecoding, &eac3SwDecoding, &mp3SwDecoding, &rtmpProtocol, &dtsTranscode, &truehdTranscode, &heaacTranscode, &hlsBestVariant))
 		return NULL;
 
 	ExtEplayer3Options* options = NULL;
@@ -1527,20 +1896,30 @@ static PyObject* exteplayer3_set_setting(PyObject* self, PyObject* args) {
 		options->GetSettingMap()[EXT3_LPCM_INJECTION].setValue(lpcmInjection);
 		options->GetSettingMap()[EXT3_RTMP_PROTOCOL].setValue(rtmpProtocol);
 		options->GetSettingMap()[EXT3_DOWNMIX].setValue(downmix);
+		options->GetSettingMap()[EXT3_TRANSCODE_DTS].setValue(dtsTranscode);
+		options->GetSettingMap()[EXT3_TRANSCODE_TRUEHD].setValue(truehdTranscode);
+		options->GetSettingMap()[EXT3_TRANSCODE_HEAAC].setValue(heaacTranscode);
+		options->GetSettingMap()[EXT3_HLS_BEST_VARIANT].setValue(hlsBestVariant);
 	}
+	return Py_BuildValue("b", ret);
+}
+
+static PyObject* serviceapp_can_record(PyObject* self, PyObject* args) {
+	/* recordings need the native 4097 recorder, see eServiceFactoryApp::record */
+	bool ret = (&g_nativeServiceMP3Factory != NULL) || !gReplaceServiceMP3;
 	return Py_BuildValue("b", ret);
 }
 
 static PyObject* serviceapp_set_setting(PyObject* self, PyObject* args) {
 	bool ret = true;
 
-	bool autoTurnOnSubtitles;
+	int autoTurnOnSubtitles;
 	int settingId;
 	bool HLSExplorer;
 	bool autoSelectStream;
 	int32_t connectionSpeedInKb;
 
-	if (!PyArg_ParseTuple(args, "ibbIb", &settingId, &HLSExplorer, &autoSelectStream, &connectionSpeedInKb, &autoTurnOnSubtitles))
+	if (!PyArg_ParseTuple(args, "ibbIi", &settingId, &HLSExplorer, &autoSelectStream, &connectionSpeedInKb, &autoTurnOnSubtitles))
 		return NULL;
 
 	eServiceAppOptions* options = NULL;
@@ -1599,13 +1978,14 @@ static PyMethodDef serviceappMethods[] = {
 	 " eac3SwDecoding - (True, False)\n"
 	 " mp3SwDecoding - (True, False)\n"
 	 " rtmpProtocol - (0|1|2)\n"},
+	{"can_record", serviceapp_can_record, METH_NOARGS, "recording of 5001/5002 streams is available"},
 	{"serviceapp_set_setting", serviceapp_set_setting, METH_VARARGS,
 	 "set serviceapp settings (setting_id, HLSExplorer, autoSelectStream, connectionSpeedInKb, autoTurnOnSubtitles\n\n"
 	 " setting_id - (0 - servicemp3, 1 - servicegst, 2 - serviceextep3, 3 - user)\n"
 	 " HLSExplorer - defines if HLS explorer will be used to retrieve streams from HLS master playlist (True, False))\n"
 	 " autoSelectStream - if there are more streams available, it defines if stream will be auto-selected according to connectionSpeedInKb (True, False)\n"
 	 " connectionSpeedInKb - defines bitrate in kilobits/s according to which will be selected stream from playlist <0, max(int32_t)>\n"
-	 " autoTurnOnSubtitles - auto turn on subtitles if available (True, False)\n"},
+	 " autoTurnOnSubtitles - auto turn on subtitles if available (0/False - off, 1/True - on, 2 - only a forced track in the audio language)\n"},
 	{NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef moduledef = {

@@ -7,19 +7,23 @@
 #include <lib/dvb/subtitle.h>
 #include <lib/service/iservice.h>
 #include <limits>
+#include <set>
 
 #include "common.h"
 #include "extplayer.h"
 #include "m3u8.h"
 #include "scriptrun.h"
 
+/* auto turn on subtitles: 0 and 1 are the former False/True */
+enum { SUBTITLES_AUTO_OFF = 0, SUBTITLES_AUTO_ALL = 1, SUBTITLES_AUTO_FORCED = 2 };
+
 struct eServiceAppOptions {
-	bool autoTurnOnSubtitles;
+	int autoTurnOnSubtitles;
 	bool preferEmbeddedSubtitles;
 	bool HLSExplorer;
 	bool autoSelectStream;
 	unsigned int connectionSpeedInKb;
-	eServiceAppOptions() : autoTurnOnSubtitles(true), preferEmbeddedSubtitles(false), HLSExplorer(true), autoSelectStream(true), connectionSpeedInKb(std::numeric_limits<unsigned int>::max()) {};
+	eServiceAppOptions() : autoTurnOnSubtitles(SUBTITLES_AUTO_ALL), preferEmbeddedSubtitles(false), HLSExplorer(true), autoSelectStream(true), connectionSpeedInKb(std::numeric_limits<unsigned int>::max()) {};
 };
 
 class eServiceApp : public sigc::trackable,
@@ -31,7 +35,8 @@ class eServiceApp : public sigc::trackable,
 					public iAudioTrackSelection,
 					public iSubtitleOutput,
 					public iSubserviceList,
-					public iServiceInformation {
+					public iServiceInformation,
+					public iCueSheet {
 	DECLARE_REF(eServiceApp);
 
 	eServiceReference m_ref;
@@ -56,7 +61,7 @@ class eServiceApp : public sigc::trackable,
 	bool m_event_started;
 	bool m_paused;
 	bool m_debug;
-	int m_framerate, m_width, m_height, m_progressive;
+	int m_framerate, m_width, m_height, m_progressive, m_gamma;
 
 	typedef std::map<uint32_t, subtitleMessage> subtitle_pages_map;
 	typedef std::pair<uint32_t, subtitleMessage> subtitle_pages_map_pair;
@@ -96,6 +101,25 @@ class eServiceApp : public sigc::trackable,
 	void updateEpgCacheNowNext();
 #endif
 	void gotExtPlayerMessage(int message);
+
+	/* cuesheet */
+	struct cueEntry {
+		pts_t where;
+		unsigned int what;
+		bool operator<(const struct cueEntry& o) const {
+			return where < o.where;
+		}
+		cueEntry(const pts_t& where, unsigned int what) : where(where), what(what) {}
+	};
+	std::multiset<cueEntry> m_cue_entries;
+	int m_cuesheet_changed, m_cutlist_enabled;
+	bool m_cuesheet_loaded;
+	bool m_is_streaming;
+	pts_t m_last_seek_pos;
+	pts_t m_media_length;
+	pts_t m_pending_seek;
+	void loadCuesheet();
+	void saveCuesheet();
 
 public:
 	eServiceApp(eServiceReference ref);
@@ -151,8 +175,8 @@ public:
 		return -1;
 	};
 	RESULT cueSheet(ePtr<iCueSheet>& ptr) {
-		ptr = 0;
-		return -1;
+		ptr = this;
+		return 0;
 	};
 	RESULT subtitle(ePtr<iSubtitleOutput>& ptr) {
 		ptr = this;
@@ -200,6 +224,7 @@ public:
 	};
 	int setBufferSize(int size) {
 		(void)size;
+		return 0;
 	}
 
 	// iAudioTrackSelection
@@ -221,6 +246,11 @@ public:
 	// iSubserviceList
 	int getNumberOfSubservices();
 	RESULT getSubservice(eServiceReference& subservice, unsigned int n);
+
+	// iCueSheet
+	PyObject* getCutList();
+	void setCutList(SWIG_PYOBJECT(ePyObject));
+	void setCutListEnable(int enable);
 
 	// iServiceInformation
 	RESULT getName(std::string& name);
@@ -263,10 +293,7 @@ public:
 		ptr = new eServiceApp(ref);
 		return 0;
 	};
-	RESULT record(const eServiceReference&, ePtr<iRecordableService>& ptr) {
-		ptr = 0;
-		return -1;
-	};
+	RESULT record(const eServiceReference& ref, ePtr<iRecordableService>& ptr);
 	RESULT list(const eServiceReference&, ePtr<iListableService>& ptr) {
 		ptr = 0;
 		return -1;

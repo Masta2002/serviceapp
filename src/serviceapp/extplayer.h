@@ -6,10 +6,29 @@
 #include <lib/base/thread.h>
 #include <lib/python/connections.h>
 
+#include <map>
 
 #include "cJSON/cJSON.h"
 #include "myconsole.h"
 #include "subtitles/subtitles.h"
+
+/* null and type safe cJSON reads: the external player can crash or send
+ * incomplete JSON, a missing key or a non-string value must not crash */
+static inline int cJsonGetInt(cJSON *obj, const char *key, int def = 0)
+{
+	cJSON *n = obj ? cJSON_GetObjectItem(obj, key) : NULL;
+	return (n && n->type == cJSON_Number) ? n->valueint : def;
+}
+static inline double cJsonGetDouble(cJSON *obj, const char *key, double def = 0.0)
+{
+	cJSON *n = obj ? cJSON_GetObjectItem(obj, key) : NULL;
+	return (n && n->type == cJSON_Number) ? n->valuedouble : def;
+}
+static inline std::string cJsonGetStr(cJSON *obj, const char *key)
+{
+	cJSON *n = obj ? cJSON_GetObjectItem(obj, key) : NULL;
+	return (n && n->type == cJSON_String && n->valuestring) ? std::string(n->valuestring) : std::string();
+}
 
 #ifndef eLog
  #define eLog(lvl,...)
@@ -61,9 +80,11 @@ struct PlayerMessage
 		error,
 		videoSizeChanged,
 		videoProgressiveChanged,
+		videoGammaChanged,
 		videoFramerateChanged,
 		subtitleAvailable,
 		audioTracksAvailable,
+		audioChanged,
 		windStart,
 		windEnd,
 	};
@@ -75,7 +96,9 @@ struct audioStream
 	int id;
 	std::string language_code; /* iso-639, if available. */
 	std::string description; /* clear text codec description */
-	audioStream(): id(-1){};
+	std::string codec_name; /* e.g. "Dolby Atmos", "HE-AAC v2", if the player sends it */
+	int channels; /* channel count, if the player sends it */
+	audioStream(): id(-1), channels(-1){};
 };
 
 
@@ -88,7 +111,8 @@ struct videoStream
 	int height;
 	int framerate;
 	int progressive;
-	videoStream(): id(-1), width(-1), height(-1), framerate(-1), progressive(-1){};
+	int gamma; /* 0 SDR, 1 HDR, 2 HDR10, 3 HLG as iServiceInformation::sGamma, -1 unknown */
+	videoStream(): id(-1), width(-1), height(-1), framerate(-1), progressive(-1), gamma(-1){};
 };
 
 
@@ -112,10 +136,15 @@ public:
 	virtual int sendUpdatePosition(){ return -1;}
 	virtual int sendUpdateAudioTracksList(){ return -1;}
 	virtual int sendUpdateAudioTrackCurrent(){ return -1;}
+	// periodic re-check of the current audio track, only players that report
+	// live channel count / codec changes
+	virtual int sendPollAudioTrackCurrent(){ return -1;}
 	virtual int sendAudioSelectTrack(int trackId){ return -1;}
 	virtual int sendUpdateSubtitleTracksList(){ return -1;}
 	virtual int sendUpdateSubtitleTrackCurrent(){ return -1;}
 	virtual int sendSubtitleSelectTrack(int trackId){ return -1;}
+	// stop sending subtitles, only players that support it
+	virtual int sendSubtitleDisable(){ return -1;}
 	virtual int sendSeekTo(int seconds){ return -1;}
 	virtual int sendSeekRelative(int seconds){ return -1;}
 	// speed > 1 winds forwards, < 0 backwards
@@ -225,7 +254,9 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 			videoSizeChanged,
 			videoFramerateChanged,
 			videoProgressiveChanged,
+			videoGammaChanged,
 			subtitleAvailable,
+			audioChanged,
 			windStart,
 			windEnd,
 			error,
@@ -251,12 +282,18 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 	std::vector<audioStream> mAudioStreams;
 	std::vector<subtitleStream> mSubtitleStreams;
 	std::queue<subtitleMessage> mSubtitles;
+	// last live channels/codec per track id from "ac", the track list is the
+	// player's open-time snapshot
+	std::map<int, audioStream> mLiveAudio;
+	unsigned int mAudioCheckCounter;
 
 	eFixedMessagePump<Message> mMessageMain, mMessageThread;
 	ePtr<eTimer> mTimer;
 	unsigned int mTimerDelay;
 
 	eSingleLock mSubLock;
+	// protects mAudioStreams/mSubtitleStreams/pCurrent*/pErrorMessage (parser thread vs e2 main thread)
+	eSingleLock mStreamsLock;
 	
 	pthread_mutex_t mWaitMutex;
 	pthread_cond_t mWaitCond;
@@ -292,7 +329,7 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 	void recvVideoTrackCurrent(int status, videoStream& stream);
 	void recvSeekTo(int status, int seconds){eDebug("PlayerBackend::recvSeekTo %ds", seconds);}
 	void recvSeekRelative(int status, int seconds){eDebug("PlayerBackend::recvSeekRelative %ds", seconds);}
-	void recvErrorMessage(errorMessage& message){pErrorMessage = new errorMessage(message);};
+	void recvErrorMessage(errorMessage& message){ eSingleLocker l_(mStreamsLock); if (pErrorMessage) delete pErrorMessage; pErrorMessage = new errorMessage(message);};
 	void recvSubtitleMessage(subtitleMessage& sub);
 	void recvWindEnd(int direction){mMessageMain.send(Message(direction < 0 ? Message::windStart : Message::windEnd));}
 
@@ -308,6 +345,7 @@ public:
 		pCurrentVideo(NULL),
 		pCurrentSubtitle(NULL),
 		pErrorMessage(NULL),
+		mAudioCheckCounter(0),
 		mMessageMain(eApp, 1),
 		mMessageThread(this, 1),
 		mTimerDelay(100), // updated play position timer
@@ -325,6 +363,9 @@ public:
 	}
 	~PlayerBackend()
 	{
+		// join the backend thread first: its recv* callbacks use and
+		// replace the pCurrent... / pErrorMessage objects
+		stop();
 		if (pErrorMessage != NULL)
 			delete pErrorMessage;
 		if (pCurrentVideo != NULL)
@@ -333,7 +374,6 @@ public:
 			delete pCurrentAudio;
 		if (pCurrentSubtitle != NULL)
 			delete pCurrentSubtitle;
-		stop();
 		pthread_mutex_destroy(&mWaitMutex);
 		pthread_cond_destroy(&mWaitCond);
 		pthread_mutex_destroy(&mWaitForStopMutex);

@@ -31,6 +31,10 @@ extern const std::string EXT3_ARG_LCASE_B;
 extern const std::string EXT3_ARG_5;
 extern const std::string EXT3_ARG_6;
 extern const std::string EXT3_ARG_7;
+extern const std::string EXT3_TRANSCODE_DTS;
+extern const std::string EXT3_TRANSCODE_TRUEHD;
+extern const std::string EXT3_TRANSCODE_HEAAC;
+extern const std::string EXT3_HLS_BEST_VARIANT;
 
 struct ExtEplayer3Options : public IOption
 {
@@ -61,10 +65,12 @@ class ExtEplayer3: public PlayerApp, public BasePlayer
 	int sendUpdatePosition();
 	int sendUpdateAudioTracksList();
 	int sendUpdateAudioTrackCurrent();
+	int sendPollAudioTrackCurrent();
 	int sendAudioSelectTrack(int trackId);
 	int sendUpdateSubtitleTracksList();
 	int sendUpdateSubtitleTrackCurrent();
 	int sendSubtitleSelectTrack(int trackId);
+	int sendSubtitleDisable();
 	int sendSeekTo(int seconds);
 	int sendSeekRelative(int seconds);
 	int sendFastForward(int speed);

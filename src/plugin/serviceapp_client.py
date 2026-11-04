@@ -54,13 +54,23 @@ def setUseUserSettings():
 	serviceapp.use_user_settings()
 
 
+def canRecord():
+	return bool(serviceapp.can_record())
+
+
+AUTOTURNON_SUBTITLES_OFF = 0
+AUTOTURNON_SUBTITLES_ALL = 1
+AUTOTURNON_SUBTITLES_FORCED = 2
+
+
 def setServiceAppSettings(settingId, HLSExplorer, autoSelectStream, connectionSpeedInKb, autoTurnOnSubtitles=True):
+	# autoTurnOnSubtitles: False/True as before or AUTOTURNON_SUBTITLES_*
 	return serviceapp.serviceapp_set_setting(
 		settingId,
 		HLSExplorer,
 		autoSelectStream,
 		connectionSpeedInKb,
-		autoTurnOnSubtitles
+		int(autoTurnOnSubtitles)
 	)
 
 
@@ -75,7 +85,7 @@ def setGstreamerPlayerSettings(settingId, videoSink, audioSink, subtitleEnabled,
 	)
 
 
-def setExtEplayer3Settings(settingId, aacSwDecoding, dtsSwDecoding, wmaSwDecoding, lpcmInjection, downmix, ac3SwDecoding=False, eac3SwDecoding=False, mp3SwDecoding=False, rtmpProtocol=0):
+def setExtEplayer3Settings(settingId, aacSwDecoding, dtsSwDecoding, wmaSwDecoding, lpcmInjection, downmix, ac3SwDecoding=False, eac3SwDecoding=False, mp3SwDecoding=False, rtmpProtocol=0, dtsTranscode=False, truehdTranscode=False, heaacTranscode=False, hlsBestVariant=False):
 	return serviceapp.exteplayer3_set_setting(
 		settingId,
 		aacSwDecoding,
@@ -86,5 +96,9 @@ def setExtEplayer3Settings(settingId, aacSwDecoding, dtsSwDecoding, wmaSwDecodin
 		ac3SwDecoding,
 		eac3SwDecoding,
 		mp3SwDecoding,
-		rtmpProtocol
+		rtmpProtocol,
+		dtsTranscode,
+		truehdTranscode,
+		heaacTranscode,
+		hlsBestVariant
 	)
