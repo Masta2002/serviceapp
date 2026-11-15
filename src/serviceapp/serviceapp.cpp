@@ -264,6 +264,11 @@ eServiceApp::eServiceApp(eServiceReference ref)
 	CONNECT(m_event_updated_info_timer->timeout, eServiceApp::signalEventUpdatedInfo);
 	m_passthrough_fix_timer = eTimer::create(eApp);
 	CONNECT(m_passthrough_fix_timer->timeout, eServiceApp::passthroughFix);
+	m_decoder_video_checks = 0;
+	m_decoder_video_position = -1;
+	m_decoder_video = false;
+	m_decoder_video_timer = eTimer::create(eApp);
+	CONNECT(m_decoder_video_timer->timeout, eServiceApp::checkDecoderVideo);
 
 #ifdef HAVE_EPG
 	m_nownext_timer = eTimer::create(eApp);
@@ -282,6 +287,7 @@ eServiceApp::~eServiceApp() {
 	if (m_subtitle_widget)
 		m_subtitle_widget->destroy();
 	m_subtitle_widget = 0;
+	m_decoder_video_timer->stop();
 #ifdef HAVE_EPG
 	m_nownext_timer->stop();
 #endif
@@ -579,6 +585,72 @@ exit:
 	m_subtitle_sync_timer->start(next_timer, true);
 }
 
+/* A stream FFmpeg has not seen a picture of (HLS, live TS over HTTP) is
+ * reported by the player as a video track with a size of 0x0 and a guessed
+ * frame rate. The decoder knows the picture a moment later; an exteplayer3
+ * that does not pass that on leaves sVideoWidth/sVideoHeight unknown. The
+ * values are then read where enigma2 reads them for its own services. */
+void eServiceApp::startDecoderVideoCheck() {
+	if (m_decoder_video) {
+		/* values of the stream played before this start */
+		m_width = m_height = -1;
+		m_decoder_video = false;
+	}
+	m_decoder_video_checks = 0;
+	m_decoder_video_position = -1;
+	m_decoder_video_timer->start(2000, true);
+}
+
+void eServiceApp::checkDecoderVideo() {
+	static const int max_checks = 30;
+	if (!m_decoder_video && m_width > 0 && m_height > 0)
+		return; // the player knows the size
+	videoStream v;
+	pts_t position = -1;
+	bool playing = false;
+	/* Right after the start the decoder still has the values of what it
+	 * showed before. It shows this stream once the play position moves. */
+	if (!player->videoGetTrackInfo(v, 0) && v.id >= 0 && getPlayPosition(position) >= 0) {
+		if (m_decoder_video_position < 0)
+			m_decoder_video_position = position;
+		else
+			playing = position != m_decoder_video_position;
+	}
+	if (playing) {
+		/* formats as in eAVControl of enigma2: size hexadecimal, frame rate decimal */
+		int width = -1, height = -1;
+		if (CFile::parseIntHex(&width, "/proc/stb/vmpeg/0/xres") == -1 || CFile::parseIntHex(&height, "/proc/stb/vmpeg/0/yres") == -1)
+			return; // no such decoder information on this box
+		if (width > 0 && height > 0) {
+			bool confirmed = m_decoder_video && width == m_width && height == m_height;
+			int framerate = -1, progressive = -1;
+			CFile::parseInt(&framerate, "/proc/stb/vmpeg/0/framerate");
+			CFile::parseIntHex(&progressive, "/proc/stb/vmpeg/0/progressive");
+			m_decoder_video = true;
+			if (m_debug)
+				eDebug("eServiceApp::checkDecoderVideo - %dx%d framerate %d progressive %d", width, height, framerate, progressive);
+			if (width != m_width || height != m_height) {
+				m_width = width;
+				m_height = height;
+				m_event(this, evVideoSizeChanged);
+			}
+			/* without a picture size the frame rate of the player is a guess */
+			if (framerate > 0 && framerate != m_framerate) {
+				m_framerate = framerate;
+				m_event(this, evVideoFramerateChanged);
+			}
+			if (progressive >= 0 && m_progressive < 0) {
+				m_progressive = progressive ? 1 : 0;
+				m_event(this, evVideoProgressiveChanged);
+			}
+			if (confirmed)
+				return; // read twice with the same result
+		}
+	}
+	if (++m_decoder_video_checks < max_checks)
+		m_decoder_video_timer->start(2000, true);
+}
+
 void eServiceApp::signalEventUpdatedInfo() {
 	if (m_debug)
 		eDebug("eServiceApp::signalEventUpdatedInfo");
@@ -622,6 +694,7 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 				m_pending_seek = -1;
 			}
 			m_event_updated_info_timer->start(1000, true);
+			startDecoderVideoCheck();
 			if (m_cachedAudioTrack >= 0)
 				player->audioGetNumberOfTracks(0); // Asynchronous; do not wait on the GUI thread.
 #ifdef HAVE_EPG
@@ -669,8 +742,15 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 				eDebug("eServiceApp::gotExtPlayerMessage - videoSizeChanged");
 			videoStream v;
 			if (!player->videoGetTrackInfo(v, 0)) {
-				m_width = v.width;
-				m_height = v.height;
+				if (v.width > 0 && v.height > 0) {
+					m_width = v.width;
+					m_height = v.height;
+					m_decoder_video = false;
+				} else {
+					/* the size got unknown (other track): ask the decoder again */
+					m_width = m_height = -1;
+					startDecoderVideoCheck();
+				}
 			}
 			m_event(this, evVideoSizeChanged);
 			break;
@@ -809,6 +889,7 @@ RESULT eServiceApp::stop() {
 		saveCuesheet();
 	if (m_resolver)
 		m_resolver->stop();
+	m_decoder_video_timer->stop();
 	player->stop();
 	return 0;
 }

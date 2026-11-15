@@ -95,6 +95,16 @@ class eServiceApp : public sigc::trackable,
 	void urlResolved(int success);
 	void passthroughFix();
 
+	/* picture size, frame rate and progressive from the video decoder
+	 * (/proc/stb/vmpeg/0) while the player reports a video track without
+	 * a picture size */
+	ePtr<eTimer> m_decoder_video_timer;
+	int m_decoder_video_checks;
+	pts_t m_decoder_video_position;
+	bool m_decoder_video;
+	void startDecoderVideoCheck();
+	void checkDecoderVideo();
+
 #ifdef HAVE_EPG
 	ePtr<eTimer> m_nownext_timer;
 	ePtr<eServiceEvent> m_event_now, m_event_next;
