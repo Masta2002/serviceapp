@@ -298,6 +298,14 @@ int PlayerBackend::seekTo(int seconds)
 	return 0;
 }
 
+int PlayerBackend::seekToMs(int mseconds)
+{
+	if (!playbackStarted)
+		return -1;
+	mMessageThread.send(Message(Message::tSeekToMs, mseconds));
+	return 0;
+}
+
 int PlayerBackend::seekRelative(int seconds)
 {
 	if (!playbackStarted)
@@ -338,8 +346,9 @@ int PlayerBackend::getLength(int& mseconds)
 
 int PlayerBackend::getErrorMessage(errorMessage& error)
 {
+	// also before the start: the reason a stream could not be opened
 	eSingleLocker l_(mStreamsLock);
-	if (!playbackStarted || !pErrorMessage)
+	if (!pErrorMessage)
 	{
 		return -1;
 	}
@@ -374,12 +383,27 @@ int PlayerBackend::audioGetCurrentTrackNum()
 	return trackNum;
 }
 
+int PlayerBackend::audioSelectChannel(int channel)
+{
+	if (channel < 0 || channel > 2 || !pPlayer->canSelectChannel())
+		return -1;
+	mAudioChannel = channel;
+	mMessageThread.send(Message(Message::tAudioChannel, channel));
+	return 0;
+}
+
 int PlayerBackend::audioSelectTrack(int trackNum)
 {
 	eSingleLocker l_(mStreamsLock);
 	if (trackNum >= 0 && trackNum < (int) mAudioStreams.size())
 	{
 		mMessageThread.send(Message(Message::tAudioSelect, mAudioStreams[trackNum].id));
+		/* the new track at once: the audio selection asks getCurrentTrack()
+		 * right after the switch, the answer a_s comes later and corrects
+		 * this if the switch failed */
+		if (pCurrentAudio != NULL)
+			delete pCurrentAudio;
+		pCurrentAudio = new audioStream(mAudioStreams[trackNum]);
 		return 0;
 	}
 	return -1;
@@ -440,6 +464,11 @@ int PlayerBackend::subtitleSelectTrack(int trackNum)
 	if (trackNum >= 0 && trackNum < (int) mSubtitleStreams.size())
 	{
 		mMessageThread.send(Message(Message::tSubtitleSelect, mSubtitleStreams[trackNum].id));
+		/* the new track at once: the GUI asks right after the selection,
+		 * the answer s_s comes later; it corrects this if it differs */
+		if (pCurrentSubtitle != NULL)
+			delete pCurrentSubtitle;
+		pCurrentSubtitle = new subtitleStream(mSubtitleStreams[trackNum]);
 		return 0;
 	}
 	return -1;
@@ -548,6 +577,33 @@ void PlayerBackend::gotMessage(const PlayerBackend::Message& message)
 			if(mDebug)
 				eDebug("PlayerBackend::gotMessage - tSubtitleList");
 			pPlayer->sendUpdateSubtitleTracksList();
+			break;
+		case Message::tAudioChannel:
+			if(mDebug)
+				eDebug("PlayerBackend::gotMessage - tAudioChannel %d", message.dataInt);
+			pPlayer->sendAudioChannel(message.dataInt);
+			break;
+		case Message::subtitleFlush:
+			gotPlayerMessage(PlayerMessage::subtitleFlush);
+			break;
+		case Message::subtitleTracksChanged:
+			if(mDebug)
+				eDebug("PlayerBackend::gotMessage - subtitleTracksChanged");
+			gotPlayerMessage(PlayerMessage::subtitleTracksChanged);
+			break;
+		case Message::metadataChanged:
+			gotPlayerMessage(PlayerMessage::metadataChanged);
+			break;
+		case Message::tSeekToMs:
+			if(mDebug)
+				eDebug("PlayerBackend::gotMessage - tSeekToMs %d", message.dataInt);
+			pPlayer->sendSeekToMs(message.dataInt);
+			break;
+		case Message::chaptersChanged:
+			gotPlayerMessage(PlayerMessage::chaptersChanged);
+			break;
+		case Message::coverAvailable:
+			gotPlayerMessage(PlayerMessage::coverAvailable);
 			break;
 		case Message::tGetLength:
 			if(mDebug)
@@ -667,6 +723,7 @@ void PlayerBackend::recvStopped(int retval)
 	pthread_mutex_unlock(&mWaitForStopMutex);
 	if(mDebug)
 		eDebug("PlayerBackend::recvStopped - retval = %d", retval);
+	mExitCode = retval;
 	quit(0);
 	mMessageMain.send(Message(Message::stop));
 }
@@ -784,16 +841,40 @@ void PlayerBackend::recvAudioTrackSelected(int status, int trackId)
 			}
 		}
 	}
+	else
+	{
+		/* the switch failed: ask for the real track instead of the one
+		 * audioSelectTrack() assumed */
+		pPlayer->sendUpdateAudioTrackCurrent();
+	}
 }
 
 void PlayerBackend::recvSubtitleTracksList(int status, std::vector<subtitleStream>& streams)
-{ 
-	if(!status) 
+{
+	bool changed = false;
+	if(!status)
 	{
 		eSingleLocker l_(mStreamsLock);
+		changed = playbackStarted && streams.size() != mSubtitleStreams.size();
 		mSubtitleStreams = streams;
 	}
+	pthread_mutex_lock(&mWaitMutex);
+	bool asked = mWaitForUpdate;
+	pthread_mutex_unlock(&mWaitMutex);
 	recvMessage();
+	/* exteplayer3 sends the list again by itself when closed captions show up */
+	if (changed && !asked)
+		mMessageMain.send(Message(Message::subtitleTracksChanged));
+}
+
+void PlayerBackend::recvSubtitleFlush()
+{
+	{
+		eSingleLocker s(mSubLock);
+		while (!mSubtitles.empty())
+			mSubtitles.pop();
+	}
+	mMessageMain.send(Message(Message::subtitleFlush));
 }
 
 void PlayerBackend::recvSubtitleTrackCurrent(int status, subtitleStream& stream)
@@ -833,6 +914,12 @@ void PlayerBackend::recvSubtitleTrackSelected(int status, int trackId)
 			}
 		}
 	}
+	else
+	{
+		/* the switch failed: ask for the real track instead of the one
+		 * subtitleSelectTrack() assumed */
+		pPlayer->sendUpdateSubtitleTrackCurrent();
+	}
 }
 
 void PlayerBackend::recvVideoTrackCurrent(int status, videoStream& stream)
@@ -856,7 +943,9 @@ void PlayerBackend::recvVideoTrackCurrent(int status, videoStream& stream)
 			mMessageMain.send(Message(Message::videoGammaChanged));
 		if (stream.framerate > 0 && prev.framerate != stream.framerate)
 			mMessageMain.send(Message(Message::videoFramerateChanged));
-		if ((stream.width > 0 && prev.width != stream.width) || (stream.height > 0 && prev.height != stream.height))
+		// also when a known size gets unknown (other track): no stale size
+		if ((prev.width != stream.width && (stream.width > 0 || prev.width > 0))
+			|| (prev.height != stream.height && (stream.height > 0 || prev.height > 0)))
 			mMessageMain.send(Message(Message::videoSizeChanged));
 	}
 }

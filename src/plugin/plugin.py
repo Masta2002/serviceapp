@@ -93,11 +93,37 @@ for key in list(config_serviceapp.exteplayer3.keys()):
 	config_serviceapp.exteplayer3[key].lpcm_injecion = ConfigYesNo(default=False)
 	config_serviceapp.exteplayer3[key].downmix = ConfigYesNo(default=False)
 	config_serviceapp.exteplayer3[key].rtmp_protocol = ConfigSelection(default="auto", choices=["auto", "ffmpeg", "librtmp"])
-	# exteplayer3 186 and newer
-	config_serviceapp.exteplayer3[key].dts_transcode = ConfigYesNo(default=False)
-	config_serviceapp.exteplayer3[key].truehd_transcode = ConfigYesNo(default=False)
-	config_serviceapp.exteplayer3[key].heaac_transcode = ConfigYesNo(default=False)
-	config_serviceapp.exteplayer3[key].hls_best_variant = ConfigYesNo(default=False)
+	# exteplayer3 187, offered by the "xcode" bits of the player (names as in OpenBH/OpenViX)
+	config_serviceapp.exteplayer3[key].dts_transcoding = ConfigSelection(default="no", choices=[("no", _("No")), ("ac3", _("Dolby Digital")), ("eac3", _("Dolby Digital +"))])
+	config_serviceapp.exteplayer3[key].truehd_transcoding = ConfigSelection(default="no", choices=[("no", _("No")), ("ac3", _("Dolby Digital")), ("eac3", _("Dolby Digital +"))])
+	config_serviceapp.exteplayer3[key].aac_he_transcoding = ConfigSelection(default="no", choices=[("no", _("No")), ("aaclc", _("AAC-LC"))])
+	# exteplayer3 185 and newer: -Q and -D
+	config_serviceapp.exteplayer3[key].hls_quality = ConfigSelection(default="0", choices=[("0", _("Auto")), ("1", _("Lowest")), ("2", _("Highest"))])
+	config_serviceapp.exteplayer3[key].hls_default_audio = ConfigYesNo(default=False)
+
+
+# what the installed exteplayer3 reports in EPLAYER3_EXTENDED: version and feature keys
+EXTEPLAYER3_CAPS = {}
+
+# where servicemp3 puts the cover of a file (evUser+13), exteplayer3 --cover
+COVER_FILE = "/tmp/.id3coverart"
+
+# EPLAYER3_EXTENDED "xcode" bits
+XCODE_AC3 = 1
+XCODE_AACLC = 2
+XCODE_EAC3 = 4
+
+
+def exteplayer3_xcode():
+	try:
+		return int(EXTEPLAYER3_CAPS.get("xcode", 0))
+	except (TypeError, ValueError):
+		return 0
+
+
+def exteplayer3_has_hls_options():
+	# -Q 0|1|2 and -D 0|1 with a value: OE-A and skyjet 185 and newer
+	return bool(EXTEPLAYER3_VERSION) and EXTEPLAYER3_VERSION >= 185
 
 
 def key_to_setting_id(key):
@@ -148,8 +174,9 @@ def init_serviceapp_settings():
 				player_cfg.buffer_size.value,
 				player_cfg.buffer_duration.value)
 
-	# the options of exteplayer3 186 and newer, an older player does not start with them
-	new_options = EXTEPLAYER3_VERSION is not None and EXTEPLAYER3_VERSION >= 186
+	# a player does not start with an option it does not know: send only what it reports
+	xcode = exteplayer3_xcode()
+	hls_options = exteplayer3_has_hls_options()
 	for key in list(config_serviceapp.exteplayer3.keys()):
 		setting_id = key_to_setting_id(key)
 		player_cfg = config_serviceapp.exteplayer3[key]
@@ -173,10 +200,14 @@ def init_serviceapp_settings():
 			player_cfg.eac3_swdecoding.value,
 			player_cfg.mp3_swdecoding.value,
 			rtmp_proto_val,
-			new_options and player_cfg.dts_transcode.value,
-			new_options and player_cfg.truehd_transcode.value,
-			new_options and player_cfg.heaac_transcode.value,
-			new_options and player_cfg.hls_best_variant.value)
+			bool(xcode & XCODE_AC3) and player_cfg.dts_transcoding.value == "ac3",
+			bool(xcode & XCODE_AC3) and player_cfg.truehd_transcoding.value == "ac3",
+			bool(xcode & XCODE_AACLC) and player_cfg.aac_he_transcoding.value == "aaclc",
+			bool(xcode & XCODE_EAC3) and player_cfg.dts_transcoding.value == "eac3",
+			bool(xcode & XCODE_EAC3) and player_cfg.truehd_transcoding.value == "eac3",
+			int(player_cfg.hls_quality.value) if hls_options else 0,
+			1 if hls_options and player_cfg.hls_default_audio.value else 0,
+			COVER_FILE if EXTEPLAYER3_CAPS.get("cover") else None)
 
 	if config_serviceapp.servicemp3.player.value == "gstplayer":
 		serviceapp_client.setServiceMP3GstPlayer()
@@ -187,21 +218,26 @@ def init_serviceapp_settings():
 init_serviceapp_settings()
 
 
-def _exteplayer3_version_from_output(data):
+def _exteplayer3_caps_from_output(data):
+	if isinstance(data, bytes):
+		data = data.decode("utf-8", "ignore")
 	for line in data.splitlines():
 		try:
-			return int(loads(line)["EPLAYER3_EXTENDED"]["version"])
+			caps = loads(line)["EPLAYER3_EXTENDED"]
+			caps["version"] = int(caps["version"])
+			return caps
 		except (ValueError, KeyError, TypeError):
 			pass
 	return None
 
 
 def _exteplayer3_version_detected(data, retval, extra_args):
-	global EXTEPLAYER3_VERSION
-	version = _exteplayer3_version_from_output(data)
-	if version is not None and version != EXTEPLAYER3_VERSION:
-		EXTEPLAYER3_VERSION = version
-		print("[ServiceApp] found exteplayer3 - %d version" % version)
+	global EXTEPLAYER3_VERSION, EXTEPLAYER3_CAPS
+	caps = _exteplayer3_caps_from_output(data)
+	if caps is not None and caps != EXTEPLAYER3_CAPS:
+		EXTEPLAYER3_CAPS = caps
+		EXTEPLAYER3_VERSION = caps["version"]
+		print("[ServiceApp] found exteplayer3 - %d version, %s" % (EXTEPLAYER3_VERSION, caps))
 		init_serviceapp_settings()
 
 
@@ -234,12 +270,24 @@ class ServiceAppSettings(Setup):
 		config_list.append((self.indent + _("Stereo downmix"), exteplayer3_options_cfg.downmix, _("Turn on downmix to stereo, when software decoding is in use")))
 		config_list.append((self.indent + _("LPCM injection"), exteplayer3_options_cfg.lpcm_injecion, _("Software decoder use LPCM for injection (otherwise wav PCM will be used)")))
 		config_list.append((self.indent + _("RTMP protocol implementation"), exteplayer3_options_cfg.rtmp_protocol, _("Set which RTMP protocol implementation will be used for playback of RTMP streams")))
-		# the options of exteplayer3 186 and newer, older versions do not start with them
-		if EXTEPLAYER3_VERSION and EXTEPLAYER3_VERSION >= 186:
-			config_list.append((self.indent + _("DTS to AC3 5.1"), exteplayer3_options_cfg.dts_transcode, _("Transcode DTS and DTS-HD to AC3 5.1, for receivers and amplifiers without DTS.")))
-			config_list.append((self.indent + _("TrueHD to AC3 5.1"), exteplayer3_options_cfg.truehd_transcode, _("Transcode Dolby TrueHD to AC3 5.1.")))
-			config_list.append((self.indent + _("HE-AAC to AAC-LC"), exteplayer3_options_cfg.heaac_transcode, _("Transcode HE-AAC to AAC-LC, for decoders without HE-AAC.")))
-			config_list.append((self.indent + _("Best HLS quality"), exteplayer3_options_cfg.hls_best_variant, _("Play the best variant of a HLS stream instead of the first one. Needs a receiver that decodes it.")))
+		# only what the installed player reports, it does not start with an unknown option
+		xcode = exteplayer3_xcode()
+		if xcode & XCODE_AC3:
+			choices = [("no", _("No")), ("ac3", _("Dolby Digital"))]
+			if xcode & XCODE_EAC3:
+				choices.append(("eac3", _("Dolby Digital +")))
+			for cfg in (exteplayer3_options_cfg.dts_transcoding, exteplayer3_options_cfg.truehd_transcoding):
+				value = cfg.value
+				cfg.setChoices(choices, default="no")
+				if value in [c[0] for c in choices]:
+					cfg.value = value
+			config_list.append((self.indent + _("DTS / DTS-HD transcoding"), exteplayer3_options_cfg.dts_transcoding, _("Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +.")))
+			config_list.append((self.indent + _("Dolby TrueHD transcoding"), exteplayer3_options_cfg.truehd_transcoding, _("Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +.")))
+		if xcode & XCODE_AACLC:
+			config_list.append((self.indent + _("HE-AAC transcoding"), exteplayer3_options_cfg.aac_he_transcoding, _("Choose whether HE-AAC sound tracks should be transcoded to AAC-LC.")))
+		if exteplayer3_has_hls_options():
+			config_list.append((self.indent + _("HLS quality"), exteplayer3_options_cfg.hls_quality, _("Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest.")))
+			config_list.append((self.indent + _("HLS default audio only"), exteplayer3_options_cfg.hls_default_audio, _("Offer only the default audio track of a HLS stream instead of all of its languages.")))
 
 	def serviceapp_options(self, serviceapp_options_cfg, config_list):
 		config_list.append((self.indent + _("Auto turn on subtitles"), serviceapp_options_cfg.autoturnon_subtitles, _("Automatically turn on subtitles if available.") + " " + _("Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages.")))
@@ -370,18 +418,16 @@ class ServiceAppDetectPlayers(Screen):
 			print("[ServiceApp] found gstplayer - %d version" % GSTPLAYER_VERSION)
 
 	def detect_exteplayer3(self, data, retval, extra_args):
-		global EXTEPLAYER3_VERSION
-		EXTEPLAYER3_VERSION = None
-		jsondata = self._get_first_json_data_from_string(data)
-		if jsondata is None:
-			print("[ServiceApp] cannot detect exteplayer3 version(1)!")
-			return
-		try:
-			EXTEPLAYER3_VERSION = jsondata["EPLAYER3_EXTENDED"]["version"]
-		except KeyError:
-			print("[ServiceApp] cannot detect exteplayer3 version(2)!")
+		global EXTEPLAYER3_VERSION, EXTEPLAYER3_CAPS
+		caps = _exteplayer3_caps_from_output(data)
+		if caps is None:
+			EXTEPLAYER3_VERSION = None
+			EXTEPLAYER3_CAPS = {}
+			print("[ServiceApp] cannot detect exteplayer3 version!")
 		else:
-			print("[ServiceApp] found exteplayer3 - %d version" % EXTEPLAYER3_VERSION)
+			EXTEPLAYER3_VERSION = caps["version"]
+			EXTEPLAYER3_CAPS = caps
+			print("[ServiceApp] found exteplayer3 - %d version, %s" % (EXTEPLAYER3_VERSION, caps))
 
 
 def main(session, **kwargs):

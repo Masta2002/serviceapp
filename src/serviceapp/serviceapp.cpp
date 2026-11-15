@@ -1,5 +1,7 @@
 #include "Python.h"
 #include <algorithm>
+#include <cctype>
+#include <ctime>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 #include <sstream>
@@ -264,6 +266,20 @@ eServiceApp::eServiceApp(eServiceReference ref)
 	CONNECT(m_event_updated_info_timer->timeout, eServiceApp::signalEventUpdatedInfo);
 	m_passthrough_fix_timer = eTimer::create(eApp);
 	CONNECT(m_passthrough_fix_timer->timeout, eServiceApp::passthroughFix);
+	m_decoder_video_checks = 0;
+	m_decoder_video_position = -1;
+	m_decoder_video = false;
+	m_decoder_video_timer = eTimer::create(eApp);
+	CONNECT(m_decoder_video_timer->timeout, eServiceApp::checkDecoderVideo);
+	m_live_reconnects = 0;
+	m_player_start_time = 0;
+	m_player_started = false;
+	m_stopping = false;
+	m_reconnected = false;
+	m_reconnect_channel = STEREO;
+	m_start_path = m_ref.path;
+	m_live_reconnect_timer = eTimer::create(eApp);
+	CONNECT(m_live_reconnect_timer->timeout, eServiceApp::liveReconnect);
 
 #ifdef HAVE_EPG
 	m_nownext_timer = eTimer::create(eApp);
@@ -282,6 +298,8 @@ eServiceApp::~eServiceApp() {
 	if (m_subtitle_widget)
 		m_subtitle_widget->destroy();
 	m_subtitle_widget = 0;
+	m_decoder_video_timer->stop();
+	m_live_reconnect_timer->stop();
 #ifdef HAVE_EPG
 	m_nownext_timer->stop();
 #endif
@@ -436,7 +454,14 @@ void eServiceApp::addEmbeddedTrack(std::vector<struct SubtitleTrack>& subtitleli
 	track.magazine_number = 0;
 	track.pid = pid;
 	track.language_code = s.language_code;
-	if (s.forced) {
+	/* the title of the track ("SDH", "CC1"), "forced" for a forced one without */
+	if (!s.title.empty()) {
+		track.title = s.title;
+		std::string lower(s.title);
+		std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+		if (s.forced && lower.find("forced") == std::string::npos)
+			track.title += " forced";
+	} else if (s.forced) {
 		track.title = "forced";
 	}
 
@@ -579,6 +604,72 @@ exit:
 	m_subtitle_sync_timer->start(next_timer, true);
 }
 
+/* A stream FFmpeg has not seen a picture of (HLS, live TS over HTTP) is
+ * reported by the player as a video track with a size of 0x0 and a guessed
+ * frame rate. The decoder knows the picture a moment later; an exteplayer3
+ * that does not pass that on leaves sVideoWidth/sVideoHeight unknown. The
+ * values are then read where enigma2 reads them for its own services. */
+void eServiceApp::startDecoderVideoCheck() {
+	if (m_decoder_video) {
+		/* values of the stream played before this start */
+		m_width = m_height = -1;
+		m_decoder_video = false;
+	}
+	m_decoder_video_checks = 0;
+	m_decoder_video_position = -1;
+	m_decoder_video_timer->start(2000, true);
+}
+
+void eServiceApp::checkDecoderVideo() {
+	static const int max_checks = 30;
+	if (!m_decoder_video && m_width > 0 && m_height > 0)
+		return; // the player knows the size
+	videoStream v;
+	pts_t position = -1;
+	bool playing = false;
+	/* Right after the start the decoder still has the values of what it
+	 * showed before. It shows this stream once the play position moves. */
+	if (!player->videoGetTrackInfo(v, 0) && v.id >= 0 && getPlayPosition(position) >= 0) {
+		if (m_decoder_video_position < 0)
+			m_decoder_video_position = position;
+		else
+			playing = position != m_decoder_video_position;
+	}
+	if (playing) {
+		/* formats as in eAVControl of enigma2: size hexadecimal, frame rate decimal */
+		int width = -1, height = -1;
+		if (CFile::parseIntHex(&width, "/proc/stb/vmpeg/0/xres") == -1 || CFile::parseIntHex(&height, "/proc/stb/vmpeg/0/yres") == -1)
+			return; // no such decoder information on this box
+		if (width > 0 && height > 0) {
+			bool confirmed = m_decoder_video && width == m_width && height == m_height;
+			int framerate = -1, progressive = -1;
+			CFile::parseInt(&framerate, "/proc/stb/vmpeg/0/framerate");
+			CFile::parseIntHex(&progressive, "/proc/stb/vmpeg/0/progressive");
+			m_decoder_video = true;
+			if (m_debug)
+				eDebug("eServiceApp::checkDecoderVideo - %dx%d framerate %d progressive %d", width, height, framerate, progressive);
+			if (width != m_width || height != m_height) {
+				m_width = width;
+				m_height = height;
+				m_event(this, evVideoSizeChanged);
+			}
+			/* without a picture size the frame rate of the player is a guess */
+			if (framerate > 0 && framerate != m_framerate) {
+				m_framerate = framerate;
+				m_event(this, evVideoFramerateChanged);
+			}
+			if (progressive >= 0 && m_progressive < 0) {
+				m_progressive = progressive ? 1 : 0;
+				m_event(this, evVideoProgressiveChanged);
+			}
+			if (confirmed)
+				return; // read twice with the same result
+		}
+	}
+	if (++m_decoder_video_checks < max_checks)
+		m_decoder_video_timer->start(2000, true);
+}
+
 void eServiceApp::signalEventUpdatedInfo() {
 	if (m_debug)
 		eDebug("eServiceApp::signalEventUpdatedInfo");
@@ -588,7 +679,14 @@ void eServiceApp::signalEventUpdatedInfo() {
 	bool is_passthrough_fix_enabled = eSimpleConfig::getBool("config.plugins.serviceapp.passthrough_fix_enable", false);
 	if (is_passthrough_fix_enabled) {
 		std::string pass = CFile::read("/proc/stb/audio/ac3");
-		if (replace_all(replace_all(pass, "\r", ""), "\n", "") == "passthrough") {
+		/* the AC3+ workaround seeks back a second: only for an E-AC-3 track,
+		 * the proc value stays "passthrough" after an AC3+ service and the
+		 * seek also hit AAC and AC3 streams */
+		audioStream track;
+		int current = player->audioGetCurrentTrackNum();
+		bool eac3 = current >= 0 && player->audioGetTrackInfo(track, current) == 0 &&
+					(track.description == "A_EAC3" || track.codec_name == "Dolby Digital +" || track.codec_name == "Dolby Atmos");
+		if (eac3 && replace_all(replace_all(pass, "\r", ""), "\n", "") == "passthrough") {
 			int passthrough_delay = eSimpleConfig::getInt("config.plugins.serviceapp.passthrough_fix_delay", 0);
 			m_passthrough_fix_timer->stop();
 			m_passthrough_fix_timer->start(passthrough_delay, true);
@@ -613,15 +711,26 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 		case PlayerMessage::start:
 			if (m_debug)
 				eDebug("eServiceApp::gotExtPlayerMessage - start");
+			m_player_started = true;
+			m_player_start_time = ::time(0);
+			if (m_reconnected) {
+				/* the new player starts without the subtitle track of the old one */
+				m_reconnected = false;
+				if (m_selected_subtitle_track && isEmbeddedTrack(*m_selected_subtitle_track))
+					player->subtitleSelectTrack(m_selected_subtitle_track->pid);
+				if (m_reconnect_channel != STEREO)
+					player->audioSelectChannel(m_reconnect_channel);
+			}
 			if (!m_is_streaming && !m_cuesheet_loaded)
 				loadCuesheet();
 			if (m_pending_seek >= 0) {
 				/* a resume seek that came before the player accepted commands */
 				eDebug("eServiceApp::gotExtPlayerMessage - deferred seek to %lld", (long long)m_pending_seek);
-				player->seekTo(int(m_pending_seek / 90000));
+				player->seekToMs(int(m_pending_seek / 90));
 				m_pending_seek = -1;
 			}
 			m_event_updated_info_timer->start(1000, true);
+			startDecoderVideoCheck();
 			if (m_cachedAudioTrack >= 0)
 				player->audioGetNumberOfTracks(0); // Asynchronous; do not wait on the GUI thread.
 #ifdef HAVE_EPG
@@ -646,6 +755,19 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 			// has already ended, so there is no possibility to do so.
 			// This should be fixed on player's side so it doesn't end
 			// immediately but waits at the end for our input..
+			if (!m_stopping && isLiveStream() && !isPermanentPlayerError()) {
+				/* short runs and failed attempts count, a stream that played
+				 * for a while starts the count again */
+				if (m_player_started && ::time(0) - m_player_start_time >= 30)
+					m_live_reconnects = 0;
+				if (m_live_reconnects < 5) {
+					m_live_reconnects++;
+					eDebug("[ServiceApp] live stream ended, reconnect %d/5", m_live_reconnects);
+					m_live_reconnect_timer->start(m_live_reconnects == 1 ? 500 : 3000, true);
+					break;
+				}
+				eDebug("[ServiceApp] live stream: giving up after 5 reconnects");
+			}
 			m_event(this, evEOF);
 			break;
 		case PlayerMessage::pause:
@@ -669,8 +791,15 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 				eDebug("eServiceApp::gotExtPlayerMessage - videoSizeChanged");
 			videoStream v;
 			if (!player->videoGetTrackInfo(v, 0)) {
-				m_width = v.width;
-				m_height = v.height;
+				if (v.width > 0 && v.height > 0) {
+					m_width = v.width;
+					m_height = v.height;
+					m_decoder_video = false;
+				} else {
+					/* the size got unknown (other track): ask the decoder again */
+					m_width = m_height = -1;
+					startDecoderVideoCheck();
+				}
 			}
 			m_event(this, evVideoSizeChanged);
 			break;
@@ -716,6 +845,39 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 				eDebug("eServiceApp::gotExtPlayerMessage - subtitleAvailable");
 			if (m_selected_subtitle_track && isEmbeddedTrack(*m_selected_subtitle_track))
 				pullSubtitles();
+			break;
+		case PlayerMessage::subtitleFlush:
+			/* seek or track switch: cues of the old position must not come back */
+			if (m_selected_subtitle_track && isEmbeddedTrack(*m_selected_subtitle_track)) {
+				m_prev_subtitle_message = NULL;
+				m_embedded_subtitle_pages.clear();
+			}
+			break;
+		case PlayerMessage::subtitleTracksChanged:
+			/* closed captions (CC1) showed up: the subtitle list is new */
+			m_event(this, evUpdatedInfo);
+			break;
+		case PlayerMessage::metadataChanged:
+			/* title / artist of a radio stream: sTagTitle, sTagArtist */
+			m_event(this, evUpdatedInfo);
+			break;
+		case PlayerMessage::chaptersChanged: {
+			/* chapters of the file as marks of the cut list (as servicemp3 does
+			 * with TOC chapters); they are not written to the .cuts file */
+			std::vector<chapterEntry> chapters;
+			player->getChapters(chapters);
+			m_chapter_marks.clear();
+			for (std::vector<chapterEntry>::const_iterator i(chapters.begin()); i != chapters.end(); ++i) {
+				if (i->start_ms > 0)
+					m_chapter_marks.insert((pts_t)i->start_ms * 90);
+			}
+			eDebug("eServiceApp::gotExtPlayerMessage - %zu chapters", chapters.size());
+			m_event((iPlayableService*)this, evCuesheetChanged);
+			break;
+		}
+		case PlayerMessage::coverAvailable:
+			/* the embedded cover is in /tmp/.id3coverart, as servicemp3 announces it */
+			m_event((iPlayableService*)this, evUser + 13);
 			break;
 		default:
 			if (m_debug)
@@ -805,12 +967,86 @@ RESULT eServiceApp::start() {
 RESULT eServiceApp::stop() {
 	if (m_debug)
 		eDebug("eServiceApp::stop");
+	m_stopping = true;
+	m_live_reconnect_timer->stop();
 	if (!m_is_streaming && m_cuesheet_loaded)
 		saveCuesheet();
 	if (m_resolver)
 		m_resolver->stop();
+	m_decoder_video_timer->stop();
 	player->stop();
 	return 0;
+}
+
+bool eServiceApp::isLiveStream() {
+	/* a network stream without a length; one that never started is live only
+	 * while it is reconnected (a first open that fails ends as before) */
+	if (!m_is_streaming || m_start_path.compare(0, 7, "file://") == 0)
+		return false;
+	if (!m_player_started)
+		return m_live_reconnects > 0;
+	return player->lengthMs() <= 0;
+}
+
+/* FFmpeg's FFERRTAG, the HTTP errors of FF_ERROR */
+#define SAPP_FFERRTAG(a, b, c, d) (-(int)((unsigned)(a) | ((unsigned)(b) << 8) | ((unsigned)(c) << 16) | ((unsigned)(d) << 24)))
+
+bool eServiceApp::isPermanentPlayerError() {
+	/* a reconnect does not help: the player does not take its options, the
+	 * file or the page is missing, access is denied, no key for the video */
+	if (player->exitCode() == 1)
+		return true;
+	errorMessage e;
+	if (player->getErrorMessage(e))
+		return false;
+	switch (e.code) {
+		case -2:  // ENOENT
+		case -13: // EACCES, also "No key for KID" of exteplayer3
+		case SAPP_FFERRTAG(0xF8, '4', '0', '0'):
+		case SAPP_FFERRTAG(0xF8, '4', '0', '1'):
+		case SAPP_FFERRTAG(0xF8, '4', '0', '3'):
+		case SAPP_FFERRTAG(0xF8, '4', '0', '4'):
+		case SAPP_FFERRTAG(0xF8, '4', 'X', 'X'):
+			eDebug("[ServiceApp] player error %d (%s): no reconnect", e.code, e.message.c_str());
+			return true;
+		default:
+			return false;
+	}
+}
+
+void eServiceApp::liveReconnect() {
+	if (m_stopping)
+		return;
+	eDebug("[ServiceApp] live stream: reconnecting %s", m_start_path.c_str());
+	/* keep the audio track; the subtitle track is selected again at the start */
+	int audio_track = player->audioGetCurrentTrackNum();
+	if (audio_track > 0)
+		m_cachedAudioTrack = audio_track;
+	m_reconnect_channel = player->audioGetChannel();
+	m_subtitle_sync_timer->stop();
+	m_prev_subtitle_message = NULL;
+	m_embedded_subtitle_pages.clear();
+	m_decoder_video_timer->stop();
+	if (m_resolver) {
+		m_resolver->stop();
+		delete m_resolver;
+		m_resolver = NULL;
+	}
+	/* a resolved url may have expired, resolve it again */
+	m_ref.path = m_start_path;
+	player->stop();
+	delete player;
+	delete extplayer;
+	extplayer = createPlayer(m_ref, getHeaders(m_ref.path));
+	player = new PlayerBackend(extplayer);
+	CONNECT(player->gotPlayerMessage, eServiceApp::gotExtPlayerMessage);
+	m_player_started = false;
+	m_paused = false;
+	m_reconnected = true;
+	start();
+	/* an external subtitle file keeps running on the new player's position */
+	if (m_selected_subtitle_track && isExternalTrack(*m_selected_subtitle_track) && m_subtitle_pages)
+		m_subtitle_sync_timer->start(1, true);
 }
 
 // __iPausableService
@@ -865,7 +1101,8 @@ RESULT eServiceApp::seekTo(pts_t to) {
 		stop();
 		return 0;
 	}
-	if (player->seekTo(int(to / 90000)) < 0)
+	/* ms: exteplayer3 187 seeks with a fraction (gf), older players get seconds */
+	if (player->seekToMs(int(to / 90)) < 0)
 		m_pending_seek = to; /* the player has not started yet, seek when it has */
 	else
 		m_pending_seek = -1;
@@ -1006,7 +1243,16 @@ RESULT eServiceApp::getTrackInfo(iAudioTrackInfo& trackInfo, unsigned int n) {
 	if (!track.codec_name.empty()) {
 		desc = track.codec_name;
 	}
-	if (track.channels > 0) {
+	/* the layout the player names ("5.1(side)" -> "5.1"), else one from the channel count */
+	std::string layout = track.channel_layout;
+	size_t paren = layout.find('(');
+	if (paren != std::string::npos)
+		layout.erase(paren);
+	if (!layout.empty() && isdigit((unsigned char)layout[0])) {
+		desc += " " + layout;
+	} else if (layout == "mono" || layout == "stereo") {
+		desc += layout == "mono" ? " 1.0" : " 2.0";
+	} else if (track.channels > 0) {
 		static const char* layouts[] = {"", "1.0", "2.0", "2.1", "4.0", "5.0", "5.1", "6.1", "7.1"};
 		char buf[16];
 		if (track.channels < 9)
@@ -1015,6 +1261,9 @@ RESULT eServiceApp::getTrackInfo(iAudioTrackInfo& trackInfo, unsigned int n) {
 			snprintf(buf, sizeof(buf), " %dch", track.channels);
 		desc += buf;
 	}
+	/* track title of the container, e.g. "Commentary", "Audio Description" */
+	if (!track.title.empty())
+		desc += " (" + track.title + ")";
 
 	trackInfo.m_description = desc;
 	trackInfo.m_language = track.language_code;
@@ -1033,13 +1282,18 @@ int eServiceApp::getCurrentTrack() {
 int eServiceApp::getCurrentChannel() {
 	if (m_debug)
 		eDebug("eServiceApp::getCurrentChannel");
+	/* dual mono with exteplayer3 187: LEFT 0, STEREO 1, RIGHT 2 = am<n> */
+	if (player->canSelectAudioChannel())
+		return player->audioGetChannel();
 	return STEREO;
 }
 
 RESULT eServiceApp::selectChannel(int i) {
 	if (m_debug)
 		eDebug("eServiceApp::selectChannel %d", i);
-	return -1;
+	if (i != LEFT && i != STEREO && i != RIGHT)
+		return -1;
+	return player->audioSelectChannel(i);
 }
 
 
@@ -1227,6 +1481,11 @@ RESULT eServiceApp::getSubtitleList(std::vector<struct SubtitleTrack>& subtitlel
 			addEmbeddedTrack(subtitlelist, s, pid);
 		}
 	}
+	if (m_is_streaming) {
+		/* no .srt next to a url: listDir("http://...") only logs an error
+		 * with the stream url on every call */
+		return 0;
+	}
 	std::string basename, extension;
 	splitExtension(m_ref.path, basename, extension);
 	std::string subtitle_path(basename + ".srt");
@@ -1377,11 +1636,18 @@ int eServiceApp::getInfo(int w) {
 		case sTagPreviewImage:
 		case sTagAttachment:
 			return resIsPyObject;
+		case sTagBitrate: {
+			/* bit rate of the audio track (as servicemp3), exteplayer3 187 "br" */
+			int n = getCurrentTrack();
+			audioStream a;
+			if (n >= 0 && player->audioGetTrackInfo(a, n) == 0 && a.bitrate > 0)
+				return a.bitrate;
+			return resNA;
+		}
 		case sTagTrackNumber:
 		case sTagTrackCount:
 		case sTagAlbumVolumeNumber:
 		case sTagAlbumVolumeCount:
-		case sTagBitrate:
 		case sTagNominalBitrate:
 		case sTagMinimumBitrate:
 		case sTagMaximumBitrate:
@@ -1453,6 +1719,49 @@ std::string eServiceApp::getInfoString(int w) {
 			return m_ref.path.find("://") != std::string::npos ? "IPTV" : "FILE";
 		case sServiceref:
 			return m_ref.toString();
+		case sTagTitle:
+		case sTagArtist: {
+			/* ICY / radio text of exteplayer3 (m_t) */
+			std::string title, artist, text;
+			player->getMetadata(title, artist, text);
+			if (w == sTagArtist)
+				return artist;
+			return title.empty() ? text : title;
+		}
+		case sTagVideoCodec: {
+			/* "HEVC Main 10@5.1 10 bit DV8" with exteplayer3 187 */
+			videoStream v;
+			if (player->videoGetTrackInfo(v, 0))
+				return "";
+			std::string codec = v.description;
+			if (codec.compare(0, 2, "V_") == 0)
+				codec.erase(0, 2);
+			size_t slash = codec.find('/');
+			if (slash != std::string::npos && codec.compare(0, 5, "MPEG4") != 0)
+				codec.erase(slash);
+			if (codec == "MPEG4/ISO/AVC")
+				codec = "H.264";
+			if (!v.profile.empty())
+				codec += " " + v.profile;
+			if (v.bit_depth > 8)
+				codec += " " + std::to_string(v.bit_depth) + " bit";
+			if (v.dolby_vision > 0)
+				codec += " DV" + std::to_string(v.dolby_vision);
+			return codec;
+		}
+		case sTagAudioCodec: {
+			/* the codec as the audio selection shows it, "Dolby Atmos 5.1" */
+			int n = getCurrentTrack();
+			audioStream a;
+			if (n < 0 || player->audioGetTrackInfo(a, n) < 0)
+				return "";
+			std::string codec = a.codec_name.empty() ? a.description : a.codec_name;
+			if (codec.compare(0, 2, "A_") == 0)
+				codec.erase(0, 2);
+			if (a.sample_rate > 0)
+				codec += " " + std::to_string(a.sample_rate / 1000) + "." + std::to_string(a.sample_rate % 1000 / 100) + " kHz";
+			return codec;
+		}
 		default:
 			break;
 	}
@@ -1480,7 +1789,20 @@ static const pts_t RESUME_END_MARGIN = 10 * 90000;
 PyObject* eServiceApp::getCutList() {
 	ePyObject list = PyList_New(0);
 
-	for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end(); ++i) {
+	std::multiset<cueEntry> entries(m_cue_entries);
+	/* chapter marks that are not in the cut list already */
+	for (std::set<pts_t>::const_iterator c(m_chapter_marks.begin()); c != m_chapter_marks.end(); ++c) {
+		bool found = false;
+		for (std::multiset<cueEntry>::const_iterator i(m_cue_entries.begin()); i != m_cue_entries.end(); ++i) {
+			if (i->what == 2 && i->where == *c) {
+				found = true;
+				break;
+			}
+		}
+		if (!found)
+			entries.insert(cueEntry(*c, 2));
+	}
+	for (std::multiset<cueEntry>::iterator i(entries.begin()); i != entries.end(); ++i) {
 		ePyObject tuple = PyTuple_New(2);
 		PyTuple_SET_ITEM(tuple, 0, PyLong_FromLongLong(i->where));
 		PyTuple_SET_ITEM(tuple, 1, PyLong_FromLong(i->what));
@@ -1614,7 +1936,12 @@ void eServiceApp::saveCuesheet() {
 	if (m_media_length > 0)
 		m_cue_entries.insert(cueEntry(m_media_length, 5));
 
-	if (m_cue_entries.empty()) {
+	size_t saved = 0;
+	for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end(); ++i) {
+		if (!(i->what == 2 && m_chapter_marks.count(i->where)))
+			saved++;
+	}
+	if (!saved) {
 		if (::access(filename.c_str(), F_OK) == 0)
 			remove(filename.c_str());
 		return;
@@ -1626,6 +1953,10 @@ void eServiceApp::saveCuesheet() {
 		unsigned int what;
 
 		for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end(); ++i) {
+			/* chapter marks come from the file at every start; the GUI hands
+			 * them back with setCutList, they do not go into the .cuts file */
+			if (i->what == 2 && m_chapter_marks.count(i->where))
+				continue;
 			where = htobe64(i->where);
 			what = htonl(i->what);
 			fwrite(&where, sizeof(where), 1, f);
@@ -1858,13 +2189,17 @@ static PyObject* exteplayer3_set_setting(PyObject* self, PyObject* args) {
 	bool downmix;
 	bool lpcmInjection;
 	int rtmpProtocol;
-	/* optional, exteplayer3 186 and newer */
-	bool dtsTranscode = false;
-	bool truehdTranscode = false;
-	bool heaacTranscode = false;
-	bool hlsBestVariant = false;
+	/* optional; the plugin sends them only to a player that knows them */
+	bool dtsAc3 = false;          /* exteplayer3 187, "xcode" & 1 */
+	bool truehdAc3 = false;
+	bool heaacAacLc = false;      /* "xcode" & 2 */
+	bool dtsEac3 = false;         /* "xcode" & 4 */
+	bool truehdEac3 = false;
+	int hlsQuality = 0;           /* exteplayer3 185: 0 auto, 1 lowest, 2 highest */
+	int hlsDefaultAudio = 0;      /* exteplayer3 185: 1 only the default audio rendition */
+	const char *coverPath = NULL; /* "cover": file for the embedded cover, None or "" off */
 
-	if (!PyArg_ParseTuple(args, "ibbbbbbbbi|bbbb", &settingId, &aacSwDecoding, &dtsSwDecoding, &wmaSwDecoding, &lpcmInjection, &downmix, &ac3SwDecoding, &eac3SwDecoding, &mp3SwDecoding, &rtmpProtocol, &dtsTranscode, &truehdTranscode, &heaacTranscode, &hlsBestVariant))
+	if (!PyArg_ParseTuple(args, "ibbbbbbbbi|bbbbbiiz", &settingId, &aacSwDecoding, &dtsSwDecoding, &wmaSwDecoding, &lpcmInjection, &downmix, &ac3SwDecoding, &eac3SwDecoding, &mp3SwDecoding, &rtmpProtocol, &dtsAc3, &truehdAc3, &heaacAacLc, &dtsEac3, &truehdEac3, &hlsQuality, &hlsDefaultAudio, &coverPath))
 		return NULL;
 
 	ExtEplayer3Options* options = NULL;
@@ -1896,10 +2231,17 @@ static PyObject* exteplayer3_set_setting(PyObject* self, PyObject* args) {
 		options->GetSettingMap()[EXT3_LPCM_INJECTION].setValue(lpcmInjection);
 		options->GetSettingMap()[EXT3_RTMP_PROTOCOL].setValue(rtmpProtocol);
 		options->GetSettingMap()[EXT3_DOWNMIX].setValue(downmix);
-		options->GetSettingMap()[EXT3_TRANSCODE_DTS].setValue(dtsTranscode);
-		options->GetSettingMap()[EXT3_TRANSCODE_TRUEHD].setValue(truehdTranscode);
-		options->GetSettingMap()[EXT3_TRANSCODE_HEAAC].setValue(heaacTranscode);
-		options->GetSettingMap()[EXT3_HLS_BEST_VARIANT].setValue(hlsBestVariant);
+		options->GetSettingMap()[EXT3_TRANSCODE_DTS].setValue(dtsAc3);
+		options->GetSettingMap()[EXT3_TRANSCODE_TRUEHD].setValue(truehdAc3);
+		options->GetSettingMap()[EXT3_TRANSCODE_HEAAC].setValue(heaacAacLc);
+		options->GetSettingMap()[EXT3_TRANSCODE_DTS_EAC3].setValue(dtsEac3);
+		options->GetSettingMap()[EXT3_TRANSCODE_TRUEHD_EAC3].setValue(truehdEac3);
+		options->GetSettingMap()[EXT3_HLS_QUALITY].setValue(hlsQuality);
+		options->GetSettingMap()[EXT3_HLS_DEFAULT_AUDIO].setValue(hlsDefaultAudio);
+		if (coverPath && *coverPath)
+			options->GetSettingMap()[EXT3_COVER].setValue(std::string(coverPath));
+		else
+			options->GetSettingMap()[EXT3_COVER] = SettingEntry("--cover", "string"); /* not set */
 	}
 	return Py_BuildValue("b", ret);
 }

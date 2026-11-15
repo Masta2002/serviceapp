@@ -19,6 +19,7 @@ struct subtitleStream
     std::string description; /* clear text codec description */
     std::string path; /* path to external subtitle */
     int forced; /* 1 for a forced track */
+    std::string title; /* track title ("SDH", "Forced", "CC1"), if the player sends it */
     subtitleStream(): id(-1), forced(0){};
 };
 

@@ -95,6 +95,31 @@ class eServiceApp : public sigc::trackable,
 	void urlResolved(int success);
 	void passthroughFix();
 
+	/* picture size, frame rate and progressive from the video decoder
+	 * (/proc/stb/vmpeg/0) while the player reports a video track without
+	 * a picture size */
+	ePtr<eTimer> m_decoder_video_timer;
+	int m_decoder_video_checks;
+	pts_t m_decoder_video_position;
+	bool m_decoder_video;
+	void startDecoderVideoCheck();
+	void checkDecoderVideo();
+
+	/* a network stream without a length whose player ends by itself (server
+	 * or proxy closed the connection) is started again instead of leaving a
+	 * black picture; the InfoBar does nothing on evEOF of a live service */
+	ePtr<eTimer> m_live_reconnect_timer;
+	int m_live_reconnects;
+	time_t m_player_start_time;
+	bool m_player_started;
+	bool m_stopping;
+	bool m_reconnected;
+	int m_reconnect_channel; // dual mono selection of the old player
+	std::string m_start_path; // before a resolver replaced it
+	bool isLiveStream();
+	bool isPermanentPlayerError();
+	void liveReconnect();
+
 #ifdef HAVE_EPG
 	ePtr<eTimer> m_nownext_timer;
 	ePtr<eServiceEvent> m_event_now, m_event_next;
@@ -112,6 +137,7 @@ class eServiceApp : public sigc::trackable,
 		cueEntry(const pts_t& where, unsigned int what) : where(where), what(what) {}
 	};
 	std::multiset<cueEntry> m_cue_entries;
+	std::set<pts_t> m_chapter_marks; // chapters of the file (exteplayer3 c_l), not saved
 	int m_cuesheet_changed, m_cutlist_enabled;
 	bool m_cuesheet_loaded;
 	bool m_is_streaming;

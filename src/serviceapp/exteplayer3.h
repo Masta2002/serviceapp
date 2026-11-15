@@ -32,9 +32,14 @@ extern const std::string EXT3_ARG_5;
 extern const std::string EXT3_ARG_6;
 extern const std::string EXT3_ARG_7;
 extern const std::string EXT3_TRANSCODE_DTS;
+extern const std::string EXT3_TRANSCODE_DTS_EAC3;
 extern const std::string EXT3_TRANSCODE_TRUEHD;
+extern const std::string EXT3_TRANSCODE_TRUEHD_EAC3;
 extern const std::string EXT3_TRANSCODE_HEAAC;
-extern const std::string EXT3_HLS_BEST_VARIANT;
+extern const std::string EXT3_HLS_QUALITY;
+extern const std::string EXT3_HLS_DEFAULT_AUDIO;
+extern const std::string EXT3_COVER;
+extern const std::string EXT3_KEY;
 
 struct ExtEplayer3Options : public IOption
 {
@@ -49,6 +54,13 @@ struct ExtEplayer3Options : public IOption
 class ExtEplayer3: public PlayerApp, public BasePlayer
 {
 	ExtEplayer3Options mPlayerOptions;
+	// current video track as passed on, and what the decoder reported
+	// for it with "v_e" (-1 unknown)
+	videoStream mVideo, mDecoderVideo;
+	// the player sent FF_ERROR
+	bool mErrorReported;
+	// "seekms" in EPLAYER3_EXTENDED: gf<s.ms>
+	bool mSeekMs;
 	void handleProcessStopped(int retval);
 	void handleJsonOutput(cJSON* json);
 	std::vector<std::string> buildCommand();
@@ -72,7 +84,9 @@ class ExtEplayer3: public PlayerApp, public BasePlayer
 	int sendSubtitleSelectTrack(int trackId);
 	int sendSubtitleDisable();
 	int sendSeekTo(int seconds);
+	int sendSeekToMs(int mseconds);
 	int sendSeekRelative(int seconds);
 	int sendFastForward(int speed);
+	int sendAudioChannel(int channel);
 };
 #endif

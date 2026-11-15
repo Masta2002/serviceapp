@@ -87,6 +87,11 @@ struct PlayerMessage
 		audioChanged,
 		windStart,
 		windEnd,
+		subtitleFlush,         // the player reset its subtitle output (seek, switch)
+		subtitleTracksChanged, // a track list the player sent by itself (closed captions)
+		metadataChanged,       // title / artist of a radio stream
+		chaptersChanged,       // the chapters of the input
+		coverAvailable,        // the embedded cover was written (--cover)
 	};
 };
 
@@ -98,7 +103,11 @@ struct audioStream
 	std::string description; /* clear text codec description */
 	std::string codec_name; /* e.g. "Dolby Atmos", "HE-AAC v2", if the player sends it */
 	int channels; /* channel count, if the player sends it */
-	audioStream(): id(-1), channels(-1){};
+	std::string channel_layout; /* e.g. "5.1(side)", if the player sends it */
+	std::string title; /* track title ("Commentary"), if the player sends it */
+	int sample_rate; /* Hz, 0 unknown */
+	int bitrate; /* bit/s, 0 unknown */
+	audioStream(): id(-1), channels(-1), sample_rate(0), bitrate(0){};
 };
 
 
@@ -112,7 +121,21 @@ struct videoStream
 	int framerate;
 	int progressive;
 	int gamma; /* 0 SDR, 1 HDR, 2 HDR10, 3 HLG as iServiceInformation::sGamma, -1 unknown */
-	videoStream(): id(-1), width(-1), height(-1), framerate(-1), progressive(-1), gamma(-1){};
+	std::string profile; /* "Main 10@5.1", if the player sends it */
+	int bit_depth; /* 0 unknown */
+	int bitrate; /* bit/s, 0 unknown */
+	int dolby_vision; /* Dolby Vision profile, 0 none */
+	videoStream(): id(-1), width(-1), height(-1), framerate(-1), progressive(-1), gamma(-1), bit_depth(0), bitrate(0), dolby_vision(0){};
+};
+
+
+/* a chapter of the input, exteplayer3 "c_l" (ms from the start of the media) */
+struct chapterEntry
+{
+	int start_ms;
+	int end_ms;
+	std::string title;
+	chapterEntry(): start_ms(0), end_ms(0){};
 };
 
 
@@ -146,9 +169,13 @@ public:
 	// stop sending subtitles, only players that support it
 	virtual int sendSubtitleDisable(){ return -1;}
 	virtual int sendSeekTo(int seconds){ return -1;}
+	// a player without ms seeks takes whole seconds
+	virtual int sendSeekToMs(int mseconds){ return sendSeekTo(mseconds / 1000);}
 	virtual int sendSeekRelative(int seconds){ return -1;}
 	// speed > 1 winds forwards, < 0 backwards
 	virtual int sendFastForward(int speed){ return -1;}
+	// dual mono: 0 left, 1 stereo, 2 right (iAudioChannelSelection values)
+	virtual int sendAudioChannel(int channel){ return -1;}
 };
 
 
@@ -174,6 +201,13 @@ public:
 	virtual void recvErrorMessage(errorMessage&){};
 	// winding reached the start (direction < 0) or the end
 	virtual void recvWindEnd(int direction){};
+	virtual void recvSubtitleFlush(){};
+	virtual void recvAudioChannel(int status, int channel){};
+	// ICY / radio text of audio-only playback
+	virtual void recvMetadata(const std::string& title, const std::string& artist, const std::string& text){};
+	virtual void recvChapters(std::vector<chapterEntry>& chapters){};
+	// the embedded cover was written to the --cover file, empty: none
+	virtual void recvCover(const std::string& file){};
 };
 
 
@@ -205,6 +239,13 @@ protected:
 	void recvSeekRelative(int status, int seconds){pCallback->recvSeekRelative(status, seconds);};
 	void recvErrorMessage(errorMessage& message){pCallback->recvErrorMessage(message);};
 	void recvWindEnd(int direction){pCallback->recvWindEnd(direction);};
+	void recvSubtitleFlush(){pCallback->recvSubtitleFlush();};
+	void recvAudioChannel(int status, int channel){pCallback->recvAudioChannel(status, channel);};
+	void recvMetadata(const std::string& title, const std::string& artist, const std::string& text){pCallback->recvMetadata(title, artist, text);};
+	void recvChapters(std::vector<chapterEntry>& chapters){pCallback->recvChapters(chapters);};
+	void recvCover(const std::string& file){pCallback->recvCover(file);};
+	// the player announced the dual mono selection (am<n>)
+	bool mCanSelectChannel = false;
 public:
 	virtual ~BasePlayer(){}
 
@@ -212,6 +253,7 @@ public:
 	void setPath(const std::string& path){mPath = path;}
 	void setHttpHeaders(const std::map<std::string, std::string>& headers){mHeaders = headers;}
 	bool canWind() const {return mCanWind;}
+	bool canSelectChannel() const {return mCanSelectChannel;}
 
 	virtual int start(eMainloop *context) = 0;
 
@@ -260,6 +302,13 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 			windStart,
 			windEnd,
 			error,
+			tAudioChannel,
+			subtitleFlush,
+			subtitleTracksChanged,
+			metadataChanged,
+			tSeekToMs,
+			chaptersChanged,
+			coverAvailable,
 		};
 		Message(int type)
 			:type(type), dataInt(0) {}
@@ -268,6 +317,8 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 	};
 
 	int mPositionInMs, mLengthInMs;
+	int mExitCode; // of the player process, -1 while it runs
+	int mAudioChannel; // dual mono selection, 1 stereo
 	bool playbackStarted;
 	bool mThreadRunning;
 	bool mDebug;
@@ -329,14 +380,45 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 	void recvVideoTrackCurrent(int status, videoStream& stream);
 	void recvSeekTo(int status, int seconds){eDebug("PlayerBackend::recvSeekTo %ds", seconds);}
 	void recvSeekRelative(int status, int seconds){eDebug("PlayerBackend::recvSeekRelative %ds", seconds);}
-	void recvErrorMessage(errorMessage& message){ eSingleLocker l_(mStreamsLock); if (pErrorMessage) delete pErrorMessage; pErrorMessage = new errorMessage(message);};
+	void recvErrorMessage(errorMessage& message){
+		{
+			eSingleLocker l_(mStreamsLock);
+			if (pErrorMessage) delete pErrorMessage;
+			pErrorMessage = new errorMessage(message);
+		}
+		// evUser+12 in the main thread, the text is sUser+12
+		mMessageMain.send(Message(Message::error));
+	};
 	void recvSubtitleMessage(subtitleMessage& sub);
 	void recvWindEnd(int direction){mMessageMain.send(Message(direction < 0 ? Message::windStart : Message::windEnd));}
+	void recvSubtitleFlush();
+	void recvAudioChannel(int status, int channel){ if (!status && channel >= 0 && channel <= 2) mAudioChannel = channel; }
+	void recvMetadata(const std::string& title, const std::string& artist, const std::string& text){
+		{
+			eSingleLocker l_(mStreamsLock);
+			mMetaTitle = title;
+			mMetaArtist = artist;
+			mMetaText = text;
+		}
+		mMessageMain.send(Message(Message::metadataChanged));
+	}
+	std::string mMetaTitle, mMetaArtist, mMetaText;
+	std::vector<chapterEntry> mChapters;
+	void recvChapters(std::vector<chapterEntry>& chapters){
+		{
+			eSingleLocker l_(mStreamsLock);
+			mChapters = chapters;
+		}
+		mMessageMain.send(Message(Message::chaptersChanged));
+	}
+	void recvCover(const std::string& file){ if (!file.empty()) mMessageMain.send(Message(Message::coverAvailable)); }
 
 public:
 	PlayerBackend(BasePlayer* extplayer):
 		mPositionInMs(0),
 		mLengthInMs(0),
+		mExitCode(-1),
+		mAudioChannel(1),
 		playbackStarted(false),
 		mThreadRunning(false),
 		mDebug(false),
@@ -387,9 +469,29 @@ public:
 	int seekRelative(int seconds);
 	int fastForward(int speed);
 	bool canWind(){return pPlayer->canWind();}
+	/* dual mono: 0 left, 1 stereo, 2 right */
+	bool canSelectAudioChannel(){return pPlayer->canSelectChannel();}
+	int audioSelectChannel(int channel);
+	int audioGetChannel() const { return mAudioChannel; }
+	void getChapters(std::vector<chapterEntry>& chapters){
+		eSingleLocker l_(mStreamsLock);
+		chapters = mChapters;
+	}
+	int seekToMs(int mseconds);
+	/* ICY / radio text: title, artist and the whole line ("Artist - Title") */
+	void getMetadata(std::string& title, std::string& artist, std::string& text){
+		eSingleLocker l_(mStreamsLock);
+		title = mMetaTitle;
+		artist = mMetaArtist;
+		text = mMetaText;
+	}
 	int getLength(int& mseconds);
 	int getPlayPosition(int& mseconds);
 	int getErrorMessage(errorMessage& error);
+	/* length the player reported, 0 = none (live stream) */
+	int lengthMs() const { return mLengthInMs; }
+	/* exit code of the player process, -1 while it runs */
+	int exitCode() const { return mExitCode; }
 	int getSubtitles(std::queue<subtitleMessage>&);
 	int audioGetNumberOfTracks(int timeout=0);
 	int audioSelectTrack(int trackId);

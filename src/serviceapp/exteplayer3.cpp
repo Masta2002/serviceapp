@@ -1,4 +1,7 @@
 #include <sstream>
+#include <cctype>
+#include <cstdio>
+#include <unistd.h>
 
 #include <lib/base/eerror.h>
 #include "exteplayer3.h"
@@ -30,10 +33,15 @@ const std::string  EXT3_ARG_5                      = "5";
 const std::string  EXT3_ARG_6                      = "6";
 const std::string  EXT3_ARG_7                      = "7";
 // exteplayer3 186 and newer
-const std::string  EXT3_TRANSCODE_DTS              = "dts_transcode";
-const std::string  EXT3_TRANSCODE_TRUEHD           = "truehd_transcode";
-const std::string  EXT3_TRANSCODE_HEAAC            = "heaac_transcode";
-const std::string  EXT3_HLS_BEST_VARIANT           = "hls_best_variant";
+const std::string  EXT3_TRANSCODE_DTS              = "dts_ac3";
+const std::string  EXT3_TRANSCODE_DTS_EAC3         = "dts_eac3";
+const std::string  EXT3_TRANSCODE_TRUEHD           = "truehd_ac3";
+const std::string  EXT3_TRANSCODE_TRUEHD_EAC3      = "truehd_eac3";
+const std::string  EXT3_TRANSCODE_HEAAC            = "heaac_aaclc";
+const std::string  EXT3_HLS_QUALITY                = "hls_quality";
+const std::string  EXT3_HLS_DEFAULT_AUDIO          = "hls_default_audio";
+const std::string  EXT3_COVER                      = "cover";
+const std::string  EXT3_KEY                        = "key"; // #sapp_key=kid:key[,kid:key...]
 const std::string  EXT3_ARGS_LIST                  = "args"; // cmdline like list of exteplayer3 arguments in a form "-arg1=value1-arg2=value2"
 
 SettingMap &ExtEplayer3Options::GetSettingMap()
@@ -69,10 +77,19 @@ ExtEplayer3Options::ExtEplayer3Options()
 	settingMap[EXT3_ARG_5]                      = SettingEntry ("-5", "string");
 	settingMap[EXT3_ARG_6]                      = SettingEntry ("-6", "string");
 	settingMap[EXT3_ARG_7]                      = SettingEntry ("-7", "string");
-	settingMap[EXT3_TRANSCODE_DTS]              = SettingEntry ("-D", "bool");
-	settingMap[EXT3_TRANSCODE_TRUEHD]           = SettingEntry ("-X", "bool");
-	settingMap[EXT3_TRANSCODE_HEAAC]            = SettingEntry ("-Y", "bool");
-	settingMap[EXT3_HLS_BEST_VARIANT]           = SettingEntry ("-Q", "bool");
+	/* exteplayer3 187 ("xcode" in EPLAYER3_EXTENDED): the long names, -D and -Q differ between builds */
+	settingMap[EXT3_TRANSCODE_DTS]              = SettingEntry ("--dts-ac3", "bool");
+	settingMap[EXT3_TRANSCODE_DTS_EAC3]         = SettingEntry ("--dts-eac3", "bool");
+	settingMap[EXT3_TRANSCODE_TRUEHD]           = SettingEntry ("--truehd-ac3", "bool");
+	settingMap[EXT3_TRANSCODE_TRUEHD_EAC3]      = SettingEntry ("--truehd-eac3", "bool");
+	settingMap[EXT3_TRANSCODE_HEAAC]            = SettingEntry ("--heaac-aaclc", "bool");
+	/* exteplayer3 185 and newer: -Q 0|1|2 (auto, lowest, highest), -D 0|1 (all or only the default audio) */
+	settingMap[EXT3_HLS_QUALITY]                = SettingEntry ("-Q", "nonzero");
+	settingMap[EXT3_HLS_DEFAULT_AUDIO]          = SettingEntry ("-D", "nonzero");
+	/* "cover" in EPLAYER3_EXTENDED: the embedded cover to this file (servicemp3's path) */
+	settingMap[EXT3_COVER]                      = SettingEntry ("--cover", "string");
+	/* "drmkey" & 1: CENC keys per KID, one --key each (MP4, DASH, HLS fMP4) */
+	settingMap[EXT3_KEY]                        = SettingEntry ("--key", "keylist");
 	settingMap[EXT3_ARGS_LIST]                  = SettingEntry ("al", "argslist");
 }
 
@@ -94,7 +111,7 @@ int ExtEplayer3Options::update(const std::string &key, const std::string &val)
 				ret = -2;
 			}
 		}
-		else if (entry.getType() == "int")
+		else if (entry.getType() == "int" || entry.getType() == "nonzero")
 		{
 			char *endptr = NULL;
 			int intval = -1;
@@ -132,6 +149,24 @@ int ExtEplayer3Options::update(const std::string &key, const std::string &val)
 		{
                      entry.setValue(val);
 		}
+		else if (entry.getType() == "keylist")
+		{
+			/* kid:key pairs separated by "," or ";": hex digits, dashes (UUID
+			 * form) and base64 characters, nothing else goes to the player */
+			bool ok = !val.empty();
+			for (size_t i = 0; ok && i < val.size(); i++)
+			{
+				char c = val[i];
+				ok = isalnum((unsigned char)c) || c == ':' || c == ',' || c == ';' || c == '-' || c == '_' || c == '+' || c == '/' || c == '=';
+			}
+			if (ok)
+				entry.setValue(val);
+			else
+			{
+				eWarning("ExtEplayer3Options::update - invalid value for '%s'", key.c_str());
+				ret = -2;
+			}
+		}
 	}
 	else
 	{
@@ -149,11 +184,34 @@ void ExtEplayer3Options::print() const
 	}
 }
 
-ExtEplayer3::ExtEplayer3(ExtEplayer3Options& options): PlayerApp(STD_ERROR)
+ExtEplayer3::ExtEplayer3(ExtEplayer3Options& options): PlayerApp(STD_ERROR), mErrorReported(false), mSeekMs(false)
 {
 	mPlayerOptions = options;
 	eDebug("ExtEplayer3::ExtEplayer3 initializing with options:");
 	mPlayerOptions.print();
+}
+
+/* an exteplayer3 binary in /usr/bin or /usr/local/bin (exteplayer3, exteplayer3-test ...) */
+static bool isInstalledPlayer(const std::string &path)
+{
+	static const char *dirs[] = {"/usr/bin/", "/usr/local/bin/"};
+	for (size_t i = 0; i < sizeof(dirs) / sizeof(dirs[0]); i++)
+	{
+		std::string dir(dirs[i]);
+		if (path.compare(0, dir.size(), dir) != 0)
+			continue;
+		std::string name = path.substr(dir.size());
+		if (name.compare(0, 11, "exteplayer3") != 0 || name.find('/') != std::string::npos)
+			return false;
+		for (size_t j = 0; j < name.size(); j++)
+		{
+			char c = name[j];
+			if (!isalnum((unsigned char)c) && c != '_' && c != '.' && c != '-')
+				return false;
+		}
+		return access(path.c_str(), X_OK) == 0;
+	}
+	return false;
 }
 
 std::vector<std::string> ExtEplayer3::buildCommand()
@@ -213,6 +271,29 @@ std::vector<std::string> ExtEplayer3::buildCommand()
 		{
 			args.push_back(i->second.getAppArg());
 		}
+		if (i->second.getType() == "nonzero" && i->second.getValueInt() > 0)
+		{
+			/* the player default is 0, older players do not know the option */
+			args.push_back(i->second.getAppArg());
+			args.push_back(i->second.getValue());
+		}
+		if (i->second.getType() == "keylist")
+		{
+			std::string list = i->second.getValue();
+			size_t start = 0;
+			while (start <= list.size())
+			{
+				size_t end = list.find_first_of(",;", start);
+				if (end == std::string::npos)
+					end = list.size();
+				if (end > start)
+				{
+					args.push_back(i->second.getAppArg());
+					args.push_back(list.substr(start, end - start));
+				}
+				start = end + 1;
+			}
+		}
 		if (i->second.getType() == "int" || i->second.getType() == "string")
 		{
             args.push_back(i->second.getAppArg()); //add arg name to list of args
@@ -229,7 +310,12 @@ std::vector<std::string> ExtEplayer3::buildCommand()
                                 {
                                         if (item.find("exteplayer3") != std::string::npos)
                                         {
-                                                args[0] = item;
+                                                /* the args come with the url (#sapp_args=): only another
+                                                 * installed exteplayer3 build, never any program */
+                                                if (isInstalledPlayer(item))
+                                                        args[0] = item;
+                                                else
+                                                        eWarning("ExtEplayer3::buildCommand - sapp_args: player '%s' refused", item.c_str());
                                         }
                                         else
                                         {
@@ -255,6 +341,9 @@ std::vector<std::string> ExtEplayer3::buildCommand()
 }
 int ExtEplayer3::start(eMainloop *context)
 {
+	mVideo = videoStream();
+	mDecoderVideo = videoStream();
+	mErrorReported = false;
 	return processStart(context);
 }
 
@@ -300,11 +389,34 @@ int ExtEplayer3::sendSubtitleSelectTrack(int trackId)
 /* exteplayer3 takes track -1 as "no subtitles" */
 int ExtEplayer3::sendSubtitleDisable(){ return processSend(std::string("s-1\n"));}
 
+/* dual mono, exteplayer3 187 ("achannel"): am0 left, am1 stereo, am2 right */
+int ExtEplayer3::sendAudioChannel(int channel)
+{
+	if (!mCanSelectChannel)
+		return -1;
+	std::stringstream sstm;
+	sstm << "am" << channel << std::endl;
+	return processSend(sstm.str());
+}
+
 int ExtEplayer3::sendSeekTo(int seconds)
 {
 	std::stringstream sstm;
 	sstm << "gc" << seconds << std::endl;
 	return processSend(sstm.str());
+}
+
+/* exteplayer3 187 ("seekms"): gf takes a fraction and has not the 10 s
+ * limits of gc (length >= 10 s, at most 10 s before the end) */
+int ExtEplayer3::sendSeekToMs(int mseconds)
+{
+	if (!mSeekMs)
+		return sendSeekTo(mseconds / 1000);
+	if (mseconds < 0)
+		mseconds = 0;
+	char buf[32];
+	snprintf(buf, sizeof(buf), "gf%d.%03d\n", mseconds / 1000, mseconds % 1000);
+	return processSend(std::string(buf));
 }
 
 int ExtEplayer3::sendSeekRelative(int seconds)
@@ -316,7 +428,16 @@ int ExtEplayer3::sendSeekRelative(int seconds)
 
 void ExtEplayer3::handleProcessStopped(int retval)
 {
-	recvStopped(0);
+	/* exteplayer3 exit codes: 0 end or stop, 1 usage (an option it does not
+	 * know), 10 the input could not be opened, 11 stop during the open */
+	if (retval == 1 && !mErrorReported)
+	{
+		errorMessage e;
+		e.code = 1;
+		e.message = "exteplayer3 did not accept its options (exit code 1)";
+		recvErrorMessage(e);
+	}
+	recvStopped(retval);
 }
 
 /* fields that only newer exteplayer3 versions send */
@@ -324,11 +445,26 @@ static void readAudioExtras(cJSON *item, audioStream &a)
 {
 	a.channels = cJsonGetInt(item, "c", a.channels);
 	a.codec_name = cJsonGetStr(item, "d");
+	a.channel_layout = cJsonGetStr(item, "cl");
+	a.title = cJsonGetStr(item, "t");
+	a.sample_rate = cJsonGetInt(item, "sr");
+	a.bitrate = cJsonGetInt(item, "br");
 }
 
 static void readSubtitleExtras(cJSON *item, subtitleStream &s)
 {
 	s.forced = cJsonGetInt(item, "f", s.forced);
+	s.title = cJsonGetStr(item, "t");
+}
+
+/* "f" of "v_e" is the frame rate as the video driver reports it: frames per
+ * 1000 s like "f" of "v_c" (DVB API). A driver that reports plain frames per
+ * second is brought to the same unit. */
+static int decoderFramerate(int framerate)
+{
+	if (framerate <= 0)
+		return -1;
+	return framerate < 1000 ? framerate * 1000 : framerate;
 }
 
 void ExtEplayer3::handleJsonOutput(cJSON *json)
@@ -368,6 +504,62 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 			static const int gamma[] = {0, 2, 3, 1};
 			v.gamma = gamma[hdr];
 		}
+		/* exteplayer3 187: profile@level, bit depth, bit rate, Dolby Vision profile */
+		v.profile = cJsonGetStr(value, "pr");
+		v.bit_depth = cJsonGetInt(value, "bd");
+		v.bitrate = cJsonGetInt(value, "br");
+		v.dolby_vision = cJsonGetInt(value, "dv");
+		if (v.id >= 0 && (v.width <= 0 || v.height <= 0))
+		{
+			/* live TS, HLS: FFmpeg has not seen the picture, "w" and "h"
+			 * are 0 and "f" is a guess. Take what the decoder reported,
+			 * else keep the size already known for this track. */
+			if (mDecoderVideo.width > 0 && mDecoderVideo.height > 0)
+			{
+				v.width = mDecoderVideo.width;
+				v.height = mDecoderVideo.height;
+			}
+			else if (v.id == mVideo.id && mVideo.width > 0 && mVideo.height > 0)
+			{
+				v.width = mVideo.width;
+				v.height = mVideo.height;
+			}
+			if (mDecoderVideo.framerate > 0)
+				v.framerate = mDecoderVideo.framerate;
+		}
+		mVideo = v;
+		recvVideoTrackCurrent(0, v);
+	}
+	else if (!strcmp(key, "v_e"))
+	{
+		/* events of the video decoder (size, frame rate, progressive):
+		 * {"v_e":{"w":1280,"h":720,"a":1,"f":25000,"p":1}}, sent once the
+		 * driver has reported all of them */
+		int width = cJsonGetInt(value, "w", -1);
+		int height = cJsonGetInt(value, "h", -1);
+		int framerate = decoderFramerate(cJsonGetInt(value, "f", -1));
+		int progressive = cJsonGetInt(value, "p", -1);
+		if (width > 0 && height > 0)
+		{
+			mDecoderVideo.width = width;
+			mDecoderVideo.height = height;
+		}
+		if (framerate > 0)
+			mDecoderVideo.framerate = framerate;
+		if (progressive >= 0)
+			mDecoderVideo.progressive = progressive;
+
+		videoStream v = mVideo;
+		if (mDecoderVideo.width > 0 && mDecoderVideo.height > 0)
+		{
+			v.width = mDecoderVideo.width;
+			v.height = mDecoderVideo.height;
+		}
+		if (mDecoderVideo.framerate > 0)
+			v.framerate = mDecoderVideo.framerate;
+		if (mDecoderVideo.progressive >= 0)
+			v.progressive = mDecoderVideo.progressive;
+		mVideo = v;
 		recvVideoTrackCurrent(0, v);
 	}
 	else if (!strcmp(key, "a_s"))
@@ -518,6 +710,55 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	else if (!strcmp(key, "EPLAYER3_EXTENDED"))
 	{
 		mCanWind = cJsonGetInt(value, "trick") != 0;
+		mCanSelectChannel = cJsonGetInt(value, "achannel") != 0;
+		mSeekMs = cJsonGetInt(value, "seekms") != 0;
+	}
+	else if (!strcmp(key, "c_l"))
+	{
+		/* chapters: {"c_l":[{"id":0,"s":0,"e":4321,"t":"Intro"}, ...]} (ms) */
+		std::vector<chapterEntry> chapters;
+		for (int i = 0; value && i < cJSON_GetArraySize(value); i++)
+		{
+			cJSON *item = cJSON_GetArrayItem(value, i);
+			chapterEntry c;
+			c.start_ms = cJsonGetInt(item, "s");
+			c.end_ms = cJsonGetInt(item, "e");
+			c.title = cJsonGetStr(item, "t");
+			chapters.push_back(c);
+		}
+		recvChapters(chapters);
+	}
+	else if (!strcmp(key, "cover"))
+	{
+		/* --cover: {"cover":{"file":"/tmp/.id3coverart","type":"jpeg",...}}, {} without one */
+		recvCover(cJsonGetStr(value, "file"));
+	}
+	else if (!strcmp(key, "s_f"))
+	{
+		/* the player reset its subtitle output (seek, track switch) */
+		recvSubtitleFlush();
+	}
+	else if (!strcmp(key, "m_t"))
+	{
+		/* ICY / radio text of audio-only playback:
+		 * {"m_t":{"rt":"Artist - Title","t":"Title","a":"Artist"}} */
+		recvMetadata(cJsonGetStr(value, "t"), cJsonGetStr(value, "a"), cJsonGetStr(value, "rt"));
+	}
+	else if (!strcmp(key, "a_m"))
+	{
+		/* dual mono: {"a_m":{"m":2,"sts":0}} */
+		recvAudioChannel(cJsonGetInt(value, "sts"), cJsonGetInt(value, "m", 1));
+	}
+	else if (!strcmp(key, "FF_ERROR"))
+	{
+		/* open or read error: {"FF_ERROR":{"msg":"Connection timed out","code":-110}};
+		 * sent before the stop, so a lost connection differs from the end */
+		errorMessage e;
+		e.code = cJsonGetInt(value, "code", -1);
+		e.message = cJsonGetStr(value, "msg");
+		eWarning("ExtEPlayer3::handleJsonOutput - player error %d: %s", e.code, e.message.c_str());
+		mErrorReported = true;
+		recvErrorMessage(e);
 	}
 	else
 	{
