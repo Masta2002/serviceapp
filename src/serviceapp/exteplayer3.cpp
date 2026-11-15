@@ -255,6 +255,8 @@ std::vector<std::string> ExtEplayer3::buildCommand()
 }
 int ExtEplayer3::start(eMainloop *context)
 {
+	mVideo = videoStream();
+	mDecoderVideo = videoStream();
 	return processStart(context);
 }
 
@@ -331,6 +333,16 @@ static void readSubtitleExtras(cJSON *item, subtitleStream &s)
 	s.forced = cJsonGetInt(item, "f", s.forced);
 }
 
+/* "f" of "v_e" is the frame rate as the video driver reports it: frames per
+ * 1000 s like "f" of "v_c" (DVB API). A driver that reports plain frames per
+ * second is brought to the same unit. */
+static int decoderFramerate(int framerate)
+{
+	if (framerate <= 0)
+		return -1;
+	return framerate < 1000 ? framerate * 1000 : framerate;
+}
+
 void ExtEplayer3::handleJsonOutput(cJSON *json)
 {
 	if (!json->child)
@@ -368,6 +380,57 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 			static const int gamma[] = {0, 2, 3, 1};
 			v.gamma = gamma[hdr];
 		}
+		if (v.id >= 0 && (v.width <= 0 || v.height <= 0))
+		{
+			/* live TS, HLS: FFmpeg has not seen the picture, "w" and "h"
+			 * are 0 and "f" is a guess. Take what the decoder reported,
+			 * else keep the size already known for this track. */
+			if (mDecoderVideo.width > 0 && mDecoderVideo.height > 0)
+			{
+				v.width = mDecoderVideo.width;
+				v.height = mDecoderVideo.height;
+			}
+			else if (v.id == mVideo.id && mVideo.width > 0 && mVideo.height > 0)
+			{
+				v.width = mVideo.width;
+				v.height = mVideo.height;
+			}
+			if (mDecoderVideo.framerate > 0)
+				v.framerate = mDecoderVideo.framerate;
+		}
+		mVideo = v;
+		recvVideoTrackCurrent(0, v);
+	}
+	else if (!strcmp(key, "v_e"))
+	{
+		/* events of the video decoder (size, frame rate, progressive):
+		 * {"v_e":{"w":1280,"h":720,"a":1,"f":25000,"p":1}}, sent once the
+		 * driver has reported all of them */
+		int width = cJsonGetInt(value, "w", -1);
+		int height = cJsonGetInt(value, "h", -1);
+		int framerate = decoderFramerate(cJsonGetInt(value, "f", -1));
+		int progressive = cJsonGetInt(value, "p", -1);
+		if (width > 0 && height > 0)
+		{
+			mDecoderVideo.width = width;
+			mDecoderVideo.height = height;
+		}
+		if (framerate > 0)
+			mDecoderVideo.framerate = framerate;
+		if (progressive >= 0)
+			mDecoderVideo.progressive = progressive;
+
+		videoStream v = mVideo;
+		if (mDecoderVideo.width > 0 && mDecoderVideo.height > 0)
+		{
+			v.width = mDecoderVideo.width;
+			v.height = mDecoderVideo.height;
+		}
+		if (mDecoderVideo.framerate > 0)
+			v.framerate = mDecoderVideo.framerate;
+		if (mDecoderVideo.progressive >= 0)
+			v.progressive = mDecoderVideo.progressive;
+		mVideo = v;
 		recvVideoTrackCurrent(0, v);
 	}
 	else if (!strcmp(key, "a_s"))

@@ -856,7 +856,9 @@ void PlayerBackend::recvVideoTrackCurrent(int status, videoStream& stream)
 			mMessageMain.send(Message(Message::videoGammaChanged));
 		if (stream.framerate > 0 && prev.framerate != stream.framerate)
 			mMessageMain.send(Message(Message::videoFramerateChanged));
-		if ((stream.width > 0 && prev.width != stream.width) || (stream.height > 0 && prev.height != stream.height))
+		// also when a known size gets unknown (other track): no stale size
+		if ((prev.width != stream.width && (stream.width > 0 || prev.width > 0))
+			|| (prev.height != stream.height && (stream.height > 0 || prev.height > 0)))
 			mMessageMain.send(Message(Message::videoSizeChanged));
 	}
 }
