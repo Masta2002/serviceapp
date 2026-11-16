@@ -113,6 +113,8 @@ public:
 	virtual int sendUpdateAudioTracksList(){ return -1;}
 	virtual int sendUpdateAudioTrackCurrent(){ return -1;}
 	virtual int sendAudioSelectTrack(int trackId){ return -1;}
+	// left 0, stereo 1, right 2 of dual mono audio (iAudioChannelSelection)
+	virtual int sendAudioSelectChannel(int channel){ return -1;}
 	virtual int sendUpdateSubtitleTracksList(){ return -1;}
 	virtual int sendUpdateSubtitleTrackCurrent(){ return -1;}
 	virtual int sendSubtitleSelectTrack(int trackId){ return -1;}
@@ -137,6 +139,7 @@ public:
 	virtual void recvAudioTracksList(int status, std::vector<audioStream>&){};
 	virtual void recvAudioTrackCurrent(int status, audioStream&){};
 	virtual void recvAudioTrackSelected(int status, int trackId){};
+	virtual void recvAudioChannelSelected(int status, int channel){};
 	virtual void recvSubtitleTracksList(int status, std::vector<subtitleStream>&){};
 	virtual void recvSubtitleTrackCurrent(int status, subtitleStream&){};
 	virtual void recvSubtitleTrackSelected(int status, int trackId){};
@@ -157,6 +160,8 @@ protected:
 	std::map<std::string, std::string> mHeaders;
 	// the player announced that it can wind
 	bool mCanWind = false;
+	// the player announced the left/stereo/right selection of dual mono audio
+	bool mCanSelectAudioChannel = false;
 
 	void recvStarted(int status){pCallback->recvStarted(status);};
 	void recvStopped(int status){pCallback->recvStopped(status);};
@@ -167,6 +172,7 @@ protected:
 	void recvAudioTracksList(int status, std::vector<audioStream>& streams){pCallback->recvAudioTracksList(status, streams);};
 	void recvAudioTrackCurrent(int status, audioStream& stream){pCallback->recvAudioTrackCurrent(status, stream);};
 	void recvAudioTrackSelected(int status, int trackId){pCallback->recvAudioTrackSelected(status, trackId);};
+	void recvAudioChannelSelected(int status, int channel){pCallback->recvAudioChannelSelected(status, channel);};
 	void recvSubtitleMessage(subtitleMessage& sub){pCallback->recvSubtitleMessage(sub);};
 	void recvSubtitleTracksList(int status, std::vector<subtitleStream>& streams){pCallback->recvSubtitleTracksList(status, streams);};
 	void recvSubtitleTrackCurrent(int status, subtitleStream& stream){pCallback->recvSubtitleTrackCurrent(status, stream);};
@@ -183,6 +189,7 @@ public:
 	void setPath(const std::string& path){mPath = path;}
 	void setHttpHeaders(const std::map<std::string, std::string>& headers){mHeaders = headers;}
 	bool canWind() const {return mCanWind;}
+	bool canSelectAudioChannel() const {return mCanSelectAudioChannel;}
 
 	virtual int start(eMainloop *context) = 0;
 
@@ -212,6 +219,7 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 			seekRelative,
 			tSeekRelative,
 			tFastForward,
+			tAudioChannelSelect,
 			audioSelect,
 			tAudioSelect,
 			audioList,
@@ -237,6 +245,8 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 	};
 
 	int mPositionInMs, mLengthInMs;
+	// left 0, stereo 1, right 2 (iAudioChannelSelection)
+	int mAudioChannel;
 	bool playbackStarted;
 	bool mThreadRunning;
 	bool mDebug;
@@ -286,6 +296,7 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 	void recvAudioTracksList(int status, std::vector<audioStream>& streams);
 	void recvAudioTrackCurrent(int status, audioStream& stream);
 	void recvAudioTrackSelected(int status, int trackId);
+	void recvAudioChannelSelected(int status, int channel);
 	void recvSubtitleTracksList(int status, std::vector<subtitleStream>& streams);
 	void recvSubtitleTrackCurrent(int status, subtitleStream& stream);
 	void recvSubtitleTrackSelected(int status, int trackId);
@@ -300,6 +311,7 @@ public:
 	PlayerBackend(BasePlayer* extplayer):
 		mPositionInMs(0),
 		mLengthInMs(0),
+		mAudioChannel(1),
 		playbackStarted(false),
 		mThreadRunning(false),
 		mDebug(false),
@@ -355,6 +367,8 @@ public:
 	int audioSelectTrack(int trackId);
 	int audioGetTrackInfo(audioStream& trackInfo, int trackId);
 	int audioGetCurrentTrackNum();
+	int audioSelectChannel(int channel);
+	int audioGetCurrentChannel(){return mAudioChannel;}
 	int subtitleGetNumberOfTracks(int timeout=0);
 	int subtitleSelectTrack(int trackId);
 	int subtitleGetTrackInfo(subtitleStream& trackInfo, int trackId);

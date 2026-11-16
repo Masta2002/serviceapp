@@ -275,6 +275,16 @@ int PlayerBackend::fastForward(int speed)
 	return 0;
 }
 
+int PlayerBackend::audioSelectChannel(int channel)
+{
+	// only a player that announced it gets the command
+	if (!playbackStarted || !pPlayer->canSelectAudioChannel() || channel < 0 || channel > 2)
+		return -1;
+	mAudioChannel = channel;
+	mMessageThread.send(Message(Message::tAudioChannelSelect, channel));
+	return 0;
+}
+
 int PlayerBackend::resume()
 {
 	if (!playbackStarted)
@@ -487,6 +497,11 @@ void PlayerBackend::gotMessage(const PlayerBackend::Message& message)
 				eDebug("PlayerBackend::gotMessage - tFastForward");
 			pPlayer->sendFastForward(message.dataInt);
 			break;
+		case Message::tAudioChannelSelect:
+			if(mDebug)
+				eDebug("PlayerBackend::gotMessage - tAudioChannelSelect");
+			pPlayer->sendAudioSelectChannel(message.dataInt);
+			break;
 		case Message::tSeekTo:
 			if(mDebug)
 				eDebug("PlayerBackend::gotMessage - tSeekTo");
@@ -675,6 +690,16 @@ void PlayerBackend::recvAudioTrackCurrent(int status, audioStream& stream)
 		pCurrentAudio = new audioStream(stream);
 	}
 } 
+
+void PlayerBackend::recvAudioChannelSelected(int status, int channel)
+{
+	if(mDebug)
+		eDebug("PlayerBackend::recvAudioChannelSelected - status = %d, channel = %d", status, channel);
+	// the selection of the player: also when its decoder refused it
+	// (status != 0), software decoded audio follows it
+	if (channel >= 0 && channel <= 2)
+		mAudioChannel = channel;
+}
 
 void PlayerBackend::recvAudioTrackSelected(int status, int trackId)
 {

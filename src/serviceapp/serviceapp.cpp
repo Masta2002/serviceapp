@@ -921,13 +921,17 @@ int eServiceApp::getCurrentTrack() {
 int eServiceApp::getCurrentChannel() {
 	if (m_debug)
 		eDebug("eServiceApp::getCurrentChannel");
-	return STEREO;
+	return player->audioGetCurrentChannel();
 }
 
+// left, stereo or right of dual mono audio: exteplayer3 with "achannel" in
+// EPLAYER3_EXTENDED only, -1 for gstplayer and an older exteplayer3
 RESULT eServiceApp::selectChannel(int i) {
 	if (m_debug)
 		eDebug("eServiceApp::selectChannel %d", i);
-	return -1;
+	if (i != LEFT && i != STEREO && i != RIGHT)
+		return -1;
+	return player->audioSelectChannel(i);
 }
 
 

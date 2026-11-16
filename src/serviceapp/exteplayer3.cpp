@@ -276,6 +276,15 @@ int ExtEplayer3::sendAudioSelectTrack(int trackId)
 	return processSend(sstm.str());
 }
 
+// "am<n>": left 0, stereo 1, right 2; sent only after "achannel" in
+// EPLAYER3_EXTENDED (an older exteplayer3 would ignore it anyway)
+int ExtEplayer3::sendAudioSelectChannel(int channel)
+{
+	std::stringstream sstm;
+	sstm << "am" << channel << std::endl;
+	return processSend(sstm.str());
+}
+
 int ExtEplayer3::sendUpdateSubtitleTracksList(){ return processSend(std::string("sl\n"));}
 int ExtEplayer3::sendUpdateSubtitleTrackCurrent(){ return processSend(std::string("sc\n"));}
 
@@ -344,6 +353,13 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 			return;
 		}
 		recvAudioTrackSelected(1, 0);
+	}
+	else if (!strcmp(key, "a_m"))
+	{
+		cJSON *channel = cJSON_GetObjectItem(value, "m");
+		cJSON *sts = cJSON_GetObjectItem(value, "sts");
+		if (channel)
+			recvAudioChannelSelected(sts ? sts->valueint : 0, channel->valueint);
 	}
 	else if (!strcmp(key, "a_c"))
 	{
@@ -480,6 +496,8 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	{
 		cJSON *trick = cJSON_GetObjectItem(value, "trick");
 		mCanWind = trick && trick->valueint;
+		cJSON *achannel = cJSON_GetObjectItem(value, "achannel");
+		mCanSelectAudioChannel = achannel && achannel->valueint;
 	}
 	else
 	{
