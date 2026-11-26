@@ -114,6 +114,7 @@ class eServiceApp : public sigc::trackable,
 	bool m_player_started;
 	bool m_stopping;
 	bool m_reconnected;
+	int m_reconnect_channel; // dual mono selection of the old player
 	std::string m_start_path; // before a resolver replaced it
 	bool isLiveStream();
 	bool isPermanentPlayerError();

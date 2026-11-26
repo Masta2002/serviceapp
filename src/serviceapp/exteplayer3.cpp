@@ -317,6 +317,16 @@ int ExtEplayer3::sendSubtitleSelectTrack(int trackId)
 /* exteplayer3 takes track -1 as "no subtitles" */
 int ExtEplayer3::sendSubtitleDisable(){ return processSend(std::string("s-1\n"));}
 
+/* dual mono, exteplayer3 187 ("achannel"): am0 left, am1 stereo, am2 right */
+int ExtEplayer3::sendAudioChannel(int channel)
+{
+	if (!mCanSelectChannel)
+		return -1;
+	std::stringstream sstm;
+	sstm << "am" << channel << std::endl;
+	return processSend(sstm.str());
+}
+
 int ExtEplayer3::sendSeekTo(int seconds)
 {
 	std::stringstream sstm;
@@ -350,11 +360,14 @@ static void readAudioExtras(cJSON *item, audioStream &a)
 {
 	a.channels = cJsonGetInt(item, "c", a.channels);
 	a.codec_name = cJsonGetStr(item, "d");
+	a.channel_layout = cJsonGetStr(item, "cl");
+	a.title = cJsonGetStr(item, "t");
 }
 
 static void readSubtitleExtras(cJSON *item, subtitleStream &s)
 {
 	s.forced = cJsonGetInt(item, "f", s.forced);
+	s.title = cJsonGetStr(item, "t");
 }
 
 /* "f" of "v_e" is the frame rate as the video driver reports it: frames per
@@ -605,6 +618,17 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	else if (!strcmp(key, "EPLAYER3_EXTENDED"))
 	{
 		mCanWind = cJsonGetInt(value, "trick") != 0;
+		mCanSelectChannel = cJsonGetInt(value, "achannel") != 0;
+	}
+	else if (!strcmp(key, "s_f"))
+	{
+		/* the player reset its subtitle output (seek, track switch) */
+		recvSubtitleFlush();
+	}
+	else if (!strcmp(key, "a_m"))
+	{
+		/* dual mono: {"a_m":{"m":2,"sts":0}} */
+		recvAudioChannel(cJsonGetInt(value, "sts"), cJsonGetInt(value, "m", 1));
 	}
 	else if (!strcmp(key, "FF_ERROR"))
 	{

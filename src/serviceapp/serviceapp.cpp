@@ -1,5 +1,6 @@
 #include "Python.h"
 #include <algorithm>
+#include <cctype>
 #include <ctime>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
@@ -275,6 +276,7 @@ eServiceApp::eServiceApp(eServiceReference ref)
 	m_player_started = false;
 	m_stopping = false;
 	m_reconnected = false;
+	m_reconnect_channel = STEREO;
 	m_start_path = m_ref.path;
 	m_live_reconnect_timer = eTimer::create(eApp);
 	CONNECT(m_live_reconnect_timer->timeout, eServiceApp::liveReconnect);
@@ -452,7 +454,14 @@ void eServiceApp::addEmbeddedTrack(std::vector<struct SubtitleTrack>& subtitleli
 	track.magazine_number = 0;
 	track.pid = pid;
 	track.language_code = s.language_code;
-	if (s.forced) {
+	/* the title of the track ("SDH", "CC1"), "forced" for a forced one without */
+	if (!s.title.empty()) {
+		track.title = s.title;
+		std::string lower(s.title);
+		std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+		if (s.forced && lower.find("forced") == std::string::npos)
+			track.title += " forced";
+	} else if (s.forced) {
 		track.title = "forced";
 	}
 
@@ -702,6 +711,8 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 				m_reconnected = false;
 				if (m_selected_subtitle_track && isEmbeddedTrack(*m_selected_subtitle_track))
 					player->subtitleSelectTrack(m_selected_subtitle_track->pid);
+				if (m_reconnect_channel != STEREO)
+					player->audioSelectChannel(m_reconnect_channel);
 			}
 			if (!m_is_streaming && !m_cuesheet_loaded)
 				loadCuesheet();
@@ -827,6 +838,17 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 				eDebug("eServiceApp::gotExtPlayerMessage - subtitleAvailable");
 			if (m_selected_subtitle_track && isEmbeddedTrack(*m_selected_subtitle_track))
 				pullSubtitles();
+			break;
+		case PlayerMessage::subtitleFlush:
+			/* seek or track switch: cues of the old position must not come back */
+			if (m_selected_subtitle_track && isEmbeddedTrack(*m_selected_subtitle_track)) {
+				m_prev_subtitle_message = NULL;
+				m_embedded_subtitle_pages.clear();
+			}
+			break;
+		case PlayerMessage::subtitleTracksChanged:
+			/* closed captions (CC1) showed up: the subtitle list is new */
+			m_event(this, evUpdatedInfo);
 			break;
 		default:
 			if (m_debug)
@@ -971,6 +993,7 @@ void eServiceApp::liveReconnect() {
 	int audio_track = player->audioGetCurrentTrackNum();
 	if (audio_track > 0)
 		m_cachedAudioTrack = audio_track;
+	m_reconnect_channel = player->audioGetChannel();
 	m_subtitle_sync_timer->stop();
 	m_prev_subtitle_message = NULL;
 	m_embedded_subtitle_pages.clear();
@@ -1190,7 +1213,16 @@ RESULT eServiceApp::getTrackInfo(iAudioTrackInfo& trackInfo, unsigned int n) {
 	if (!track.codec_name.empty()) {
 		desc = track.codec_name;
 	}
-	if (track.channels > 0) {
+	/* the layout the player names ("5.1(side)" -> "5.1"), else one from the channel count */
+	std::string layout = track.channel_layout;
+	size_t paren = layout.find('(');
+	if (paren != std::string::npos)
+		layout.erase(paren);
+	if (!layout.empty() && isdigit((unsigned char)layout[0])) {
+		desc += " " + layout;
+	} else if (layout == "mono" || layout == "stereo") {
+		desc += layout == "mono" ? " 1.0" : " 2.0";
+	} else if (track.channels > 0) {
 		static const char* layouts[] = {"", "1.0", "2.0", "2.1", "4.0", "5.0", "5.1", "6.1", "7.1"};
 		char buf[16];
 		if (track.channels < 9)
@@ -1199,6 +1231,9 @@ RESULT eServiceApp::getTrackInfo(iAudioTrackInfo& trackInfo, unsigned int n) {
 			snprintf(buf, sizeof(buf), " %dch", track.channels);
 		desc += buf;
 	}
+	/* track title of the container, e.g. "Commentary", "Audio Description" */
+	if (!track.title.empty())
+		desc += " (" + track.title + ")";
 
 	trackInfo.m_description = desc;
 	trackInfo.m_language = track.language_code;
@@ -1217,13 +1252,18 @@ int eServiceApp::getCurrentTrack() {
 int eServiceApp::getCurrentChannel() {
 	if (m_debug)
 		eDebug("eServiceApp::getCurrentChannel");
+	/* dual mono with exteplayer3 187: LEFT 0, STEREO 1, RIGHT 2 = am<n> */
+	if (player->canSelectAudioChannel())
+		return player->audioGetChannel();
 	return STEREO;
 }
 
 RESULT eServiceApp::selectChannel(int i) {
 	if (m_debug)
 		eDebug("eServiceApp::selectChannel %d", i);
-	return -1;
+	if (i != LEFT && i != STEREO && i != RIGHT)
+		return -1;
+	return player->audioSelectChannel(i);
 }
 
 
@@ -1410,6 +1450,11 @@ RESULT eServiceApp::getSubtitleList(std::vector<struct SubtitleTrack>& subtitlel
 		if (player->subtitleGetTrackInfo(s, pid) == 0) {
 			addEmbeddedTrack(subtitlelist, s, pid);
 		}
+	}
+	if (m_is_streaming) {
+		/* no .srt next to a url: listDir("http://...") only logs an error
+		 * with the stream url on every call */
+		return 0;
 	}
 	std::string basename, extension;
 	splitExtension(m_ref.path, basename, extension);

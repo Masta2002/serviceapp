@@ -375,6 +375,15 @@ int PlayerBackend::audioGetCurrentTrackNum()
 	return trackNum;
 }
 
+int PlayerBackend::audioSelectChannel(int channel)
+{
+	if (channel < 0 || channel > 2 || !pPlayer->canSelectChannel())
+		return -1;
+	mAudioChannel = channel;
+	mMessageThread.send(Message(Message::tAudioChannel, channel));
+	return 0;
+}
+
 int PlayerBackend::audioSelectTrack(int trackNum)
 {
 	eSingleLocker l_(mStreamsLock);
@@ -549,6 +558,19 @@ void PlayerBackend::gotMessage(const PlayerBackend::Message& message)
 			if(mDebug)
 				eDebug("PlayerBackend::gotMessage - tSubtitleList");
 			pPlayer->sendUpdateSubtitleTracksList();
+			break;
+		case Message::tAudioChannel:
+			if(mDebug)
+				eDebug("PlayerBackend::gotMessage - tAudioChannel %d", message.dataInt);
+			pPlayer->sendAudioChannel(message.dataInt);
+			break;
+		case Message::subtitleFlush:
+			gotPlayerMessage(PlayerMessage::subtitleFlush);
+			break;
+		case Message::subtitleTracksChanged:
+			if(mDebug)
+				eDebug("PlayerBackend::gotMessage - subtitleTracksChanged");
+			gotPlayerMessage(PlayerMessage::subtitleTracksChanged);
 			break;
 		case Message::tGetLength:
 			if(mDebug)
@@ -789,13 +811,31 @@ void PlayerBackend::recvAudioTrackSelected(int status, int trackId)
 }
 
 void PlayerBackend::recvSubtitleTracksList(int status, std::vector<subtitleStream>& streams)
-{ 
-	if(!status) 
+{
+	bool changed = false;
+	if(!status)
 	{
 		eSingleLocker l_(mStreamsLock);
+		changed = playbackStarted && streams.size() != mSubtitleStreams.size();
 		mSubtitleStreams = streams;
 	}
+	pthread_mutex_lock(&mWaitMutex);
+	bool asked = mWaitForUpdate;
+	pthread_mutex_unlock(&mWaitMutex);
 	recvMessage();
+	/* exteplayer3 sends the list again by itself when closed captions show up */
+	if (changed && !asked)
+		mMessageMain.send(Message(Message::subtitleTracksChanged));
+}
+
+void PlayerBackend::recvSubtitleFlush()
+{
+	{
+		eSingleLocker s(mSubLock);
+		while (!mSubtitles.empty())
+			mSubtitles.pop();
+	}
+	mMessageMain.send(Message(Message::subtitleFlush));
 }
 
 void PlayerBackend::recvSubtitleTrackCurrent(int status, subtitleStream& stream)

@@ -82,5 +82,6 @@ class ExtEplayer3: public PlayerApp, public BasePlayer
 	int sendSeekTo(int seconds);
 	int sendSeekRelative(int seconds);
 	int sendFastForward(int speed);
+	int sendAudioChannel(int channel);
 };
 #endif
