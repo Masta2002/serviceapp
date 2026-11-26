@@ -1,13 +1,13 @@
 # SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
+# Copyright (C) YEAR the ServiceApp authors
+# This file is distributed under the same license as ServiceApp (GPL-2.0).
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-02 17:17+0100\n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
 "PO-Revision-Date: 2018-07-28 11:56+0200\n"
 "Last-Translator: Pr2\n"
 "Language-Team: \n"
@@ -18,79 +18,93 @@ msgstr ""
 "X-Generator: Poedit 2.0.9\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: ../plugin/plugin.py:169
+#, python-format
+msgid "%d millisecond"
+msgid_plural "%d milliseconds"
+msgstr[0] "%d milliseconde"
+msgstr[1] "%d millisecondes"
+
 msgid "AAC software decoding"
 msgstr "Décodage logiciel du AAC"
 
-#: ../plugin/plugin.py:171
+msgid "AAC-LC"
+msgstr "AAC-LC"
+
 msgid "AC3 software decoding"
 msgstr "Décodage logiciel du AC3"
 
-#: ../plugin/plugin.py:189
 msgid "AC3+ Passthrough fix delay"
-msgstr ""
+msgstr "Délai du correctif passthrough AC3+"
 
-#: ../plugin/plugin.py:182
+msgid "Auto"
+msgstr "Auto"
+
 msgid "Auto select stream"
 msgstr "Sélection automatique du flux"
 
-#: ../plugin/plugin.py:180
 msgid "Auto turn on subtitles"
 msgstr "Activer automatiquement les sous-titres"
 
-#: ../plugin/plugin.py:180
 msgid "Automatically turn on subtitles if available."
 msgstr "Activer automatiquement les sous-titres si disponible."
 
-#: ../plugin/plugin.py:166
 msgid "Buffer duration"
 msgstr "Durée de la mémoire tampon"
 
-#: ../plugin/plugin.py:165
 msgid "Buffer size"
 msgstr "Taille du fichier tampon"
 
-#: ../plugin/plugin.py:183
+msgid "Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr "Indiquez si les pistes audio DTS / DTS-HD doivent être transcodées en Dolby Digital ou Dolby Digital +."
+
+msgid "Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr "Indiquez si les pistes audio Dolby TrueHD doivent être transcodées en Dolby Digital ou Dolby Digital +."
+
+msgid "Choose whether HE-AAC sound tracks should be transcoded to AAC-LC."
+msgstr "Indiquez si les pistes audio HE-AAC doivent être transcodées en AAC-LC."
+
 msgid "Connection speed"
 msgstr "Vitesse de connexion"
 
-#: ../plugin/plugin.py:172
+msgid "DTS / DTS-HD transcoding"
+msgstr "Transcodage DTS / DTS-HD"
+
 msgid "DTS software decoding"
 msgstr "Décodage logiciel du DTS"
 
-#: ../plugin/plugin.py:223
 msgid "Debug"
-msgstr ""
+msgstr "Débogage"
 
-#: ../plugin/plugin.py:265
 msgid "Detecting exteplayer3 player ..."
 msgstr "Détection du lecteur exteplayer3..."
 
-#: ../plugin/plugin.py:264
 msgid "Detecting gstreamer player ..."
 msgstr "Détection du lecteur gstreamer..."
 
-#: ../plugin/plugin.py:170
+msgid "Dolby Digital"
+msgstr "Dolby Digital"
+
+msgid "Dolby Digital +"
+msgstr "Dolby Digital +"
+
+msgid "Dolby TrueHD transcoding"
+msgstr "Transcodage Dolby TrueHD"
+
 msgid "EAC3 software decoding"
 msgstr "Décodage logiciel du EAC3"
 
-#: ../plugin/plugin.py:164
 msgid "Embedded subtitles"
 msgstr "Sous-titres embarqués"
 
-#: ../plugin/plugin.py:187
 msgid "Enable AC3+ passthrough fix"
-msgstr ""
+msgstr "Activer le correctif passthrough AC3+"
 
-#: ../plugin/plugin.py:187
 msgid "Enables AC3+ passthrough fix for Vu+ Ultimo4K / Duo4KSE."
-msgstr ""
+msgstr "Active le correctif passthrough AC3+ pour Vu+ Ultimo4K / Duo4KSE."
 
-#: ../plugin/plugin.py:206
 msgid "Enigma2 playback system"
 msgstr "Système de lecture Enigma2"
 
-#: ../plugin/plugin.py:230
 msgid ""
 "Enigma2 playback system was changed and Enigma2 should be restarted\n"
 "\n"
@@ -100,200 +114,203 @@ msgstr ""
 "\n"
 "Voulez-vous redémarrer maintenant?"
 
-#: ../plugin/plugin.py:195
 msgid "ExtEplayer3"
 msgstr "ExtEplayer3"
 
-#: ../plugin/plugin.py:200
+msgid "Forced only"
+msgstr "Forcés uniquement"
+
+msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
+msgstr "Forcés uniquement : une piste forcée intégrée (passages en langue étrangère) dans la langue de la piste audio ou des langues audio préférées."
+
+#. TRANSLATORS: %s is the name of the missing GStreamer plugin
+#, c-format
+msgid "GStreamer plugin %s is not available!"
+msgstr "Le plugin GStreamer %s n'est pas disponible !"
+
 msgid "GstPlayer"
 msgstr "GstPlayer"
 
-#: ../plugin/plugin.py:181
+msgid "HE-AAC transcoding"
+msgstr "Transcodage HE-AAC"
+
 msgid "HLS Explorer"
 msgstr "Explorateur de HLS"
 
-#: ../plugin/plugin.py:176
+msgid "HLS default audio only"
+msgstr "HLS : piste audio par défaut uniquement"
+
+msgid "HLS quality"
+msgstr "Qualité HLS"
+
+msgid "Highest"
+msgstr "La plus haute"
+
 msgid "LPCM injection"
 msgstr "Injection de LPCM"
 
-#: ../plugin/plugin.py:173
+msgid "Lowest"
+msgstr "La plus basse"
+
 msgid "MP3 software decoding"
 msgstr "Décodage logiciel du MP3"
 
-#: ../plugin/plugin.py:71
 msgid "No"
-msgstr ""
+msgstr "Non"
 
-#: ../plugin/plugin.py:351
+msgid "Offer only the default audio track of a HLS stream instead of all of its languages."
+msgstr "Ne proposer que la piste audio par défaut d'un flux HLS au lieu de toutes ses langues."
+
 msgid "Play with ServiceExtEplayer3"
 msgstr "Lire avec ServiceExtEplayer3"
 
-#: ../plugin/plugin.py:353
 msgid "Play with ServiceGstPlayer"
 msgstr "Lire avec ServiceGstPlayer"
 
-#: ../plugin/plugin.py:208
 msgid "Player"
 msgstr "Lecteur"
 
-#: ../plugin/plugin.py:177
 msgid "RTMP protocol implementation"
 msgstr "Implémentation du protocole RTMP"
 
-#: ../plugin/plugin.py:163
+msgid "Resolving the stream address failed"
+msgstr "La résolution de l'adresse du flux a échoué"
+
 msgid "Select sink which you want to use."
 msgstr "Sélectionnez le « sink » que vous souhaitez utiliser."
 
-#: ../plugin/plugin.py:189
-#, fuzzy
 msgid "Select the delay that will be used for AC3+ Passthrough fix."
-msgstr "Sélectionnez le lecteur qui sera utilisé pour la lecture par Enigma2."
+msgstr "Sélectionnez le délai utilisé pour le correctif passthrough AC3+."
 
-#: ../plugin/plugin.py:206
 msgid "Select the player which will be used for Enigma2 playback."
 msgstr "Sélectionnez le lecteur qui sera utilisé pour la lecture par Enigma2."
 
-#: ../plugin/plugin.py:208
 msgid "Select the player which will be used in serviceapp for Enigma2 playback."
 msgstr "Sélectionnez le lecteur qui sera utilisé par serviceapp pour la lecture Enigma2."
 
-#: ../plugin/plugin.py:160 ../plugin/plugin.py:334 ../plugin/plugin.py:349
-#: ../plugin/plugin.py:351 ../plugin/plugin.py:353
 msgid "ServiceApp"
 msgstr "ServiceApp"
 
-#: ../plugin/plugin.py:221
+msgid "ServiceApp - player check"
+msgstr "ServiceApp - vérification des lecteurs"
+
 #, python-format
 msgid "ServiceExtEplayer3 (%s)"
 msgstr "ServiceExtEplayer3 (%s)"
 
-#: ../plugin/plugin.py:218
 #, python-format
 msgid "ServiceGstPlayer (%s)"
 msgstr "ServiceGstPlayer (%s)"
 
-#: ../plugin/plugin.py:211
 #, python-format
 msgid "ServiceMp3 (%s)"
 msgstr "ServiceMp3 (%s)"
 
-#: ../plugin/plugin.py:166
 msgid "Set buffer duration in seconds."
 msgstr "Définir la durée tampon en secondes."
 
-#: ../plugin/plugin.py:165
 msgid "Set buffer size in kilobytes."
 msgstr "Définir la taille de la mémoire tampon en kilo-octets."
 
-#: ../plugin/plugin.py:183
 msgid "Set connection speed in kb/s, according to which you want to have streams auto-selected"
 msgstr "Définir la vitesse de connexion en kb/s, à partir de laquelle vous voulez avoir les flux sélectionnés automatiquement"
 
-#: ../plugin/plugin.py:177
 msgid "Set which RTMP protocol implementation will be used for playback of RTMP streams"
 msgstr "Défini quelle implémentation du protocole RTMP sera utilisée pour lire les flux RTMP"
 
-#: ../plugin/plugin.py:163
 msgid "Sink"
 msgstr "Sink"
 
-#: ../plugin/plugin.py:176
 msgid "Software decoder use LPCM for injection (otherwise wav PCM will be used)"
 msgstr "Logiciel de décodage utiliser pour l’injection LPCM (autrement wav PCM sera utilisé)"
 
-#: ../plugin/plugin.py:175
 msgid "Stereo downmix"
 msgstr "Downmix stéréo"
 
-#: ../plugin/plugin.py:244
 msgid "Stop playing this movie?"
 msgstr "Arrêter la lecture du film?"
 
-#: ../plugin/plugin.py:71
 msgid "To AAC ADTS"
-msgstr "À AAC ADTA"
+msgstr "Vers AAC ADTS"
 
-#: ../plugin/plugin.py:71
 msgid "To AAC LATM"
 msgstr "À LATM AAC"
 
-#: ../plugin/plugin.py:169
 msgid "Turn on AAC software decoding."
 msgstr "Activer le décodage logiciel AAC."
 
-#: ../plugin/plugin.py:171
 msgid "Turn on AC3 software decoding."
 msgstr "Activer le décodage logiciel AC3."
 
-#: ../plugin/plugin.py:172
 msgid "Turn on DTS software decoding."
 msgstr "Activer le décodage logiciel DTS."
 
-#: ../plugin/plugin.py:170
 msgid "Turn on EAC3 software decoding."
 msgstr "Activer le décodage logiciel EAC3."
 
-#: ../plugin/plugin.py:173
 msgid "Turn on MP3 software decoding."
 msgstr "Activer le décodage logiciel MP3."
 
-#: ../plugin/plugin.py:174
 msgid "Turn on WMA1, WMA2, WMA/PRO software decoding."
 msgstr "Activer le décodage logiciel WMA1, WMA2, WMA/PRO."
 
-#: ../plugin/plugin.py:182
 msgid "Turn on auto-selection of streams according to set Connection speed."
 msgstr "Activer la sélection automatique des flux selon la vitesse de connexion établie."
 
-#: ../plugin/plugin.py:223
 msgid "Turn on debug messages"
-msgstr ""
+msgstr "Activer les messages de débogage"
 
-#: ../plugin/plugin.py:175
 msgid "Turn on downmix to stereo, when software decoding is in use"
 msgstr "Activer le downmix vers stéréo, s’active lorsque le décodage logiciel est utilisé"
 
-#: ../plugin/plugin.py:181
 msgid "Turn on explorer to retrieve different quality streams from HLS variant playlist and select them via subservices."
 msgstr "Activer l’explorateur pour récupérer les différentes qualités de flux via la liste HLS et les sélectionner via les sous-services."
 
-#: ../plugin/plugin.py:164
 msgid "Turn on the embedded subtitles support."
 msgstr "Activer le support des sous-titres embarqués."
 
-#: ../plugin/plugin.py:174
+msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
+msgstr "Variante d'un flux HLS ou DASH choisie par le lecteur : Auto et La plus haute lisent la meilleure, La plus basse la plus petite."
+
 msgid "WMA software decoding"
 msgstr "Décodage logiciel du WMA"
 
-#: ../plugin/plugin.py:30
+msgid "Yes"
+msgstr "Oui"
+
 msgid "experimental"
 msgstr "expérimental"
 
-#: ../plugin/plugin.py:32
 msgid "exteplayer3"
 msgstr "extEplayer3"
 
-#: ../plugin/plugin.py:32
+msgid "exteplayer3 did not accept its options (exit code 1)"
+msgstr "exteplayer3 n'a pas accepté ses options (code de sortie 1)"
+
+#. TRANSLATORS: a forced subtitle track (only the foreign language parts)
+msgid "forced"
+msgstr "forcé"
+
 msgid "gstplayer"
 msgstr "gstplayer"
 
-#: ../plugin/plugin.py:195 ../plugin/plugin.py:200
 msgid "not installed"
 msgstr "pas installé"
 
-#: ../plugin/plugin.py:27 ../plugin/plugin.py:41
 msgid "original"
 msgstr "original"
 
-#: ../plugin/plugin.py:41
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "Le lecteur s'est arrêté sur le signal %d"
+
 msgid "serviceapp"
 msgstr "serviceApp"
 
-#: ../plugin/plugin.py:349
 msgid "setup player framework"
 msgstr "cadre de configuration du lecteur"
 
-#: ../plugin/plugin.py:195 ../plugin/plugin.py:200
 #, python-format
 msgid "version %s"
-msgstr ""
+msgstr "version %s"

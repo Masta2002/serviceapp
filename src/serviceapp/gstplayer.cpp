@@ -1,4 +1,5 @@
 #include <sstream>
+#include <cstdio>
 
 #include <lib/base/eerror.h>
 #include "gstplayer.h"
@@ -340,9 +341,10 @@ void GstPlayer::handleJsonOutput(cJSON *json)
 	else if (!strcmp(key, "GST_MISSING_PLUGIN"))
 	{
 		errorMessage e;
-		e.message = "GStreamer plugin ";
-		e.message += cJsonGetStr(value, "msg");
-		e.message += " is not available!";
+		char buf[512];
+		/* TRANSLATORS: %s is the name of the missing GStreamer plugin */
+		snprintf(buf, sizeof(buf), SAPP_TR("GStreamer plugin %s is not available!"), cJsonGetStr(value, "msg").c_str());
+		e.message = buf;
 		recvErrorMessage(e);
 	}
 	else if (!strcmp(key, "PLAYBACK_STOP"))

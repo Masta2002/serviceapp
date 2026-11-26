@@ -45,7 +45,7 @@ Your contribution is very welcome! Follow these steps:
 - The languages are the `LANGS` of `src/locale/Makefile.am`; a new language needs its entry there
 - After a change of the texts run `./updateallpo.sh` in `src/locale` (or the workflow "Update translation templates"); it rebuilds `ServiceApp.pot` and merges it into every `.po`
 - Translate in the `.po` file of your language (for example with Poedit) and keep the placeholders (`%s`, `%d`) of the msgid
-- No machine translation: an untranslated text falls back to English, a wrong one stays wrong
+- No blind machine translation: an untranslated text falls back to English, a wrong one stays wrong
 - The Translations workflow checks every catalog with `msgfmt -c` and that the `.pot` matches the code
 
 ---

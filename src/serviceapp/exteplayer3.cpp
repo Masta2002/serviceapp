@@ -546,7 +546,7 @@ void ExtEplayer3::handleProcessStopped(int retval)
 	{
 		errorMessage e;
 		e.code = 1;
-		e.message = "exteplayer3 did not accept its options (exit code 1)";
+		e.message = SAPP_TR("exteplayer3 did not accept its options (exit code 1)");
 		recvErrorMessage(e);
 	}
 	/* no more pictures come: the files still there are not needed any more */

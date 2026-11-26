@@ -17,6 +17,13 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include <libintl.h>
+
+/* a text the user sees, translated with the catalogs of the plugin: the
+ * Python part binds the text domain "ServiceApp" for the whole process.
+ * updateallpo.sh takes these strings into ServiceApp.pot (-kSAPP_TR). */
+#define SAPP_TR(text) dgettext("ServiceApp", text)
+
 class SettingEntry;
 
 typedef std::map<std::string, std::string> HeaderMap;

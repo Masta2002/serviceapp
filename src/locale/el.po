@@ -1,0 +1,315 @@
+# Greek translation of ServiceApp.
+# Copyright (C) 2026 the ServiceApp authors
+# This file is distributed under the same license as ServiceApp (GPL-2.0).
+# Translated for ServiceApp, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ServiceApp\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
+"PO-Revision-Date: 2026-11-27 00:12+0100\n"
+"Last-Translator: \n"
+"Language-Team: none\n"
+"Language: el\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#, python-format
+msgid "%d millisecond"
+msgid_plural "%d milliseconds"
+msgstr[0] "%d χιλιοστό του δευτερολέπτου"
+msgstr[1] "%d χιλιοστά του δευτερολέπτου"
+
+msgid "AAC software decoding"
+msgstr "Αποκωδικοποίηση AAC μέσω λογισμικού"
+
+msgid "AAC-LC"
+msgstr "AAC-LC"
+
+msgid "AC3 software decoding"
+msgstr "Αποκωδικοποίηση AC3 μέσω λογισμικού"
+
+msgid "AC3+ Passthrough fix delay"
+msgstr "Καθυστέρηση διόρθωσης passthrough AC3+"
+
+msgid "Auto"
+msgstr "Αυτόματο"
+
+msgid "Auto select stream"
+msgstr "Αυτόματη επιλογή ροής"
+
+msgid "Auto turn on subtitles"
+msgstr "Αυτόματη ενεργοποίηση υποτίτλων"
+
+msgid "Automatically turn on subtitles if available."
+msgstr "Αυτόματη ενεργοποίηση υποτίτλων, αν υπάρχουν."
+
+msgid "Buffer duration"
+msgstr "Διάρκεια buffer"
+
+msgid "Buffer size"
+msgstr "Μέγεθος buffer"
+
+msgid "Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr "Επιλέξτε αν τα κομμάτια ήχου DTS / DTS-HD θα μετατρέπονται σε Dolby Digital ή Dolby Digital +."
+
+msgid "Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr "Επιλέξτε αν τα κομμάτια ήχου Dolby TrueHD θα μετατρέπονται σε Dolby Digital ή Dolby Digital +."
+
+msgid "Choose whether HE-AAC sound tracks should be transcoded to AAC-LC."
+msgstr "Επιλέξτε αν τα κομμάτια ήχου HE-AAC θα μετατρέπονται σε AAC-LC."
+
+msgid "Connection speed"
+msgstr "Ταχύτητα σύνδεσης"
+
+msgid "DTS / DTS-HD transcoding"
+msgstr "Μετατροπή DTS / DTS-HD"
+
+msgid "DTS software decoding"
+msgstr "Αποκωδικοποίηση DTS μέσω λογισμικού"
+
+msgid "Debug"
+msgstr "Εντοπισμός σφαλμάτων"
+
+msgid "Detecting exteplayer3 player ..."
+msgstr "Ανίχνευση του player exteplayer3 ..."
+
+msgid "Detecting gstreamer player ..."
+msgstr "Ανίχνευση του player gstreamer ..."
+
+msgid "Dolby Digital"
+msgstr "Dolby Digital"
+
+msgid "Dolby Digital +"
+msgstr "Dolby Digital +"
+
+msgid "Dolby TrueHD transcoding"
+msgstr "Μετατροπή Dolby TrueHD"
+
+msgid "EAC3 software decoding"
+msgstr "Αποκωδικοποίηση EAC3 μέσω λογισμικού"
+
+msgid "Embedded subtitles"
+msgstr "Ενσωματωμένοι υπότιτλοι"
+
+msgid "Enable AC3+ passthrough fix"
+msgstr "Ενεργοποίηση διόρθωσης passthrough AC3+"
+
+msgid "Enables AC3+ passthrough fix for Vu+ Ultimo4K / Duo4KSE."
+msgstr "Ενεργοποιεί τη διόρθωση passthrough AC3+ για Vu+ Ultimo4K / Duo4KSE."
+
+msgid "Enigma2 playback system"
+msgstr "Σύστημα αναπαραγωγής Enigma2"
+
+msgid ""
+"Enigma2 playback system was changed and Enigma2 should be restarted\n"
+"\n"
+"Do you want to restart it now?"
+msgstr ""
+"Το σύστημα αναπαραγωγής του Enigma2 άλλαξε και το Enigma2 πρέπει να επανεκκινηθεί.\n"
+"\n"
+"Θέλετε επανεκκίνηση τώρα;"
+
+msgid "ExtEplayer3"
+msgstr "ExtEplayer3"
+
+msgid "Forced only"
+msgstr "Μόνο υποχρεωτικοί"
+
+msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
+msgstr "Μόνο υποχρεωτικοί: ενσωματωμένο υποχρεωτικό κομμάτι (τμήματα σε ξένη γλώσσα) στη γλώσσα του κομματιού ήχου ή των προτιμώμενων γλωσσών ήχου."
+
+#. TRANSLATORS: %s is the name of the missing GStreamer plugin
+#, c-format
+msgid "GStreamer plugin %s is not available!"
+msgstr "Το πρόσθετο GStreamer %s δεν είναι διαθέσιμο!"
+
+msgid "GstPlayer"
+msgstr "GstPlayer"
+
+msgid "HE-AAC transcoding"
+msgstr "Μετατροπή HE-AAC"
+
+msgid "HLS Explorer"
+msgstr "HLS Explorer"
+
+msgid "HLS default audio only"
+msgstr "HLS: μόνο το προεπιλεγμένο κομμάτι ήχου"
+
+msgid "HLS quality"
+msgstr "Ποιότητα HLS"
+
+msgid "Highest"
+msgstr "Υψηλότερη"
+
+msgid "LPCM injection"
+msgstr "Έγχυση LPCM"
+
+msgid "Lowest"
+msgstr "Χαμηλότερη"
+
+msgid "MP3 software decoding"
+msgstr "Αποκωδικοποίηση MP3 μέσω λογισμικού"
+
+msgid "No"
+msgstr "Όχι"
+
+msgid "Offer only the default audio track of a HLS stream instead of all of its languages."
+msgstr "Προσφορά μόνο του προεπιλεγμένου κομματιού ήχου μιας ροής HLS αντί για όλες τις γλώσσες της."
+
+msgid "Play with ServiceExtEplayer3"
+msgstr "Αναπαραγωγή με ServiceExtEplayer3"
+
+msgid "Play with ServiceGstPlayer"
+msgstr "Αναπαραγωγή με ServiceGstPlayer"
+
+msgid "Player"
+msgstr "Player"
+
+msgid "RTMP protocol implementation"
+msgstr "Υλοποίηση πρωτοκόλλου RTMP"
+
+msgid "Resolving the stream address failed"
+msgstr "Η εύρεση της διεύθυνσης της ροής απέτυχε"
+
+msgid "Select sink which you want to use."
+msgstr "Επιλέξτε το sink που θέλετε να χρησιμοποιήσετε."
+
+msgid "Select the delay that will be used for AC3+ Passthrough fix."
+msgstr "Επιλέξτε την καθυστέρηση για τη διόρθωση passthrough AC3+."
+
+msgid "Select the player which will be used for Enigma2 playback."
+msgstr "Επιλέξτε το player για την αναπαραγωγή του Enigma2."
+
+msgid "Select the player which will be used in serviceapp for Enigma2 playback."
+msgstr "Επιλέξτε το player που χρησιμοποιεί το serviceapp για την αναπαραγωγή του Enigma2."
+
+msgid "ServiceApp"
+msgstr "ServiceApp"
+
+msgid "ServiceApp - player check"
+msgstr "ServiceApp - έλεγχος players"
+
+#, python-format
+msgid "ServiceExtEplayer3 (%s)"
+msgstr "ServiceExtEplayer3 (%s)"
+
+#, python-format
+msgid "ServiceGstPlayer (%s)"
+msgstr "ServiceGstPlayer (%s)"
+
+#, python-format
+msgid "ServiceMp3 (%s)"
+msgstr "ServiceMp3 (%s)"
+
+msgid "Set buffer duration in seconds."
+msgstr "Ορισμός διάρκειας buffer σε δευτερόλεπτα."
+
+msgid "Set buffer size in kilobytes."
+msgstr "Ορισμός μεγέθους buffer σε kilobyte."
+
+msgid "Set connection speed in kb/s, according to which you want to have streams auto-selected"
+msgstr "Ορισμός ταχύτητας σύνδεσης σε kb/s, βάσει της οποίας επιλέγονται αυτόματα οι ροές"
+
+msgid "Set which RTMP protocol implementation will be used for playback of RTMP streams"
+msgstr "Ορισμός της υλοποίησης του πρωτοκόλλου RTMP για την αναπαραγωγή ροών RTMP"
+
+msgid "Sink"
+msgstr "Sink"
+
+msgid "Software decoder use LPCM for injection (otherwise wav PCM will be used)"
+msgstr "Ο αποκωδικοποιητής λογισμικού χρησιμοποιεί LPCM για έγχυση (αλλιώς PCM wav)"
+
+msgid "Stereo downmix"
+msgstr "Στερεοφωνική μίξη"
+
+msgid "Stop playing this movie?"
+msgstr "Διακοπή αναπαραγωγής αυτής της ταινίας;"
+
+msgid "To AAC ADTS"
+msgstr "Σε AAC ADTS"
+
+msgid "To AAC LATM"
+msgstr "Σε AAC LATM"
+
+msgid "Turn on AAC software decoding."
+msgstr "Ενεργοποίηση αποκωδικοποίησης AAC μέσω λογισμικού."
+
+msgid "Turn on AC3 software decoding."
+msgstr "Ενεργοποίηση αποκωδικοποίησης AC3 μέσω λογισμικού."
+
+msgid "Turn on DTS software decoding."
+msgstr "Ενεργοποίηση αποκωδικοποίησης DTS μέσω λογισμικού."
+
+msgid "Turn on EAC3 software decoding."
+msgstr "Ενεργοποίηση αποκωδικοποίησης EAC3 μέσω λογισμικού."
+
+msgid "Turn on MP3 software decoding."
+msgstr "Ενεργοποίηση αποκωδικοποίησης MP3 μέσω λογισμικού."
+
+msgid "Turn on WMA1, WMA2, WMA/PRO software decoding."
+msgstr "Ενεργοποίηση αποκωδικοποίησης WMA1, WMA2, WMA/PRO μέσω λογισμικού."
+
+msgid "Turn on auto-selection of streams according to set Connection speed."
+msgstr "Ενεργοποίηση αυτόματης επιλογής ροών βάσει της ορισμένης ταχύτητας σύνδεσης."
+
+msgid "Turn on debug messages"
+msgstr "Ενεργοποίηση μηνυμάτων εντοπισμού σφαλμάτων"
+
+msgid "Turn on downmix to stereo, when software decoding is in use"
+msgstr "Ενεργοποίηση στερεοφωνικής μίξης κατά την αποκωδικοποίηση λογισμικού"
+
+msgid "Turn on explorer to retrieve different quality streams from HLS variant playlist and select them via subservices."
+msgstr "Ενεργοποίηση του explorer που λαμβάνει ροές διαφορετικής ποιότητας από τη λίστα παραλλαγών HLS και τις προσφέρει ως υποϋπηρεσίες."
+
+msgid "Turn on the embedded subtitles support."
+msgstr "Ενεργοποίηση υποστήριξης ενσωματωμένων υποτίτλων."
+
+msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
+msgstr "Παραλλαγή ροής HLS ή DASH που επιλέγει το player: Αυτόματο και Υψηλότερη αναπαράγουν την καλύτερη, Χαμηλότερη τη μικρότερη."
+
+msgid "WMA software decoding"
+msgstr "Αποκωδικοποίηση WMA μέσω λογισμικού"
+
+msgid "Yes"
+msgstr "Ναι"
+
+msgid "experimental"
+msgstr "πειραματικό"
+
+msgid "exteplayer3"
+msgstr "exteplayer3"
+
+msgid "exteplayer3 did not accept its options (exit code 1)"
+msgstr "Το exteplayer3 δεν δέχτηκε τις επιλογές του (κωδικός εξόδου 1)"
+
+#. TRANSLATORS: a forced subtitle track (only the foreign language parts)
+msgid "forced"
+msgstr "υποχρεωτικοί"
+
+msgid "gstplayer"
+msgstr "gstplayer"
+
+msgid "not installed"
+msgstr "δεν είναι εγκατεστημένο"
+
+msgid "original"
+msgstr "αρχικό"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "Το player τερματίστηκε από το σήμα %d"
+
+msgid "serviceapp"
+msgstr "serviceapp"
+
+msgid "setup player framework"
+msgstr "ρύθμιση των players"
+
+#, python-format
+msgid "version %s"
+msgstr "έκδοση %s"

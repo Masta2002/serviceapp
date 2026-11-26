@@ -1,0 +1,315 @@
+# Persian translation of ServiceApp.
+# Copyright (C) 2026 the ServiceApp authors
+# This file is distributed under the same license as ServiceApp (GPL-2.0).
+# Translated for ServiceApp, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ServiceApp\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
+"PO-Revision-Date: 2026-11-27 00:12+0100\n"
+"Last-Translator: \n"
+"Language-Team: none\n"
+"Language: fa\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#, python-format
+msgid "%d millisecond"
+msgid_plural "%d milliseconds"
+msgstr[0] "%d میلی‌ثانیه"
+msgstr[1] "%d میلی‌ثانیه"
+
+msgid "AAC software decoding"
+msgstr "رمزگشایی نرم‌افزاری AAC"
+
+msgid "AAC-LC"
+msgstr "AAC-LC"
+
+msgid "AC3 software decoding"
+msgstr "رمزگشایی نرم‌افزاری AC3"
+
+msgid "AC3+ Passthrough fix delay"
+msgstr "تأخیر اصلاح passthrough برای AC3+"
+
+msgid "Auto"
+msgstr "خودکار"
+
+msgid "Auto select stream"
+msgstr "انتخاب خودکار جریان"
+
+msgid "Auto turn on subtitles"
+msgstr "روشن کردن خودکار زیرنویس"
+
+msgid "Automatically turn on subtitles if available."
+msgstr "روشن کردن خودکار زیرنویس در صورت وجود."
+
+msgid "Buffer duration"
+msgstr "مدت بافر"
+
+msgid "Buffer size"
+msgstr "اندازه بافر"
+
+msgid "Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr "انتخاب کنید که آیا ترک‌های صوتی DTS / DTS-HD به Dolby Digital یا Dolby Digital + تبدیل شوند."
+
+msgid "Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr "انتخاب کنید که آیا ترک‌های صوتی Dolby TrueHD به Dolby Digital یا Dolby Digital + تبدیل شوند."
+
+msgid "Choose whether HE-AAC sound tracks should be transcoded to AAC-LC."
+msgstr "انتخاب کنید که آیا ترک‌های صوتی HE-AAC به AAC-LC تبدیل شوند."
+
+msgid "Connection speed"
+msgstr "سرعت اتصال"
+
+msgid "DTS / DTS-HD transcoding"
+msgstr "تبدیل DTS / DTS-HD"
+
+msgid "DTS software decoding"
+msgstr "رمزگشایی نرم‌افزاری DTS"
+
+msgid "Debug"
+msgstr "اشکال‌زدایی"
+
+msgid "Detecting exteplayer3 player ..."
+msgstr "در حال شناسایی پخش‌کننده exteplayer3 ..."
+
+msgid "Detecting gstreamer player ..."
+msgstr "در حال شناسایی پخش‌کننده gstreamer ..."
+
+msgid "Dolby Digital"
+msgstr "Dolby Digital"
+
+msgid "Dolby Digital +"
+msgstr "Dolby Digital +"
+
+msgid "Dolby TrueHD transcoding"
+msgstr "تبدیل Dolby TrueHD"
+
+msgid "EAC3 software decoding"
+msgstr "رمزگشایی نرم‌افزاری EAC3"
+
+msgid "Embedded subtitles"
+msgstr "زیرنویس‌های داخلی"
+
+msgid "Enable AC3+ passthrough fix"
+msgstr "فعال کردن اصلاح passthrough برای AC3+"
+
+msgid "Enables AC3+ passthrough fix for Vu+ Ultimo4K / Duo4KSE."
+msgstr "اصلاح passthrough برای AC3+ را در Vu+ Ultimo4K / Duo4KSE فعال می‌کند."
+
+msgid "Enigma2 playback system"
+msgstr "سیستم پخش Enigma2"
+
+msgid ""
+"Enigma2 playback system was changed and Enigma2 should be restarted\n"
+"\n"
+"Do you want to restart it now?"
+msgstr ""
+"سیستم پخش Enigma2 تغییر کرد و Enigma2 باید دوباره راه‌اندازی شود.\n"
+"\n"
+"آیا می‌خواهید اکنون آن را دوباره راه‌اندازی کنید؟"
+
+msgid "ExtEplayer3"
+msgstr "ExtEplayer3"
+
+msgid "Forced only"
+msgstr "فقط اجباری"
+
+msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
+msgstr "فقط اجباری: یک ترک زیرنویس اجباری داخلی (بخش‌های به زبان خارجی) به زبان ترک صوتی یا زبان‌های صوتی ترجیحی."
+
+#. TRANSLATORS: %s is the name of the missing GStreamer plugin
+#, c-format
+msgid "GStreamer plugin %s is not available!"
+msgstr "افزونه GStreamer %s در دسترس نیست!"
+
+msgid "GstPlayer"
+msgstr "GstPlayer"
+
+msgid "HE-AAC transcoding"
+msgstr "تبدیل HE-AAC"
+
+msgid "HLS Explorer"
+msgstr "HLS Explorer"
+
+msgid "HLS default audio only"
+msgstr "HLS: فقط ترک صوتی پیش‌فرض"
+
+msgid "HLS quality"
+msgstr "کیفیت HLS"
+
+msgid "Highest"
+msgstr "بالاترین"
+
+msgid "LPCM injection"
+msgstr "تزریق LPCM"
+
+msgid "Lowest"
+msgstr "پایین‌ترین"
+
+msgid "MP3 software decoding"
+msgstr "رمزگشایی نرم‌افزاری MP3"
+
+msgid "No"
+msgstr "خیر"
+
+msgid "Offer only the default audio track of a HLS stream instead of all of its languages."
+msgstr "فقط ترک صوتی پیش‌فرض یک جریان HLS به جای همه زبان‌های آن ارائه شود."
+
+msgid "Play with ServiceExtEplayer3"
+msgstr "پخش با ServiceExtEplayer3"
+
+msgid "Play with ServiceGstPlayer"
+msgstr "پخش با ServiceGstPlayer"
+
+msgid "Player"
+msgstr "پخش‌کننده"
+
+msgid "RTMP protocol implementation"
+msgstr "پیاده‌سازی پروتکل RTMP"
+
+msgid "Resolving the stream address failed"
+msgstr "یافتن نشانی جریان ناموفق بود"
+
+msgid "Select sink which you want to use."
+msgstr "sink مورد نظر را انتخاب کنید."
+
+msgid "Select the delay that will be used for AC3+ Passthrough fix."
+msgstr "تأخیر مورد استفاده برای اصلاح passthrough برای AC3+ را انتخاب کنید."
+
+msgid "Select the player which will be used for Enigma2 playback."
+msgstr "پخش‌کننده مورد استفاده برای پخش در Enigma2 را انتخاب کنید."
+
+msgid "Select the player which will be used in serviceapp for Enigma2 playback."
+msgstr "پخش‌کننده‌ای را که serviceapp برای پخش در Enigma2 استفاده می‌کند انتخاب کنید."
+
+msgid "ServiceApp"
+msgstr "ServiceApp"
+
+msgid "ServiceApp - player check"
+msgstr "ServiceApp - بررسی پخش‌کننده‌ها"
+
+#, python-format
+msgid "ServiceExtEplayer3 (%s)"
+msgstr "ServiceExtEplayer3 (%s)"
+
+#, python-format
+msgid "ServiceGstPlayer (%s)"
+msgstr "ServiceGstPlayer (%s)"
+
+#, python-format
+msgid "ServiceMp3 (%s)"
+msgstr "ServiceMp3 (%s)"
+
+msgid "Set buffer duration in seconds."
+msgstr "تنظیم مدت بافر به ثانیه."
+
+msgid "Set buffer size in kilobytes."
+msgstr "تنظیم اندازه بافر به کیلوبایت."
+
+msgid "Set connection speed in kb/s, according to which you want to have streams auto-selected"
+msgstr "تنظیم سرعت اتصال به کیلوبیت بر ثانیه که جریان‌ها بر اساس آن خودکار انتخاب می‌شوند"
+
+msgid "Set which RTMP protocol implementation will be used for playback of RTMP streams"
+msgstr "تنظیم پیاده‌سازی پروتکل RTMP برای پخش جریان‌های RTMP"
+
+msgid "Sink"
+msgstr "Sink"
+
+msgid "Software decoder use LPCM for injection (otherwise wav PCM will be used)"
+msgstr "رمزگشای نرم‌افزاری از LPCM برای تزریق استفاده می‌کند (در غیر این صورت PCM با قالب wav)"
+
+msgid "Stereo downmix"
+msgstr "میکس استریو"
+
+msgid "Stop playing this movie?"
+msgstr "پخش این فیلم متوقف شود؟"
+
+msgid "To AAC ADTS"
+msgstr "به AAC ADTS"
+
+msgid "To AAC LATM"
+msgstr "به AAC LATM"
+
+msgid "Turn on AAC software decoding."
+msgstr "فعال کردن رمزگشایی نرم‌افزاری AAC."
+
+msgid "Turn on AC3 software decoding."
+msgstr "فعال کردن رمزگشایی نرم‌افزاری AC3."
+
+msgid "Turn on DTS software decoding."
+msgstr "فعال کردن رمزگشایی نرم‌افزاری DTS."
+
+msgid "Turn on EAC3 software decoding."
+msgstr "فعال کردن رمزگشایی نرم‌افزاری EAC3."
+
+msgid "Turn on MP3 software decoding."
+msgstr "فعال کردن رمزگشایی نرم‌افزاری MP3."
+
+msgid "Turn on WMA1, WMA2, WMA/PRO software decoding."
+msgstr "فعال کردن رمزگشایی نرم‌افزاری WMA1، WMA2، WMA/PRO."
+
+msgid "Turn on auto-selection of streams according to set Connection speed."
+msgstr "فعال کردن انتخاب خودکار جریان‌ها بر اساس سرعت اتصال تنظیم‌شده."
+
+msgid "Turn on debug messages"
+msgstr "فعال کردن پیام‌های اشکال‌زدایی"
+
+msgid "Turn on downmix to stereo, when software decoding is in use"
+msgstr "فعال کردن میکس استریو هنگام رمزگشایی نرم‌افزاری"
+
+msgid "Turn on explorer to retrieve different quality streams from HLS variant playlist and select them via subservices."
+msgstr "فعال کردن کاوشگری که جریان‌هایی با کیفیت‌های مختلف را از فهرست انواع HLS دریافت و به‌عنوان زیرسرویس ارائه می‌کند."
+
+msgid "Turn on the embedded subtitles support."
+msgstr "فعال کردن پشتیبانی از زیرنویس‌های داخلی."
+
+msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
+msgstr "نوع جریان HLS یا DASH که پخش‌کننده انتخاب می‌کند: خودکار و بالاترین بهترین را پخش می‌کنند، پایین‌ترین کوچک‌ترین را."
+
+msgid "WMA software decoding"
+msgstr "رمزگشایی نرم‌افزاری WMA"
+
+msgid "Yes"
+msgstr "بله"
+
+msgid "experimental"
+msgstr "آزمایشی"
+
+msgid "exteplayer3"
+msgstr "exteplayer3"
+
+msgid "exteplayer3 did not accept its options (exit code 1)"
+msgstr "exteplayer3 گزینه‌های خود را نپذیرفت (کد خروج 1)"
+
+#. TRANSLATORS: a forced subtitle track (only the foreign language parts)
+msgid "forced"
+msgstr "اجباری"
+
+msgid "gstplayer"
+msgstr "gstplayer"
+
+msgid "not installed"
+msgstr "نصب نشده"
+
+msgid "original"
+msgstr "اصلی"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "پخش‌کننده با سیگنال %d پایان یافت"
+
+msgid "serviceapp"
+msgstr "serviceapp"
+
+msgid "setup player framework"
+msgstr "تنظیم چارچوب پخش‌کننده‌ها"
+
+#, python-format
+msgid "version %s"
+msgstr "نسخه %s"

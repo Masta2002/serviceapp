@@ -502,9 +502,10 @@ void eServiceApp::addEmbeddedTrack(std::vector<struct SubtitleTrack>& subtitleli
 		std::string lower(s.title);
 		std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
 		if (s.forced && lower.find("forced") == std::string::npos)
-			track.title += " forced";
+			track.title += std::string(" ") + SAPP_TR("forced");
 	} else if (s.forced) {
-		track.title = "forced";
+		/* TRANSLATORS: a forced subtitle track (only the foreign language parts) */
+		track.title = SAPP_TR("forced");
 	}
 
 	subtitlelist.push_back(track);

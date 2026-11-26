@@ -1,0 +1,316 @@
+# Bosnian translation of ServiceApp.
+# Copyright (C) 2026 the ServiceApp authors
+# This file is distributed under the same license as ServiceApp (GPL-2.0).
+# Translated for ServiceApp, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ServiceApp\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
+"PO-Revision-Date: 2026-11-27 00:12+0100\n"
+"Last-Translator: \n"
+"Language-Team: none\n"
+"Language: bs\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+#, python-format
+msgid "%d millisecond"
+msgid_plural "%d milliseconds"
+msgstr[0] "%d milisekunda"
+msgstr[1] "%d milisekunde"
+msgstr[2] "%d milisekundi"
+
+msgid "AAC software decoding"
+msgstr "Softversko dekodiranje AAC"
+
+msgid "AAC-LC"
+msgstr "AAC-LC"
+
+msgid "AC3 software decoding"
+msgstr "Softversko dekodiranje AC3"
+
+msgid "AC3+ Passthrough fix delay"
+msgstr "Kašnjenje AC3+ passthrough popravke"
+
+msgid "Auto"
+msgstr "Automatski"
+
+msgid "Auto select stream"
+msgstr "Automatski izbor streama"
+
+msgid "Auto turn on subtitles"
+msgstr "Automatski uključi titlove"
+
+msgid "Automatically turn on subtitles if available."
+msgstr "Automatski uključi titlove ako su dostupni."
+
+msgid "Buffer duration"
+msgstr "Trajanje bafera"
+
+msgid "Buffer size"
+msgstr "Veličina bafera"
+
+msgid "Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr "Izaberite da li se DTS / DTS-HD audio zapisi konvertuju u Dolby Digital ili Dolby Digital +."
+
+msgid "Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr "Izaberite da li se Dolby TrueHD audio zapisi konvertuju u Dolby Digital ili Dolby Digital +."
+
+msgid "Choose whether HE-AAC sound tracks should be transcoded to AAC-LC."
+msgstr "Izaberite da li se HE-AAC audio zapisi konvertuju u AAC-LC."
+
+msgid "Connection speed"
+msgstr "Brzina veze"
+
+msgid "DTS / DTS-HD transcoding"
+msgstr "Konverzija DTS / DTS-HD"
+
+msgid "DTS software decoding"
+msgstr "Softversko dekodiranje DTS"
+
+msgid "Debug"
+msgstr "Otklanjanje grešaka"
+
+msgid "Detecting exteplayer3 player ..."
+msgstr "Traženje plejera exteplayer3 ..."
+
+msgid "Detecting gstreamer player ..."
+msgstr "Traženje plejera gstreamer ..."
+
+msgid "Dolby Digital"
+msgstr "Dolby Digital"
+
+msgid "Dolby Digital +"
+msgstr "Dolby Digital +"
+
+msgid "Dolby TrueHD transcoding"
+msgstr "Konverzija Dolby TrueHD"
+
+msgid "EAC3 software decoding"
+msgstr "Softversko dekodiranje EAC3"
+
+msgid "Embedded subtitles"
+msgstr "Ugrađeni titlovi"
+
+msgid "Enable AC3+ passthrough fix"
+msgstr "Uključi AC3+ passthrough popravku"
+
+msgid "Enables AC3+ passthrough fix for Vu+ Ultimo4K / Duo4KSE."
+msgstr "Uključuje AC3+ passthrough popravku za Vu+ Ultimo4K / Duo4KSE."
+
+msgid "Enigma2 playback system"
+msgstr "Sistem reprodukcije Enigma2"
+
+msgid ""
+"Enigma2 playback system was changed and Enigma2 should be restarted\n"
+"\n"
+"Do you want to restart it now?"
+msgstr ""
+"Sistem reprodukcije Enigma2 je promijenjen i Enigma2 treba ponovo pokrenuti.\n"
+"\n"
+"Da li ga želite sada ponovo pokrenuti?"
+
+msgid "ExtEplayer3"
+msgstr "ExtEplayer3"
+
+msgid "Forced only"
+msgstr "Samo prisilni"
+
+msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
+msgstr "Samo prisilni: ugrađeni prisilni zapis (dijelovi na stranom jeziku) na jeziku audio zapisa ili željenih audio jezika."
+
+#. TRANSLATORS: %s is the name of the missing GStreamer plugin
+#, c-format
+msgid "GStreamer plugin %s is not available!"
+msgstr "GStreamer dodatak %s nije dostupan!"
+
+msgid "GstPlayer"
+msgstr "GstPlayer"
+
+msgid "HE-AAC transcoding"
+msgstr "Konverzija HE-AAC"
+
+msgid "HLS Explorer"
+msgstr "HLS Explorer"
+
+msgid "HLS default audio only"
+msgstr "HLS: samo zadani audio zapis"
+
+msgid "HLS quality"
+msgstr "Kvalitet HLS-a"
+
+msgid "Highest"
+msgstr "Najviši"
+
+msgid "LPCM injection"
+msgstr "LPCM ubacivanje"
+
+msgid "Lowest"
+msgstr "Najniži"
+
+msgid "MP3 software decoding"
+msgstr "Softversko dekodiranje MP3"
+
+msgid "No"
+msgstr "Ne"
+
+msgid "Offer only the default audio track of a HLS stream instead of all of its languages."
+msgstr "Ponudi samo zadani audio zapis HLS streama umjesto svih njegovih jezika."
+
+msgid "Play with ServiceExtEplayer3"
+msgstr "Reprodukuj sa ServiceExtEplayer3"
+
+msgid "Play with ServiceGstPlayer"
+msgstr "Reprodukuj sa ServiceGstPlayer"
+
+msgid "Player"
+msgstr "Plejer"
+
+msgid "RTMP protocol implementation"
+msgstr "Implementacija RTMP protokola"
+
+msgid "Resolving the stream address failed"
+msgstr "Određivanje adrese streama nije uspjelo"
+
+msgid "Select sink which you want to use."
+msgstr "Izaberite sink koji želite koristiti."
+
+msgid "Select the delay that will be used for AC3+ Passthrough fix."
+msgstr "Izaberite kašnjenje za AC3+ passthrough popravku."
+
+msgid "Select the player which will be used for Enigma2 playback."
+msgstr "Izaberite plejer za reprodukciju u Enigma2."
+
+msgid "Select the player which will be used in serviceapp for Enigma2 playback."
+msgstr "Izaberite plejer koji serviceapp koristi za reprodukciju u Enigma2."
+
+msgid "ServiceApp"
+msgstr "ServiceApp"
+
+msgid "ServiceApp - player check"
+msgstr "ServiceApp - provjera plejera"
+
+#, python-format
+msgid "ServiceExtEplayer3 (%s)"
+msgstr "ServiceExtEplayer3 (%s)"
+
+#, python-format
+msgid "ServiceGstPlayer (%s)"
+msgstr "ServiceGstPlayer (%s)"
+
+#, python-format
+msgid "ServiceMp3 (%s)"
+msgstr "ServiceMp3 (%s)"
+
+msgid "Set buffer duration in seconds."
+msgstr "Postavi trajanje bafera u sekundama."
+
+msgid "Set buffer size in kilobytes."
+msgstr "Postavi veličinu bafera u kilobajtima."
+
+msgid "Set connection speed in kb/s, according to which you want to have streams auto-selected"
+msgstr "Postavi brzinu veze u kb/s prema kojoj se streamovi automatski biraju"
+
+msgid "Set which RTMP protocol implementation will be used for playback of RTMP streams"
+msgstr "Postavi koja se implementacija RTMP protokola koristi za reprodukciju RTMP streamova"
+
+msgid "Sink"
+msgstr "Sink"
+
+msgid "Software decoder use LPCM for injection (otherwise wav PCM will be used)"
+msgstr "Softverski dekoder ubacuje LPCM (inače WAV PCM)"
+
+msgid "Stereo downmix"
+msgstr "Stereo downmix"
+
+msgid "Stop playing this movie?"
+msgstr "Zaustaviti reprodukciju ovog filma?"
+
+msgid "To AAC ADTS"
+msgstr "U AAC ADTS"
+
+msgid "To AAC LATM"
+msgstr "U AAC LATM"
+
+msgid "Turn on AAC software decoding."
+msgstr "Uključi softversko dekodiranje AAC."
+
+msgid "Turn on AC3 software decoding."
+msgstr "Uključi softversko dekodiranje AC3."
+
+msgid "Turn on DTS software decoding."
+msgstr "Uključi softversko dekodiranje DTS."
+
+msgid "Turn on EAC3 software decoding."
+msgstr "Uključi softversko dekodiranje EAC3."
+
+msgid "Turn on MP3 software decoding."
+msgstr "Uključi softversko dekodiranje MP3."
+
+msgid "Turn on WMA1, WMA2, WMA/PRO software decoding."
+msgstr "Uključi softversko dekodiranje WMA1, WMA2, WMA/PRO."
+
+msgid "Turn on auto-selection of streams according to set Connection speed."
+msgstr "Uključi automatski izbor streamova prema postavljenoj brzini veze."
+
+msgid "Turn on debug messages"
+msgstr "Uključi poruke za otklanjanje grešaka"
+
+msgid "Turn on downmix to stereo, when software decoding is in use"
+msgstr "Uključi stereo downmix kod softverskog dekodiranja"
+
+msgid "Turn on explorer to retrieve different quality streams from HLS variant playlist and select them via subservices."
+msgstr "Uključi explorer koji preuzima streamove različitog kvaliteta sa HLS liste varijanti i nudi ih kao podservise."
+
+msgid "Turn on the embedded subtitles support."
+msgstr "Uključi podršku za ugrađene titlove."
+
+msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
+msgstr "Varijanta HLS ili DASH streama koju plejer bira: Automatski i Najviši reprodukuju najbolju, Najniži najmanju."
+
+msgid "WMA software decoding"
+msgstr "Softversko dekodiranje WMA"
+
+msgid "Yes"
+msgstr "Da"
+
+msgid "experimental"
+msgstr "eksperimentalno"
+
+msgid "exteplayer3"
+msgstr "exteplayer3"
+
+msgid "exteplayer3 did not accept its options (exit code 1)"
+msgstr "exteplayer3 nije prihvatio svoje opcije (izlazni kod 1)"
+
+#. TRANSLATORS: a forced subtitle track (only the foreign language parts)
+msgid "forced"
+msgstr "prisilni"
+
+msgid "gstplayer"
+msgstr "gstplayer"
+
+msgid "not installed"
+msgstr "nije instalirano"
+
+msgid "original"
+msgstr "originalno"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "Plejer je završio zbog signala %d"
+
+msgid "serviceapp"
+msgstr "serviceapp"
+
+msgid "setup player framework"
+msgstr "postavke plejera"
+
+#, python-format
+msgid "version %s"
+msgstr "verzija %s"

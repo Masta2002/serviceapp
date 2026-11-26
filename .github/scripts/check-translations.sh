@@ -49,7 +49,15 @@ done
 tmp=$(mktemp -d)
 find .. -name "*.py" -exec xgettext --no-wrap -L Python --from-code=UTF-8 -kpgettext:1c,2 -k_ngettext:1,2 \
 	--add-comments="TRANSLATORS:" -d ServiceApp -s -o "$tmp/py.pot" {} + 2> "$tmp/xgettext.log"
-msguniq --no-wrap --no-location -o "$tmp/new.pot" "$tmp/py.pot"
+# texts of the C++ part: SAPP_TR("...")
+find ../serviceapp \( -name "*.cpp" -o -name "*.h" \) -exec xgettext --no-wrap -L C++ --from-code=UTF-8 -kSAPP_TR \
+	--add-comments="TRANSLATORS:" -d ServiceApp -s -o "$tmp/cpp.pot" {} + 2>> "$tmp/xgettext.log"
+if [ -f "$tmp/cpp.pot" ]; then
+	msgcat --no-wrap --use-first "$tmp/py.pot" "$tmp/cpp.pot" -o "$tmp/all.pot"
+else
+	cp "$tmp/py.pot" "$tmp/all.pot"
+fi
+msguniq --no-wrap --no-location -s -o "$tmp/new.pot" "$tmp/all.pot"
 sed -i 's/CHARSET/UTF-8/' "$tmp/new.pot"
 grep -v '^"POT-Creation-Date:' "$tmp/new.pot" > "$tmp/new.cmp"
 grep -v '^"POT-Creation-Date:' ServiceApp.pot > "$tmp/old.cmp"

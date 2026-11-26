@@ -1,0 +1,317 @@
+# Romanian translations for PACKAGE package
+# Traducerea în limba română pentru pachetul PACKAGE.
+# Copyright (C) 2026 the ServiceApp authors
+# This file is distributed under the same license as ServiceApp (GPL-2.0).
+# Translated for ServiceApp, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ServiceApp\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
+"PO-Revision-Date: 2026-11-27 00:12+0100\n"
+"Last-Translator: \n"
+"Language-Team: none\n"
+"Language: ro\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : (n==0 || (n%100 > 0 && n%100 < 20)) ? 1 : 2);\n"
+
+#, python-format
+msgid "%d millisecond"
+msgid_plural "%d milliseconds"
+msgstr[0] "%d milisecundă"
+msgstr[1] "%d milisecunde"
+msgstr[2] "%d de milisecunde"
+
+msgid "AAC software decoding"
+msgstr "Decodare software AAC"
+
+msgid "AAC-LC"
+msgstr "AAC-LC"
+
+msgid "AC3 software decoding"
+msgstr "Decodare software AC3"
+
+msgid "AC3+ Passthrough fix delay"
+msgstr "Întârzierea corecției passthrough AC3+"
+
+msgid "Auto"
+msgstr "Automat"
+
+msgid "Auto select stream"
+msgstr "Selectare automată a fluxului"
+
+msgid "Auto turn on subtitles"
+msgstr "Activare automată a subtitrărilor"
+
+msgid "Automatically turn on subtitles if available."
+msgstr "Activează automat subtitrările, dacă sunt disponibile."
+
+msgid "Buffer duration"
+msgstr "Durata bufferului"
+
+msgid "Buffer size"
+msgstr "Dimensiunea bufferului"
+
+msgid "Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr "Alegeți dacă pistele audio DTS / DTS-HD sunt transcodate în Dolby Digital sau Dolby Digital +."
+
+msgid "Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr "Alegeți dacă pistele audio Dolby TrueHD sunt transcodate în Dolby Digital sau Dolby Digital +."
+
+msgid "Choose whether HE-AAC sound tracks should be transcoded to AAC-LC."
+msgstr "Alegeți dacă pistele audio HE-AAC sunt transcodate în AAC-LC."
+
+msgid "Connection speed"
+msgstr "Viteza conexiunii"
+
+msgid "DTS / DTS-HD transcoding"
+msgstr "Transcodare DTS / DTS-HD"
+
+msgid "DTS software decoding"
+msgstr "Decodare software DTS"
+
+msgid "Debug"
+msgstr "Depanare"
+
+msgid "Detecting exteplayer3 player ..."
+msgstr "Se detectează playerul exteplayer3 ..."
+
+msgid "Detecting gstreamer player ..."
+msgstr "Se detectează playerul gstreamer ..."
+
+msgid "Dolby Digital"
+msgstr "Dolby Digital"
+
+msgid "Dolby Digital +"
+msgstr "Dolby Digital +"
+
+msgid "Dolby TrueHD transcoding"
+msgstr "Transcodare Dolby TrueHD"
+
+msgid "EAC3 software decoding"
+msgstr "Decodare software EAC3"
+
+msgid "Embedded subtitles"
+msgstr "Subtitrări încorporate"
+
+msgid "Enable AC3+ passthrough fix"
+msgstr "Activare corecție passthrough AC3+"
+
+msgid "Enables AC3+ passthrough fix for Vu+ Ultimo4K / Duo4KSE."
+msgstr "Activează corecția passthrough AC3+ pentru Vu+ Ultimo4K / Duo4KSE."
+
+msgid "Enigma2 playback system"
+msgstr "Sistemul de redare Enigma2"
+
+msgid ""
+"Enigma2 playback system was changed and Enigma2 should be restarted\n"
+"\n"
+"Do you want to restart it now?"
+msgstr ""
+"Sistemul de redare Enigma2 a fost schimbat și Enigma2 trebuie repornit.\n"
+"\n"
+"Doriți să-l reporniți acum?"
+
+msgid "ExtEplayer3"
+msgstr "ExtEplayer3"
+
+msgid "Forced only"
+msgstr "Doar forțate"
+
+msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
+msgstr "Doar forțate: o pistă forțată încorporată (pasaje în limbă străină) în limba pistei audio sau a limbilor audio preferate."
+
+#. TRANSLATORS: %s is the name of the missing GStreamer plugin
+#, c-format
+msgid "GStreamer plugin %s is not available!"
+msgstr "Pluginul GStreamer %s nu este disponibil!"
+
+msgid "GstPlayer"
+msgstr "GstPlayer"
+
+msgid "HE-AAC transcoding"
+msgstr "Transcodare HE-AAC"
+
+msgid "HLS Explorer"
+msgstr "HLS Explorer"
+
+msgid "HLS default audio only"
+msgstr "HLS: doar pista audio implicită"
+
+msgid "HLS quality"
+msgstr "Calitate HLS"
+
+msgid "Highest"
+msgstr "Cea mai înaltă"
+
+msgid "LPCM injection"
+msgstr "Injectare LPCM"
+
+msgid "Lowest"
+msgstr "Cea mai joasă"
+
+msgid "MP3 software decoding"
+msgstr "Decodare software MP3"
+
+msgid "No"
+msgstr "Nu"
+
+msgid "Offer only the default audio track of a HLS stream instead of all of its languages."
+msgstr "Oferă doar pista audio implicită a unui flux HLS în loc de toate limbile sale."
+
+msgid "Play with ServiceExtEplayer3"
+msgstr "Redare cu ServiceExtEplayer3"
+
+msgid "Play with ServiceGstPlayer"
+msgstr "Redare cu ServiceGstPlayer"
+
+msgid "Player"
+msgstr "Player"
+
+msgid "RTMP protocol implementation"
+msgstr "Implementarea protocolului RTMP"
+
+msgid "Resolving the stream address failed"
+msgstr "Rezolvarea adresei fluxului a eșuat"
+
+msgid "Select sink which you want to use."
+msgstr "Selectați sink-ul pe care doriți să-l folosiți."
+
+msgid "Select the delay that will be used for AC3+ Passthrough fix."
+msgstr "Selectați întârzierea folosită pentru corecția passthrough AC3+."
+
+msgid "Select the player which will be used for Enigma2 playback."
+msgstr "Selectați playerul folosit pentru redarea Enigma2."
+
+msgid "Select the player which will be used in serviceapp for Enigma2 playback."
+msgstr "Selectați playerul pe care serviceapp îl folosește pentru redarea Enigma2."
+
+msgid "ServiceApp"
+msgstr "ServiceApp"
+
+msgid "ServiceApp - player check"
+msgstr "ServiceApp - verificarea playerelor"
+
+#, python-format
+msgid "ServiceExtEplayer3 (%s)"
+msgstr "ServiceExtEplayer3 (%s)"
+
+#, python-format
+msgid "ServiceGstPlayer (%s)"
+msgstr "ServiceGstPlayer (%s)"
+
+#, python-format
+msgid "ServiceMp3 (%s)"
+msgstr "ServiceMp3 (%s)"
+
+msgid "Set buffer duration in seconds."
+msgstr "Setează durata bufferului în secunde."
+
+msgid "Set buffer size in kilobytes."
+msgstr "Setează dimensiunea bufferului în kiloocteți."
+
+msgid "Set connection speed in kb/s, according to which you want to have streams auto-selected"
+msgstr "Setează viteza conexiunii în kb/s, după care fluxurile sunt selectate automat"
+
+msgid "Set which RTMP protocol implementation will be used for playback of RTMP streams"
+msgstr "Setează ce implementare a protocolului RTMP este folosită pentru redarea fluxurilor RTMP"
+
+msgid "Sink"
+msgstr "Sink"
+
+msgid "Software decoder use LPCM for injection (otherwise wav PCM will be used)"
+msgstr "Decodorul software folosește LPCM pentru injectare (altfel PCM wav)"
+
+msgid "Stereo downmix"
+msgstr "Downmix stereo"
+
+msgid "Stop playing this movie?"
+msgstr "Opriți redarea acestui film?"
+
+msgid "To AAC ADTS"
+msgstr "În AAC ADTS"
+
+msgid "To AAC LATM"
+msgstr "În AAC LATM"
+
+msgid "Turn on AAC software decoding."
+msgstr "Activează decodarea software AAC."
+
+msgid "Turn on AC3 software decoding."
+msgstr "Activează decodarea software AC3."
+
+msgid "Turn on DTS software decoding."
+msgstr "Activează decodarea software DTS."
+
+msgid "Turn on EAC3 software decoding."
+msgstr "Activează decodarea software EAC3."
+
+msgid "Turn on MP3 software decoding."
+msgstr "Activează decodarea software MP3."
+
+msgid "Turn on WMA1, WMA2, WMA/PRO software decoding."
+msgstr "Activează decodarea software WMA1, WMA2, WMA/PRO."
+
+msgid "Turn on auto-selection of streams according to set Connection speed."
+msgstr "Activează selectarea automată a fluxurilor după viteza conexiunii setată."
+
+msgid "Turn on debug messages"
+msgstr "Activează mesajele de depanare"
+
+msgid "Turn on downmix to stereo, when software decoding is in use"
+msgstr "Activează downmix-ul stereo la decodarea software"
+
+msgid "Turn on explorer to retrieve different quality streams from HLS variant playlist and select them via subservices."
+msgstr "Activează explorerul care preia fluxuri de calități diferite din lista de variante HLS și le oferă ca subservicii."
+
+msgid "Turn on the embedded subtitles support."
+msgstr "Activează suportul pentru subtitrări încorporate."
+
+msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
+msgstr "Varianta unui flux HLS sau DASH aleasă de player: Automat și Cea mai înaltă redau cea mai bună, Cea mai joasă cea mai mică."
+
+msgid "WMA software decoding"
+msgstr "Decodare software WMA"
+
+msgid "Yes"
+msgstr "Da"
+
+msgid "experimental"
+msgstr "experimental"
+
+msgid "exteplayer3"
+msgstr "exteplayer3"
+
+msgid "exteplayer3 did not accept its options (exit code 1)"
+msgstr "exteplayer3 nu și-a acceptat opțiunile (cod de ieșire 1)"
+
+#. TRANSLATORS: a forced subtitle track (only the foreign language parts)
+msgid "forced"
+msgstr "forțate"
+
+msgid "gstplayer"
+msgstr "gstplayer"
+
+msgid "not installed"
+msgstr "neinstalat"
+
+msgid "original"
+msgstr "original"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "Playerul s-a oprit la semnalul %d"
+
+msgid "serviceapp"
+msgstr "serviceapp"
+
+msgid "setup player framework"
+msgstr "configurarea playerelor"
+
+#, python-format
+msgid "version %s"
+msgstr "versiunea %s"

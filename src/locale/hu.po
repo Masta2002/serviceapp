@@ -1,13 +1,13 @@
 # SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
+# Copyright (C) YEAR the ServiceApp authors
+# This file is distributed under the same license as ServiceApp (GPL-2.0).
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: serviceapp v1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-02 17:17+0100\n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
 "PO-Revision-Date: 2020-01-31 14:05+0100\n"
 "Last-Translator: Alec <alex1vagyok@gmail.com>\n"
 "Language-Team: Alec <alex1vagyok@gmail.com>\n"
@@ -18,79 +18,93 @@ msgstr ""
 "X-Generator: Poedit 2.2.4\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: ../plugin/plugin.py:169
+#, python-format
+msgid "%d millisecond"
+msgid_plural "%d milliseconds"
+msgstr[0] "%d ezredmásodperc"
+msgstr[1] "%d ezredmásodperc"
+
 msgid "AAC software decoding"
 msgstr "AAC szoftver dekódolás"
 
-#: ../plugin/plugin.py:171
+msgid "AAC-LC"
+msgstr "AAC-LC"
+
 msgid "AC3 software decoding"
 msgstr "AC3 szoftver dekódolás"
 
-#: ../plugin/plugin.py:189
 msgid "AC3+ Passthrough fix delay"
-msgstr ""
+msgstr "Az AC3+ passthrough javítás késleltetése"
 
-#: ../plugin/plugin.py:182
+msgid "Auto"
+msgstr "Automatikus"
+
 msgid "Auto select stream"
 msgstr "Automatikus adatfolyam kiválasztása"
 
-#: ../plugin/plugin.py:180
 msgid "Auto turn on subtitles"
 msgstr "A feliratok automatikus bekapcsolása"
 
-#: ../plugin/plugin.py:180
 msgid "Automatically turn on subtitles if available."
 msgstr "Automatikusan bekapcsolja a feliratokat, ha azok rendelkezésre állnak."
 
-#: ../plugin/plugin.py:166
 msgid "Buffer duration"
 msgstr "Puffer időtartama"
 
-#: ../plugin/plugin.py:165
 msgid "Buffer size"
 msgstr "Puffer mérete"
 
-#: ../plugin/plugin.py:183
+msgid "Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr "Válassza ki, hogy a DTS / DTS-HD hangsávok Dolby Digital vagy Dolby Digital + formátumba legyenek-e átkódolva."
+
+msgid "Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr "Válassza ki, hogy a Dolby TrueHD hangsávok Dolby Digital vagy Dolby Digital + formátumba legyenek-e átkódolva."
+
+msgid "Choose whether HE-AAC sound tracks should be transcoded to AAC-LC."
+msgstr "Válassza ki, hogy a HE-AAC hangsávok AAC-LC formátumba legyenek-e átkódolva."
+
 msgid "Connection speed"
 msgstr "Kapcsolat sebessége"
 
-#: ../plugin/plugin.py:172
+msgid "DTS / DTS-HD transcoding"
+msgstr "DTS / DTS-HD átkódolás"
+
 msgid "DTS software decoding"
 msgstr "DTS szoftver dekódolás"
 
-#: ../plugin/plugin.py:223
 msgid "Debug"
-msgstr ""
+msgstr "Hibakeresés"
 
-#: ../plugin/plugin.py:265
 msgid "Detecting exteplayer3 player ..."
 msgstr "Exteplayer3 lejátszó észlelése..."
 
-#: ../plugin/plugin.py:264
 msgid "Detecting gstreamer player ..."
 msgstr "Gstreamer lejátszó észlelése..."
 
-#: ../plugin/plugin.py:170
+msgid "Dolby Digital"
+msgstr "Dolby Digital"
+
+msgid "Dolby Digital +"
+msgstr "Dolby Digital +"
+
+msgid "Dolby TrueHD transcoding"
+msgstr "Dolby TrueHD átkódolás"
+
 msgid "EAC3 software decoding"
 msgstr "EAC3 szoftver dekódolás"
 
-#: ../plugin/plugin.py:164
 msgid "Embedded subtitles"
 msgstr "Beágyazott feliratok"
 
-#: ../plugin/plugin.py:187
 msgid "Enable AC3+ passthrough fix"
-msgstr ""
+msgstr "AC3+ passthrough javítás bekapcsolása"
 
-#: ../plugin/plugin.py:187
 msgid "Enables AC3+ passthrough fix for Vu+ Ultimo4K / Duo4KSE."
-msgstr ""
+msgstr "Bekapcsolja az AC3+ passthrough javítást a Vu+ Ultimo4K / Duo4KSE készülékekhez."
 
-#: ../plugin/plugin.py:206
 msgid "Enigma2 playback system"
 msgstr "Enigma2 lejátszási rendszere"
 
-#: ../plugin/plugin.py:230
 msgid ""
 "Enigma2 playback system was changed and Enigma2 should be restarted\n"
 "\n"
@@ -100,200 +114,203 @@ msgstr ""
 "\n"
 "Újraindítja most?"
 
-#: ../plugin/plugin.py:195
 msgid "ExtEplayer3"
 msgstr "ExtEplayer3"
 
-#: ../plugin/plugin.py:200
+msgid "Forced only"
+msgstr "Csak kényszerített"
+
+msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
+msgstr "Csak kényszerített: beágyazott kényszerített sáv (idegen nyelvű részek) a hangsáv vagy az előnyben részesített hangnyelvek nyelvén."
+
+#. TRANSLATORS: %s is the name of the missing GStreamer plugin
+#, c-format
+msgid "GStreamer plugin %s is not available!"
+msgstr "A(z) %s GStreamer bővítmény nem érhető el!"
+
 msgid "GstPlayer"
 msgstr "GstPlayer"
 
-#: ../plugin/plugin.py:181
+msgid "HE-AAC transcoding"
+msgstr "HE-AAC átkódolás"
+
 msgid "HLS Explorer"
 msgstr "HLS Explorer"
 
-#: ../plugin/plugin.py:176
+msgid "HLS default audio only"
+msgstr "HLS: csak az alapértelmezett hangsáv"
+
+msgid "HLS quality"
+msgstr "HLS minőség"
+
+msgid "Highest"
+msgstr "Legmagasabb"
+
 msgid "LPCM injection"
 msgstr "LPCM injection"
 
-#: ../plugin/plugin.py:173
+msgid "Lowest"
+msgstr "Legalacsonyabb"
+
 msgid "MP3 software decoding"
 msgstr "MP3 szoftver dekódolás"
 
-#: ../plugin/plugin.py:71
 msgid "No"
-msgstr ""
+msgstr "Nem"
 
-#: ../plugin/plugin.py:351
+msgid "Offer only the default audio track of a HLS stream instead of all of its languages."
+msgstr "Egy HLS adásnak csak az alapértelmezett hangsávját kínálja az összes nyelve helyett."
+
 msgid "Play with ServiceExtEplayer3"
 msgstr "Lejátszás ExtEplayer3 lejátszóval"
 
-#: ../plugin/plugin.py:353
 msgid "Play with ServiceGstPlayer"
 msgstr "Lejátszás GstPlayer lejátszóval"
 
-#: ../plugin/plugin.py:208
 msgid "Player"
 msgstr "Lejátszó"
 
-#: ../plugin/plugin.py:177
 msgid "RTMP protocol implementation"
 msgstr "RTMP protokoll implementációja"
 
-#: ../plugin/plugin.py:163
+msgid "Resolving the stream address failed"
+msgstr "Az adás címének feloldása nem sikerült"
+
 msgid "Select sink which you want to use."
 msgstr "Jelölje ki a használni kívánt fogadót."
 
-#: ../plugin/plugin.py:189
-#, fuzzy
 msgid "Select the delay that will be used for AC3+ Passthrough fix."
-msgstr "Válassza ki azt a lejátszót, amelyet az Enigma2 a lejátszáshoz fog használni."
+msgstr "Válassza ki az AC3+ passthrough javítás késleltetését."
 
-#: ../plugin/plugin.py:206
 msgid "Select the player which will be used for Enigma2 playback."
 msgstr "Válassza ki azt a lejátszót, amelyet az Enigma2 a lejátszáshoz fog használni."
 
-#: ../plugin/plugin.py:208
 msgid "Select the player which will be used in serviceapp for Enigma2 playback."
 msgstr "Válassza ki azt a lejátszót, amelyet az Enigma2 a lejátszáshoz a serviceapp-ban fog használni."
 
-#: ../plugin/plugin.py:160 ../plugin/plugin.py:334 ../plugin/plugin.py:349
-#: ../plugin/plugin.py:351 ../plugin/plugin.py:353
 msgid "ServiceApp"
 msgstr "ServiceApp"
 
-#: ../plugin/plugin.py:221
+msgid "ServiceApp - player check"
+msgstr "ServiceApp - lejátszók ellenőrzése"
+
 #, python-format
 msgid "ServiceExtEplayer3 (%s)"
 msgstr "ServiceExtEplayer3 (%s)"
 
-#: ../plugin/plugin.py:218
 #, python-format
 msgid "ServiceGstPlayer (%s)"
 msgstr "ServiceGstPlayer (%s)"
 
-#: ../plugin/plugin.py:211
 #, python-format
 msgid "ServiceMp3 (%s)"
 msgstr "ServiceMp3 (%s)"
 
-#: ../plugin/plugin.py:166
 msgid "Set buffer duration in seconds."
 msgstr "Állítsa be a puffer időtartamát másodpercben."
 
-#: ../plugin/plugin.py:165
 msgid "Set buffer size in kilobytes."
 msgstr "Állítsa be a puffer méretét kilobájtban."
 
-#: ../plugin/plugin.py:183
 msgid "Set connection speed in kb/s, according to which you want to have streams auto-selected"
 msgstr "Állítsa be azt a kapcsolódási sebességet kb/s-ban, amely szerint az adatfolyamokat a rendszer automatikusan kiválasztja"
 
-#: ../plugin/plugin.py:177
 msgid "Set which RTMP protocol implementation will be used for playback of RTMP streams"
 msgstr "Állítsa be, hogy melyik RTMP protokoll implementációt használja a rendszer az RTMP-adatfolyamok lejátszására"
 
-#: ../plugin/plugin.py:163
 msgid "Sink"
 msgstr "Fogadó"
 
-#: ../plugin/plugin.py:176
 msgid "Software decoder use LPCM for injection (otherwise wav PCM will be used)"
 msgstr "LPCM injection használata szoftveres dekóderhez (egyébként PCM injection használat)"
 
-#: ../plugin/plugin.py:175
 msgid "Stereo downmix"
 msgstr "Sztereó lekeverés"
 
-#: ../plugin/plugin.py:244
 msgid "Stop playing this movie?"
 msgstr "Megállítsam ezt a lejátszást?"
 
-#: ../plugin/plugin.py:71
 msgid "To AAC ADTS"
-msgstr "AAC az ADTS-hez"
+msgstr "AAC ADTS-re"
 
-#: ../plugin/plugin.py:71
 msgid "To AAC LATM"
 msgstr "AAC a LATM-hez"
 
-#: ../plugin/plugin.py:169
 msgid "Turn on AAC software decoding."
 msgstr "Itt kapcsolhatja be az AAC szoftverdekódolást."
 
-#: ../plugin/plugin.py:171
 msgid "Turn on AC3 software decoding."
 msgstr "Itt kapcsolhatja be az AC3 szoftverdekódolást."
 
-#: ../plugin/plugin.py:172
 msgid "Turn on DTS software decoding."
 msgstr "Itt kapcsolhatja be a DTS szoftverdekódolást."
 
-#: ../plugin/plugin.py:170
 msgid "Turn on EAC3 software decoding."
 msgstr "Itt kapcsolhatja be az EAC3 szoftverdekódolást."
 
-#: ../plugin/plugin.py:173
 msgid "Turn on MP3 software decoding."
 msgstr "Itt kapcsolhatja be az MP3 szoftverdekódolást."
 
-#: ../plugin/plugin.py:174
 msgid "Turn on WMA1, WMA2, WMA/PRO software decoding."
 msgstr "Itt kapcsolhatja be a WMA1, WMA2, WMA/PRO szoftverdekódolást."
 
-#: ../plugin/plugin.py:182
 msgid "Turn on auto-selection of streams according to set Connection speed."
 msgstr "A kapcsolat sebességének beállítása szerint automatikusan történik az adatfolyam (stream) kiválasztása."
 
-#: ../plugin/plugin.py:223
 msgid "Turn on debug messages"
-msgstr ""
+msgstr "Hibakeresési üzenetek bekapcsolása"
 
-#: ../plugin/plugin.py:175
 msgid "Turn on downmix to stereo, when software decoding is in use"
 msgstr "Sztereó lekeverés bekapcsolása, ha valamilyen szoftverdekódolás van használatban"
 
-#: ../plugin/plugin.py:181
 msgid "Turn on explorer to retrieve different quality streams from HLS variant playlist and select them via subservices."
 msgstr "Ha különböző minőségű adatfolyamokat (stream) szeretne megjeleníteni, akkor kapcsolja be a HLS Explorert."
 
-#: ../plugin/plugin.py:164
 msgid "Turn on the embedded subtitles support."
 msgstr "Itt kapcsolhatja be a beágyazott feliratok támogatását."
 
-#: ../plugin/plugin.py:174
+msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
+msgstr "A lejátszó által választott HLS vagy DASH változat: Automatikus és Legmagasabb a legjobbat, Legalacsonyabb a legkisebbet játssza."
+
 msgid "WMA software decoding"
 msgstr "WMA szoftver dekódolás"
 
-#: ../plugin/plugin.py:30
+msgid "Yes"
+msgstr "Igen"
+
 msgid "experimental"
 msgstr "kísérleti"
 
-#: ../plugin/plugin.py:32
 msgid "exteplayer3"
 msgstr "exteplayer3"
 
-#: ../plugin/plugin.py:32
+msgid "exteplayer3 did not accept its options (exit code 1)"
+msgstr "Az exteplayer3 nem fogadta el a beállításait (kilépési kód 1)"
+
+#. TRANSLATORS: a forced subtitle track (only the foreign language parts)
+msgid "forced"
+msgstr "kényszerített"
+
 msgid "gstplayer"
 msgstr "gstplayer"
 
-#: ../plugin/plugin.py:195 ../plugin/plugin.py:200
 msgid "not installed"
 msgstr "nincs telepítve"
 
-#: ../plugin/plugin.py:27 ../plugin/plugin.py:41
 msgid "original"
 msgstr "eredeti"
 
-#: ../plugin/plugin.py:41
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "A lejátszó a(z) %d jelzéssel leállt"
+
 msgid "serviceapp"
 msgstr "serviceapp"
 
-#: ../plugin/plugin.py:349
 msgid "setup player framework"
 msgstr "lejátszó keretrendszerének beállítása"
 
-#: ../plugin/plugin.py:195 ../plugin/plugin.py:200
 #, python-format
 msgid "version %s"
-msgstr ""
+msgstr "%s verzió"
