@@ -41,6 +41,7 @@ const std::string  EXT3_TRANSCODE_HEAAC            = "heaac_aaclc";
 const std::string  EXT3_HLS_QUALITY                = "hls_quality";
 const std::string  EXT3_HLS_DEFAULT_AUDIO          = "hls_default_audio";
 const std::string  EXT3_COVER                      = "cover";
+const std::string  EXT3_KEY                        = "key"; // #sapp_key=kid:key[,kid:key...]
 const std::string  EXT3_ARGS_LIST                  = "args"; // cmdline like list of exteplayer3 arguments in a form "-arg1=value1-arg2=value2"
 
 SettingMap &ExtEplayer3Options::GetSettingMap()
@@ -87,6 +88,8 @@ ExtEplayer3Options::ExtEplayer3Options()
 	settingMap[EXT3_HLS_DEFAULT_AUDIO]          = SettingEntry ("-D", "nonzero");
 	/* "cover" in EPLAYER3_EXTENDED: the embedded cover to this file (servicemp3's path) */
 	settingMap[EXT3_COVER]                      = SettingEntry ("--cover", "string");
+	/* "drmkey" & 1: CENC keys per KID, one --key each (MP4, DASH, HLS fMP4) */
+	settingMap[EXT3_KEY]                        = SettingEntry ("--key", "keylist");
 	settingMap[EXT3_ARGS_LIST]                  = SettingEntry ("al", "argslist");
 }
 
@@ -145,6 +148,24 @@ int ExtEplayer3Options::update(const std::string &key, const std::string &val)
 		else if (entry.getType() == "argslist")
 		{
                      entry.setValue(val);
+		}
+		else if (entry.getType() == "keylist")
+		{
+			/* kid:key pairs separated by "," or ";": hex digits, dashes (UUID
+			 * form) and base64 characters, nothing else goes to the player */
+			bool ok = !val.empty();
+			for (size_t i = 0; ok && i < val.size(); i++)
+			{
+				char c = val[i];
+				ok = isalnum((unsigned char)c) || c == ':' || c == ',' || c == ';' || c == '-' || c == '_' || c == '+' || c == '/' || c == '=';
+			}
+			if (ok)
+				entry.setValue(val);
+			else
+			{
+				eWarning("ExtEplayer3Options::update - invalid value for '%s'", key.c_str());
+				ret = -2;
+			}
 		}
 	}
 	else
@@ -255,6 +276,23 @@ std::vector<std::string> ExtEplayer3::buildCommand()
 			/* the player default is 0, older players do not know the option */
 			args.push_back(i->second.getAppArg());
 			args.push_back(i->second.getValue());
+		}
+		if (i->second.getType() == "keylist")
+		{
+			std::string list = i->second.getValue();
+			size_t start = 0;
+			while (start <= list.size())
+			{
+				size_t end = list.find_first_of(",;", start);
+				if (end == std::string::npos)
+					end = list.size();
+				if (end > start)
+				{
+					args.push_back(i->second.getAppArg());
+					args.push_back(list.substr(start, end - start));
+				}
+				start = end + 1;
+			}
 		}
 		if (i->second.getType() == "int" || i->second.getType() == "string")
 		{

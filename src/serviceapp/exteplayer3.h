@@ -39,6 +39,7 @@ extern const std::string EXT3_TRANSCODE_HEAAC;
 extern const std::string EXT3_HLS_QUALITY;
 extern const std::string EXT3_HLS_DEFAULT_AUDIO;
 extern const std::string EXT3_COVER;
+extern const std::string EXT3_KEY;
 
 struct ExtEplayer3Options : public IOption
 {
