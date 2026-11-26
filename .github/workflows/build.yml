@@ -167,7 +167,8 @@ jobs:
       run: |
         version=$(sed -n 's/^AC_INIT(\[serviceapp\], \[\([^]]*\)\].*/\1/p' configure.ac)
         echo "AC_INIT version: $version"
-        if ! strings src/serviceapp/.libs/serviceapp.so | grep -qx "$version"; then
+        # -n 3: strings prints only runs of 4 characters by default, "0.6" has 3
+        if ! strings -n 3 src/serviceapp/.libs/serviceapp.so | grep -qxF "$version"; then
           echo "::error title=version::serviceapp.so does not contain the version $version of AC_INIT"
           exit 1
         fi
