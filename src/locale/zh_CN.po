@@ -1,0 +1,288 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: ServiceApp / enigma2\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-26 23:42+0100\n"
+"PO-Revision-Date: 2020-03-02 22:16+0800\n"
+"Last-Translator: igorrrrr <igorzhugan66@gmail.com>\n"
+"Language-Team: igorrrrr <igorzhugan66@gmail.com>\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Poedit-SourceCharset: UTF-8\n"
+"X-Generator: Poedit 2.2.3\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#, python-format
+msgid "%d millisecond"
+msgid_plural "%d milliseconds"
+msgstr[0] ""
+
+msgid "AAC software decoding"
+msgstr "AAC软件解码"
+
+msgid "AAC-LC"
+msgstr ""
+
+msgid "AC3 software decoding"
+msgstr "AC3软件解码"
+
+msgid "AC3+ Passthrough fix delay"
+msgstr ""
+
+msgid "Auto"
+msgstr ""
+
+msgid "Auto select stream"
+msgstr "自动选择流"
+
+msgid "Auto turn on subtitles"
+msgstr "自动打开字幕"
+
+msgid "Automatically turn on subtitles if available."
+msgstr "自动打开字幕（如果可用）"
+
+msgid "Buffer duration"
+msgstr "缓冲区持续时间"
+
+msgid "Buffer size"
+msgstr "缓冲区大小"
+
+msgid "Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr ""
+
+msgid "Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr ""
+
+msgid "Choose whether HE-AAC sound tracks should be transcoded to AAC-LC."
+msgstr ""
+
+msgid "Connection speed"
+msgstr "连接速度"
+
+msgid "DTS / DTS-HD transcoding"
+msgstr ""
+
+msgid "DTS software decoding"
+msgstr "DTS软件解码"
+
+msgid "Debug"
+msgstr ""
+
+msgid "Detecting exteplayer3 player ..."
+msgstr "检测exteplayer3播放器 ..."
+
+msgid "Detecting gstreamer player ..."
+msgstr "检测gstreamer播放器 ..."
+
+msgid "Dolby Digital"
+msgstr ""
+
+msgid "Dolby Digital +"
+msgstr ""
+
+msgid "Dolby TrueHD transcoding"
+msgstr ""
+
+msgid "EAC3 software decoding"
+msgstr "EAC3软件解码"
+
+msgid "Embedded subtitles"
+msgstr "嵌入字幕"
+
+msgid "Enable AC3+ passthrough fix"
+msgstr ""
+
+msgid "Enables AC3+ passthrough fix for Vu+ Ultimo4K / Duo4KSE."
+msgstr ""
+
+msgid "Enigma2 playback system"
+msgstr "Enigma2播放系统"
+
+msgid ""
+"Enigma2 playback system was changed and Enigma2 should be restarted\n"
+"\n"
+"Do you want to restart it now?"
+msgstr ""
+"Enigma2播放系统已改变，需要重启Enigma2\n"
+"\n"
+"需要现在重启Enigma2吗?"
+
+msgid "ExtEplayer3"
+msgstr "ExtEplayer3"
+
+msgid "Forced only"
+msgstr ""
+
+msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
+msgstr ""
+
+msgid "GstPlayer"
+msgstr "GstPlayer"
+
+msgid "HE-AAC transcoding"
+msgstr ""
+
+msgid "HLS Explorer"
+msgstr "HLS Explorer"
+
+msgid "HLS default audio only"
+msgstr ""
+
+msgid "HLS quality"
+msgstr ""
+
+msgid "Highest"
+msgstr ""
+
+msgid "LPCM injection"
+msgstr "LPCM injection"
+
+msgid "Lowest"
+msgstr ""
+
+msgid "MP3 software decoding"
+msgstr "Mp3软件解码"
+
+msgid "No"
+msgstr ""
+
+msgid "Offer only the default audio track of a HLS stream instead of all of its languages."
+msgstr ""
+
+msgid "Play with ServiceExtEplayer3"
+msgstr "使用ServiceExtEplayer3"
+
+msgid "Play with ServiceGstPlayer"
+msgstr "使用ServiceGstPlayer"
+
+msgid "Player"
+msgstr "播放器"
+
+msgid "RTMP protocol implementation"
+msgstr "RTMP协议实现方式"
+
+msgid "Select sink which you want to use."
+msgstr "选择要使用的sink."
+
+msgid "Select the delay that will be used for AC3+ Passthrough fix."
+msgstr ""
+
+msgid "Select the player which will be used for Enigma2 playback."
+msgstr "选择用于Enigma2播放的播放器"
+
+msgid "Select the player which will be used in serviceapp for Enigma2 playback."
+msgstr "选择在serviceapp用于Enigma2播放的播放器"
+
+msgid "ServiceApp"
+msgstr "ServiceApp"
+
+#, python-format
+msgid "ServiceExtEplayer3 (%s)"
+msgstr "ServiceExtEplayer3 (%s)"
+
+#, python-format
+msgid "ServiceGstPlayer (%s)"
+msgstr "ServiceGstPlayer (%s)"
+
+#, python-format
+msgid "ServiceMp3 (%s)"
+msgstr "ServiceMp3 (%s)"
+
+msgid "Set buffer duration in seconds."
+msgstr "设置缓冲区持续时间（秒）"
+
+msgid "Set buffer size in kilobytes."
+msgstr "以千字节为单位设置缓冲区大小"
+
+msgid "Set connection speed in kb/s, according to which you want to have streams auto-selected"
+msgstr "设置连接速度（以kb/s为单位），根据该速度自动选择流"
+
+msgid "Set which RTMP protocol implementation will be used for playback of RTMP streams"
+msgstr "设置将用于播放RTMP流的RTMP协议实现方式"
+
+msgid "Sink"
+msgstr "Sink"
+
+msgid "Software decoder use LPCM for injection (otherwise wav PCM will be used)"
+msgstr "软件解码器使用LPCM进行输入（否则将使用wav PCM）"
+
+msgid "Stereo downmix"
+msgstr "立体声缩减混音"
+
+msgid "Stop playing this movie?"
+msgstr "停止播放这部电影?"
+
+msgid "To AAC ADTS"
+msgstr ""
+
+msgid "To AAC LATM"
+msgstr ""
+
+msgid "Turn on AAC software decoding."
+msgstr "打开AAC软件解码"
+
+msgid "Turn on AC3 software decoding."
+msgstr "打开AC3软件解码"
+
+msgid "Turn on DTS software decoding."
+msgstr "打开DTS软件解码"
+
+msgid "Turn on EAC3 software decoding."
+msgstr "打开EAC3软件解码"
+
+msgid "Turn on MP3 software decoding."
+msgstr "打开MP3软件解码"
+
+msgid "Turn on WMA1, WMA2, WMA/PRO software decoding."
+msgstr "打开WMA1, WMA2, WMA/PRO软件解码"
+
+msgid "Turn on auto-selection of streams according to set Connection speed."
+msgstr "根据设置的连接速度启用流的自动选择"
+
+msgid "Turn on debug messages"
+msgstr ""
+
+msgid "Turn on downmix to stereo, when software decoding is in use"
+msgstr "当使用软件解码时，打开立体声缩混"
+
+msgid "Turn on explorer to retrieve different quality streams from HLS variant playlist and select them via subservices."
+msgstr "打开资源管理器以从HLS变体播放列表中检索不同质量的流，并通过子服务选择它们。"
+
+msgid "Turn on the embedded subtitles support."
+msgstr "打开嵌入式字幕支持"
+
+msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
+msgstr ""
+
+msgid "WMA software decoding"
+msgstr "WMA软件解码"
+
+msgid "Yes"
+msgstr ""
+
+msgid "experimental"
+msgstr "实验的"
+
+msgid "exteplayer3"
+msgstr "exteplayer3"
+
+msgid "gstplayer"
+msgstr "gstplayer"
+
+msgid "not installed"
+msgstr "未安装的"
+
+msgid "original"
+msgstr ""
+
+msgid "serviceapp"
+msgstr "serviceapp"
+
+msgid "setup player framework"
+msgstr "设置播放器框架"
+
+#, python-format
+msgid "version %s"
+msgstr ""

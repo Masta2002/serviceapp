@@ -1,301 +1,289 @@
+#
 msgid ""
 msgstr ""
 "Project-Id-Version: ServiceApp / enigma2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-02 17:17+0100\n"
-"PO-Revision-Date: 2016-12-02 21:55+0200\n"
-"Last-Translator: TM2TURK | by thawtes <thawtes@gmail.com>\n"
-"Language-Team: TM2TURK | by thawtes <thawtes@gmail.com>\n"
-"Language: tr_TR\n"
+"POT-Creation-Date: 2026-11-26 23:42+0100\n"
+"PO-Revision-Date: 2026-10-16 10:00+0300\n"
+"Last-Translator: audi06_19 <info@dreamosat-forum.com>\n"
+"Language-Team: Turkish\n"
+"Language: tr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-SourceCharset: UTF-8\n"
-"X-Generator: Poedit 1.8.11\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "X-Poedit-SourceCharset: UTF-8\n"
+"X-SourceCharset: UTF-8\n"
 
-#: ../plugin/plugin.py:169
+#, python-format
+msgid "%d millisecond"
+msgid_plural "%d milliseconds"
+msgstr[0] ""
+
 msgid "AAC software decoding"
-msgstr "AAC Yazılımsal Çözücü"
+msgstr "AAC yazılımsal kod çözme"
 
-#: ../plugin/plugin.py:171
-#, fuzzy
+msgid "AAC-LC"
+msgstr ""
+
 msgid "AC3 software decoding"
-msgstr "AAC Yazılımsal Çözücü"
+msgstr "AC3 yazılımsal kod çözme"
 
-#: ../plugin/plugin.py:189
 msgid "AC3+ Passthrough fix delay"
 msgstr ""
 
-#: ../plugin/plugin.py:182
+msgid "Auto"
+msgstr ""
+
 msgid "Auto select stream"
-msgstr ""
+msgstr "Akışı otomatik seç"
 
-#: ../plugin/plugin.py:180
 msgid "Auto turn on subtitles"
-msgstr ""
+msgstr "Altyazıları otomatik aç"
 
-#: ../plugin/plugin.py:180
 msgid "Automatically turn on subtitles if available."
+msgstr "Varsa altyazıları otomatik açar."
+
+msgid "Buffer duration"
+msgstr "Arabellek süresi"
+
+msgid "Buffer size"
+msgstr "Arabellek boyutu"
+
+msgid "Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
 msgstr ""
 
-#: ../plugin/plugin.py:166
-msgid "Buffer duration"
-msgstr "Arabellek Süresi"
+msgid "Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr ""
 
-#: ../plugin/plugin.py:165
-msgid "Buffer size"
-msgstr "Arabellek Boyutu"
+msgid "Choose whether HE-AAC sound tracks should be transcoded to AAC-LC."
+msgstr ""
 
-#: ../plugin/plugin.py:183
 msgid "Connection speed"
-msgstr "Bağlantı Hızı"
+msgstr "Bağlantı hızı"
 
-#: ../plugin/plugin.py:172
+msgid "DTS / DTS-HD transcoding"
+msgstr ""
+
 msgid "DTS software decoding"
-msgstr "DTS Yazılımsal Çözücü"
+msgstr "DTS yazılımsal kod çözme"
 
-#: ../plugin/plugin.py:223
 msgid "Debug"
 msgstr ""
 
-#: ../plugin/plugin.py:265
 msgid "Detecting exteplayer3 player ..."
-msgstr ""
+msgstr "exteplayer3 oynatıcısı aranıyor..."
 
-#: ../plugin/plugin.py:264
 msgid "Detecting gstreamer player ..."
+msgstr "GStreamer oynatıcısı aranıyor..."
+
+msgid "Dolby Digital"
 msgstr ""
 
-#: ../plugin/plugin.py:170
-#, fuzzy
+msgid "Dolby Digital +"
+msgstr ""
+
+msgid "Dolby TrueHD transcoding"
+msgstr ""
+
 msgid "EAC3 software decoding"
-msgstr "AAC Yazılımsal Çözücü"
+msgstr "EAC3 yazılımsal kod çözme"
 
-#: ../plugin/plugin.py:164
 msgid "Embedded subtitles"
-msgstr ""
+msgstr "Gömülü altyazılar"
 
-#: ../plugin/plugin.py:187
 msgid "Enable AC3+ passthrough fix"
 msgstr ""
 
-#: ../plugin/plugin.py:187
 msgid "Enables AC3+ passthrough fix for Vu+ Ultimo4K / Duo4KSE."
 msgstr ""
 
-#: ../plugin/plugin.py:206
 msgid "Enigma2 playback system"
-msgstr ""
+msgstr "Enigma2 oynatma sistemi"
 
-#: ../plugin/plugin.py:230
 msgid ""
 "Enigma2 playback system was changed and Enigma2 should be restarted\n"
 "\n"
 "Do you want to restart it now?"
 msgstr ""
+"Enigma2 oynatma sistemi değiştirildi. Enigma2'nin yeniden başlatılması gerekiyor.\n"
+"\n"
+"Şimdi yeniden başlatılsın mı?"
 
-#: ../plugin/plugin.py:195
 msgid "ExtEplayer3"
 msgstr "ExtEplayer3"
 
-#: ../plugin/plugin.py:200
+msgid "Forced only"
+msgstr ""
+
+msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
+msgstr ""
+
 msgid "GstPlayer"
 msgstr "GstPlayer"
 
-#: ../plugin/plugin.py:181
+msgid "HE-AAC transcoding"
+msgstr ""
+
 msgid "HLS Explorer"
+msgstr "HLS akış gezgini"
+
+msgid "HLS default audio only"
 msgstr ""
 
-#: ../plugin/plugin.py:176
+msgid "HLS quality"
+msgstr ""
+
+msgid "Highest"
+msgstr ""
+
 msgid "LPCM injection"
+msgstr "LPCM aktarımı"
+
+msgid "Lowest"
 msgstr ""
 
-#: ../plugin/plugin.py:173
-#, fuzzy
 msgid "MP3 software decoding"
-msgstr "WMA Yazılımsal Çözücü"
+msgstr "MP3 yazılımsal kod çözme"
 
-#: ../plugin/plugin.py:71
 msgid "No"
 msgstr ""
 
-#: ../plugin/plugin.py:351
+msgid "Offer only the default audio track of a HLS stream instead of all of its languages."
+msgstr ""
+
 msgid "Play with ServiceExtEplayer3"
-msgstr "ExtEplayer3 ile Oynat"
+msgstr "ServiceExtEplayer3 ile oynat"
 
-#: ../plugin/plugin.py:353
 msgid "Play with ServiceGstPlayer"
-msgstr "GstPlayer ile Oynat"
+msgstr "ServiceGstPlayer ile oynat"
 
-#: ../plugin/plugin.py:208
 msgid "Player"
-msgstr "WMA Yazılımsal Çözücü"
+msgstr "Oynatıcı"
 
-#: ../plugin/plugin.py:177
 msgid "RTMP protocol implementation"
-msgstr ""
+msgstr "RTMP protokol uygulaması"
 
-#: ../plugin/plugin.py:163
 msgid "Select sink which you want to use."
-msgstr ""
+msgstr "Kullanmak istediğiniz çıkış bileşenini seçin."
 
-#: ../plugin/plugin.py:189
 msgid "Select the delay that will be used for AC3+ Passthrough fix."
 msgstr ""
 
-#: ../plugin/plugin.py:206
 msgid "Select the player which will be used for Enigma2 playback."
-msgstr ""
+msgstr "Enigma2 oynatımında kullanılacak oynatıcıyı seçin."
 
-#: ../plugin/plugin.py:208
 msgid "Select the player which will be used in serviceapp for Enigma2 playback."
-msgstr ""
+msgstr "ServiceApp üzerinden Enigma2 oynatımında kullanılacak oynatıcıyı seçin."
 
-#: ../plugin/plugin.py:160 ../plugin/plugin.py:334 ../plugin/plugin.py:349
-#: ../plugin/plugin.py:351 ../plugin/plugin.py:353
 msgid "ServiceApp"
 msgstr "ServiceApp"
 
-#: ../plugin/plugin.py:221
 #, python-format
 msgid "ServiceExtEplayer3 (%s)"
-msgstr ""
+msgstr "ServiceExtEplayer3 (%s)"
 
-#: ../plugin/plugin.py:218
 #, python-format
 msgid "ServiceGstPlayer (%s)"
-msgstr ""
+msgstr "ServiceGstPlayer (%s)"
 
-#: ../plugin/plugin.py:211
 #, python-format
 msgid "ServiceMp3 (%s)"
-msgstr ""
+msgstr "ServiceMp3 (%s)"
 
-#: ../plugin/plugin.py:166
 msgid "Set buffer duration in seconds."
-msgstr ""
+msgstr "Arabellek süresini saniye cinsinden ayarlayın."
 
-#: ../plugin/plugin.py:165
 msgid "Set buffer size in kilobytes."
-msgstr ""
+msgstr "Arabellek boyutunu kilobayt cinsinden ayarlayın."
 
-#: ../plugin/plugin.py:183
 msgid "Set connection speed in kb/s, according to which you want to have streams auto-selected"
-msgstr ""
+msgstr "Akışların otomatik seçiminde kullanılacak bağlantı hızını kb/sn cinsinden ayarlayın."
 
-#: ../plugin/plugin.py:177
 msgid "Set which RTMP protocol implementation will be used for playback of RTMP streams"
-msgstr ""
+msgstr "RTMP akışlarını oynatırken kullanılacak RTMP protokol uygulamasını belirleyin."
 
-#: ../plugin/plugin.py:163
 msgid "Sink"
-msgstr ""
+msgstr "Çıkış bileşeni"
 
-#: ../plugin/plugin.py:176
 msgid "Software decoder use LPCM for injection (otherwise wav PCM will be used)"
-msgstr ""
+msgstr "Yazılım kod çözücü, aktarımda LPCM kullanır (aksi durumda WAV PCM kullanılır)."
 
-#: ../plugin/plugin.py:175
 msgid "Stereo downmix"
-msgstr ""
+msgstr "Sesi stereoya indirgeme"
 
-#: ../plugin/plugin.py:244
 msgid "Stop playing this movie?"
-msgstr ""
+msgstr "Bu filmin oynatılması durdurulsun mu?"
 
-#: ../plugin/plugin.py:71
 msgid "To AAC ADTS"
-msgstr ""
+msgstr "AAC ADTS'ye"
 
-#: ../plugin/plugin.py:71
 msgid "To AAC LATM"
-msgstr ""
+msgstr "AAC LATM'ye"
 
-#: ../plugin/plugin.py:169
 msgid "Turn on AAC software decoding."
-msgstr "AAC Yazılımsal Çözücü Kullan"
+msgstr "AAC yazılımsal kod çözmeyi açar."
 
-#: ../plugin/plugin.py:171
-#, fuzzy
 msgid "Turn on AC3 software decoding."
-msgstr "AAC Yazılımsal Çözücü Kullan"
+msgstr "AC3 yazılımsal kod çözmeyi açar."
 
-#: ../plugin/plugin.py:172
 msgid "Turn on DTS software decoding."
-msgstr "DTS Yazılımsal Çözücü Kullan"
+msgstr "DTS yazılımsal kod çözmeyi açar."
 
-#: ../plugin/plugin.py:170
-#, fuzzy
 msgid "Turn on EAC3 software decoding."
-msgstr "AAC Yazılımsal Çözücü Kullan"
+msgstr "EAC3 yazılımsal kod çözmeyi açar."
 
-#: ../plugin/plugin.py:173
-#, fuzzy
 msgid "Turn on MP3 software decoding."
-msgstr "AAC Yazılımsal Çözücü Kullan"
+msgstr "MP3 yazılımsal kod çözmeyi açar."
 
-#: ../plugin/plugin.py:174
 msgid "Turn on WMA1, WMA2, WMA/PRO software decoding."
-msgstr ""
+msgstr "WMA1, WMA2 ve WMA/PRO yazılımsal kod çözmeyi açar."
 
-#: ../plugin/plugin.py:182
 msgid "Turn on auto-selection of streams according to set Connection speed."
-msgstr ""
+msgstr "Belirlenen bağlantı hızına göre otomatik akış seçimini açar."
 
-#: ../plugin/plugin.py:223
 msgid "Turn on debug messages"
 msgstr ""
 
-#: ../plugin/plugin.py:175
 msgid "Turn on downmix to stereo, when software decoding is in use"
-msgstr ""
+msgstr "Yazılımsal kod çözme kullanılırken sesin stereoya indirgenmesini açar."
 
-#: ../plugin/plugin.py:181
 msgid "Turn on explorer to retrieve different quality streams from HLS variant playlist and select them via subservices."
-msgstr ""
+msgstr "HLS varyant oynatma listesindeki farklı kalitedeki akışları bulup alt kanallardan seçmeyi sağlar."
 
-#: ../plugin/plugin.py:164
 msgid "Turn on the embedded subtitles support."
+msgstr "Gömülü altyazı desteğini açar."
+
+msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
 msgstr ""
 
-#: ../plugin/plugin.py:174
 msgid "WMA software decoding"
-msgstr "WMA Yazılımsal Çözücü"
+msgstr "WMA yazılımsal kod çözme"
 
-#: ../plugin/plugin.py:30
+msgid "Yes"
+msgstr ""
+
 msgid "experimental"
-msgstr ""
+msgstr "deneysel"
 
-#: ../plugin/plugin.py:32
-#, fuzzy
 msgid "exteplayer3"
-msgstr "ExtEplayer3"
+msgstr "exteplayer3"
 
-#: ../plugin/plugin.py:32
-#, fuzzy
 msgid "gstplayer"
-msgstr "GstPlayer"
+msgstr "gstplayer"
 
-#: ../plugin/plugin.py:195 ../plugin/plugin.py:200
 msgid "not installed"
-msgstr ""
+msgstr "kurulu değil"
 
-#: ../plugin/plugin.py:27 ../plugin/plugin.py:41
 msgid "original"
-msgstr ""
+msgstr "orijinal"
 
-#: ../plugin/plugin.py:41
-#, fuzzy
 msgid "serviceapp"
-msgstr "ServiceApp"
+msgstr "serviceapp"
 
-#: ../plugin/plugin.py:349
 msgid "setup player framework"
-msgstr ""
+msgstr "oynatıcı altyapısını ayarla"
 
-#: ../plugin/plugin.py:195 ../plugin/plugin.py:200
 #, python-format
 msgid "version %s"
 msgstr ""
