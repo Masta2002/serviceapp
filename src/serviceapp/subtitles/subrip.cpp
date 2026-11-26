@@ -13,7 +13,7 @@ int SubripParser::get_event_info(const char *line, event_info *ei)
     ei->start = 0;//fixme
     ei->pos = -1;
     if (sscanf(line, "%d:%2d:%2d%*1[,.]%3d --> %d:%2d:%2d%*1[,.]%3d"
-               "%*[ ]X1:%u X2:%u Y1:%u Y2:%u",
+               "%*[ ]X1:%d X2:%d Y1:%d Y2:%d",
                &hh1, &mm1, &ss1, &ms1,
                &hh2, &mm2, &ss2, &ms2,
                &ei->x1, &ei->x2, &ei->y1, &ei->y2) >= 8) {
@@ -49,6 +49,7 @@ bool SubripParser::_parse(std::istream &is, int fps, subtitleMap &submap)
     std::stringstream buf;
     int res = 0;
     char line[4096], line_cache[4096];
+    line_cache[0] = 0;
     int has_event_info = 0;
     event_info ei;
     while (is)

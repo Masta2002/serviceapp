@@ -8,18 +8,20 @@
 #include <sys/stat.h>
 
 #include "common.h"
+#ifndef NO_PYTHON
 #include <Python.h>
+#endif
 
-SettingEntry::SettingEntry():m_is_set(false){}
+SettingEntry::SettingEntry():m_is_set(false), m_int_value(0){}
 SettingEntry::SettingEntry(const std::string &app_arg, int value, const std::string value_type):
     m_is_set(true),
     m_app_arg(app_arg), m_int_value(value), m_value_type(value_type){}
 SettingEntry::SettingEntry(const std::string &app_arg, const std::string &value, const std::string value_type):
     m_is_set(true),
-    m_app_arg(app_arg), m_string_value(value), m_value_type(value_type){}
+    m_app_arg(app_arg), m_string_value(value), m_int_value(0), m_value_type(value_type){}
 SettingEntry::SettingEntry(const std::string &app_arg, const std::string value_type):
     m_is_set(false),
-    m_app_arg(app_arg), m_value_type(value_type){}
+    m_app_arg(app_arg), m_int_value(0), m_value_type(value_type){}
 
 void SettingEntry::setValue(int value)
 {

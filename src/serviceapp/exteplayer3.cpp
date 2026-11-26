@@ -143,7 +143,7 @@ int ExtEplayer3Options::update(const std::string &key, const std::string &val)
 		}
 		else if (entry.getType() == "string")
 		{
-        	entry.setValue(val);
+			entry.setValue(val);
 		}
 		else if (entry.getType() == "argslist")
 		{

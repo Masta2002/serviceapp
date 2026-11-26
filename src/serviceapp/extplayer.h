@@ -213,7 +213,7 @@ public:
 
 class BasePlayer: public iPlayerSend, public iPlayerCallback
 {
-	iPlayerCallback *pCallback;
+	iPlayerCallback *pCallback = nullptr;
 
 protected:
 	std::string mPath;

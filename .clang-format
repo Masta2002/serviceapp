@@ -31,7 +31,7 @@ BraceWrapping:
   BeforeElse: false
   IndentBraces: false
 
-# Modern switch/case style  
+# Modern switch/case style
 IndentCaseLabels: true
 IndentCaseBlocks: false
 AllowShortCaseLabelsOnASingleLine: false

@@ -941,7 +941,7 @@ RESULT eServiceApp::start() {
 					}
 					it++;
 				}
-				eDebug("eServiceApp::start - subservice(%lub/s) selected according to connection speed (%lu)", subservice.bitrate, bitrate * 1000L);
+				eDebug("eServiceApp::start - subservice(%lub/s) selected according to connection speed (%lu)", (unsigned long)subservice.bitrate, (unsigned long)bitrate * 1000UL);
 			} else {
 				unsigned int subservice_idx = subservice_flag - SUBSERVICES_INDEX_START;
 				if (subservice_idx < subservice_num) {
@@ -1195,7 +1195,7 @@ int eServiceApp::getNumberOfTracks() {
 
 RESULT eServiceApp::selectTrack(unsigned int i) {
 	if (m_debug)
-		eDebug("eServiceApp::selectTrack = %d", i);
+		eDebug("eServiceApp::selectTrack = %u", i);
 	if (m_paused) {
 		audioStream track;
 		if (player->audioGetTrackInfo(track, i) < 0)
@@ -1540,7 +1540,7 @@ int eServiceApp::getNumberOfSubservices() {
 }
 
 RESULT eServiceApp::getSubservice(eServiceReference& subservice, unsigned int n) {
-	eDebug("eServiceApp::getSubservice - %d", n);
+	eDebug("eServiceApp::getSubservice - %u", n);
 	subservice = m_subserviceref_vec[n];
 	return 0;
 }
