@@ -2,17 +2,27 @@ name: Compile check
 
 # Compiles the C++ sources against the enigma2 headers of openATV and checks
 # the Python files. Nothing is linked: libenigma2 is not available here.
+# (build.yml does the full autotools build; this one is the fast check with
+# the flags fixed, independent of configure.)
 
 on:
   push:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: compile-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   compile:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     - name: Install dependencies
       run: |
@@ -40,5 +50,22 @@ jobs:
         gcc -fsyntax-only -Wall src/serviceapp/cJSON/cJSON.c || rc=1
         exit $rc
 
-    - name: Python
-      run: python3 -W error -m py_compile src/plugin/*.py
+  python:
+    name: Python ${{ matrix.python }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        # the Python 3 of openATV 7.x / 8.x images and the next one
+        python: ['3.12', '3.13', '3.14']
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - uses: actions/setup-python@v7
+      with:
+        python-version: ${{ matrix.python }}
+        allow-prereleases: true
+
+    - name: py_compile
+      run: python -W error -m py_compile src/plugin/*.py

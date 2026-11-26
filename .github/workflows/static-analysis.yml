@@ -1,0 +1,197 @@
+name: Static analysis
+
+# Two static analysers over the C++ sources of serviceapp.so (cJSON/ is
+# bundled third-party code: compiled, its findings dropped):
+#   - cppcheck    without the enigma2 headers; the enigma2 / Python macros
+#                 it must know are in .github/cppcheck/enigma2.cfg
+#   - clang-tidy  bugprone, cert, clang-analyzer, performance, with the real
+#                 enigma2 headers (the flags of compile.yml)
+#
+# Advisory: findings never fail the run, only a broken analyser does.
+# Results: the job summary (counts per check, then the findings) and an
+# artifact per tool. Once the findings of a severity are fixed, set
+# CPPCHECK_FAIL_ON below (e.g. "error" or "error,warning") to make cppcheck
+# a gate for them.
+
+on:
+  push:
+    paths:
+      - 'src/serviceapp/**'
+      - '.github/cppcheck/**'
+      - '.github/workflows/static-analysis.yml'
+  pull_request:
+    paths:
+      - 'src/serviceapp/**'
+      - '.github/cppcheck/**'
+      - '.github/workflows/static-analysis.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: static-analysis-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # severities that fail the cppcheck job, comma separated; empty = advisory
+  CPPCHECK_FAIL_ON: ''
+  # clang-tidy checks. Disabled, with the reason:
+  #  bugprone-easily-swappable-parameters  any two adjacent int parameters
+  #  bugprone-narrowing-conversions        every int64 -> int (by design)
+  #  bugprone-reserved-identifier, cert-dcl37-c, cert-dcl51-cpp
+  #                                        enigma2 style names (_signal ...)
+  #  bugprone-assignment-in-if-condition   if ((x = f()) ...) idiom
+  #  cert-err33-c                          every unchecked printf/fclose
+  #  cert-err58-cpp                        eAutoInitPtr<> globals, by design
+  #  clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
+  #                                        every memcpy/sprintf (Annex K)
+  #  performance-avoid-endl                style
+  CLANG_TIDY_CHECKS: >-
+    -*,bugprone-*,cert-*,clang-analyzer-*,performance-*,
+    -bugprone-easily-swappable-parameters,-bugprone-narrowing-conversions,
+    -bugprone-reserved-identifier,-cert-dcl37-c,-cert-dcl51-cpp,
+    -bugprone-assignment-in-if-condition,-cert-err33-c,-cert-err58-cpp,
+    -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+    -performance-avoid-endl
+
+jobs:
+  cppcheck:
+    name: cppcheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Install cppcheck
+      run: |
+        sudo apt-get update -q
+        sudo apt-get install -y -q cppcheck
+        cppcheck --version
+
+    # --library=posix is left out on purpose: its pthread_cond_init entry
+    # reports every pthread_cond_init(&c, NULL) as a null pointer dereference
+    - name: cppcheck
+      run: |
+        out="$RUNNER_TEMP/cppcheck"
+        mkdir -p "$out"
+        cppcheck --enable=warning,performance,portability,style --inconclusive \
+          --std=c++20 --language=c++ --platform=unix64 --library=.github/cppcheck/enigma2.cfg \
+          --inline-suppr -DDEBUG -DHAVE_EPG -DOPENPLI_ISERVICE_VERSION=2 -Isrc/serviceapp \
+          --suppress=missingIncludeSystem --suppress=missingInclude \
+          --suppress='*:src/serviceapp/cJSON/*' \
+          --suppress=missingOverride --suppress=nullPointerOutOfMemory \
+          -j"$(nproc)" \
+          --template='{file}:{line}:{column}: {severity}: {id}: {message}' \
+          src/serviceapp/*.cpp src/serviceapp/subtitles/*.cpp \
+          2> "$out/cppcheck.txt" > "$out/cppcheck.log"
+        sort -u -o "$out/cppcheck.txt" "$out/cppcheck.txt"
+        {
+          echo "### cppcheck: $(wc -l < "$out/cppcheck.txt") findings"
+          echo '| count | severity: check |'
+          echo '|---|---|'
+          awk -F': ' '{print $2": "$3}' "$out/cppcheck.txt" | sort | uniq -c | sort -nr \
+            | awk '{c=$1; $1=""; print "| " c " |" $0 " |"}'
+          echo
+          echo '<details><summary>findings (error and warning)</summary>'
+          echo
+          echo '```'
+          grep -E ': (error|warning): ' "$out/cppcheck.txt" || true
+          echo '```'
+          echo '</details>'
+        } >> "$GITHUB_STEP_SUMMARY"
+        # annotations for error / warning
+        grep -E ': (error|warning): ' "$out/cppcheck.txt" \
+          | sed -E 's/^([^:]+):([0-9]+):([0-9]+): (error|warning): ([^:]+): (.*)$/::warning file=\1,line=\2,col=\3,title=cppcheck \5::\6/' || true
+        if [ -n "$CPPCHECK_FAIL_ON" ]; then
+          sev=$(echo "$CPPCHECK_FAIL_ON" | tr ',' '|')
+          if grep -qE ": ($sev): " "$out/cppcheck.txt"; then
+            echo "::error::cppcheck findings of severity $CPPCHECK_FAIL_ON"
+            exit 1
+          fi
+        fi
+
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      if: ${{ !cancelled() }}
+      with:
+        name: static-analysis-cppcheck
+        path: ${{ runner.temp }}/cppcheck
+        if-no-files-found: ignore
+
+  clang-tidy:
+    name: clang-tidy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Install packages
+      run: |
+        sudo apt-get update -q
+        sudo apt-get install -y -q clang clang-tidy pkg-config python3-dev libsigc++-3.0-dev \
+          libuchardet-dev libssl-dev libfreetype-dev libfribidi-dev libxml2-dev
+        clang-tidy --version
+
+    - name: enigma2 and libdvbsi++ headers
+      run: |
+        git clone -q --depth 1 https://github.com/openatv/enigma2 "$RUNNER_TEMP/e2"
+        git clone -q --depth 1 https://github.com/oe-alliance/libdvbsi "$RUNNER_TEMP/dvbsi"
+        touch "$RUNNER_TEMP/e2/config.h"
+
+    # compile_commands.json with the flags of compile.yml
+    - name: Compilation database
+      run: |
+        FLAGS="-std=gnu++20 -Wall -Wno-unused -DDEBUG -DHAVE_EPG -DOPENPLI_ISERVICE_VERSION=2 \
+          $(python3-config --includes) -include Python.h \
+          $(pkg-config --cflags sigc++-3.0 uchardet openssl freetype2 fribidi) \
+          -I$RUNNER_TEMP/e2 -I$RUNNER_TEMP/e2/include -I$RUNNER_TEMP/dvbsi/include -Isrc/serviceapp"
+        FLAGS="$FLAGS" python3 - <<'EOF'
+        import json, os, glob, shlex
+        flags = shlex.split(os.environ["FLAGS"])
+        root = os.getcwd()
+        files = sorted(glob.glob("src/serviceapp/*.cpp") + glob.glob("src/serviceapp/subtitles/*.cpp"))
+        db = [{"directory": root, "file": f, "arguments": ["clang++", *flags, "-c", f]} for f in files]
+        json.dump(db, open("compile_commands.json", "w"), indent=1)
+        print(len(db), "files")
+        EOF
+
+    - name: clang-tidy
+      run: |
+        out="$RUNNER_TEMP/clang-tidy"
+        mkdir -p "$out"
+        checks=$(echo "$CLANG_TIDY_CHECKS" | tr -d ' \n')
+        run-clang-tidy -quiet -p . -checks="$checks" -header-filter='.*/src/serviceapp/[^/]*\.h$' \
+          -j "$(nproc)" 'src/serviceapp/' > "$out/clang-tidy.log" 2>&1 || true
+        # a file that does not compile is an analyser failure, not a finding
+        if grep -E 'error: .*\[clang-diagnostic-error\]' "$out/clang-tidy.log" > "$out/compile-errors.txt"; then
+          echo "::error title=clang-tidy::sources do not compile for clang-tidy"
+          head -30 "$out/compile-errors.txt"
+          exit 1
+        fi
+        grep -E '^[^ ]+:[0-9]+:[0-9]+: (warning|error): .*\[[A-Za-z0-9.,-]+\]$' "$out/clang-tidy.log" \
+          | grep -v 'src/serviceapp/cJSON/' | sed "s|^$PWD/||" | sort -u > "$out/clang-tidy.txt" || true
+        {
+          echo "### clang-tidy: $(wc -l < "$out/clang-tidy.txt") findings"
+          echo '| count | check |'
+          echo '|---|---|'
+          sed -E 's/.*\[([^]]+)\]$/\1/' "$out/clang-tidy.txt" | sort | uniq -c | sort -nr \
+            | awk '{print "| " $1 " | " $2 " |"}'
+          echo
+          echo '<details><summary>findings</summary>'
+          echo
+          echo '```'
+          cat "$out/clang-tidy.txt"
+          echo '```'
+          echo '</details>'
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      if: ${{ !cancelled() }}
+      with:
+        name: static-analysis-clang-tidy
+        path: ${{ runner.temp }}/clang-tidy
+        if-no-files-found: ignore

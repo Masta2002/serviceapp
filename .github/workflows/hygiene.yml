@@ -1,0 +1,59 @@
+name: Hygiene
+
+# Line ends, file modes and whitespace - a check, nothing is committed
+# (exteplayer3's normalize.yml commits the fix itself; in a fork whose
+# branches go upstream as pull requests a bot commit is not wanted).
+# Script: .github/scripts/check-hygiene.sh, also runs locally:
+#   bash .github/scripts/check-hygiene.sh origin/master...HEAD
+# Whole tree: CRLF, *.sh executable / others not. Changed lines only (the
+# pull request, or the pushed commits): git diff --check.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hygiene-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: line ends, modes, whitespace
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        fetch-depth: 0
+
+    # pull request: base...head; push: before..after, a new branch only its
+    # last commit; by hand: nothing (whole-tree checks only)
+    - name: Range
+      id: range
+      env:
+        EVENT: ${{ github.event_name }}
+        PR_BASE: ${{ github.event.pull_request.base.sha }}
+        PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        BEFORE: ${{ github.event.before }}
+        AFTER: ${{ github.sha }}
+      run: |
+        range=""
+        case "$EVENT" in
+          pull_request) range="$PR_BASE...$PR_HEAD" ;;
+          push)
+            if [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ] \
+               && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+              range="$BEFORE..$AFTER"
+            elif git rev-parse -q --verify "$AFTER~1" > /dev/null; then
+              range="$AFTER~1..$AFTER"
+            fi ;;
+        esac
+        echo "range=$range" >> "$GITHUB_OUTPUT"
+        echo "range: ${range:-none}"
+
+    - name: Check
+      run: bash .github/scripts/check-hygiene.sh "${{ steps.range.outputs.range }}"

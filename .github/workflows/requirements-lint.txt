@@ -1,0 +1,4 @@
+# Lint tools of .github/workflows/ruff.yml, pinned; Dependabot (pip,
+# directory /.github/workflows) proposes the updates.
+ruff==0.17.6
+pyflakes==4.1.0

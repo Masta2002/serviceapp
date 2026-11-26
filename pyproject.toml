@@ -1,7 +1,14 @@
 [tool.ruff]
+# src/plugin runs on the enigma2 Python 3 of the image (openATV 7.x/8.x: 3.12-3.14)
+target-version = "py312"
+line-length = 120
 builtins = ["_", "ngettext"]
-select = ["E","F","W"]
-ignore = ["W191","E501"]
+
+[tool.ruff.lint]
+# same gate as E2iPlayer: pycodestyle errors/warnings + pyflakes
+select = ["E", "F", "W"]
+# W191 tabs (enigma2 style), E501 long skin/strings lines
+ignore = ["W191", "E501"]
 
 [tool.isort]
 profile = "black"
