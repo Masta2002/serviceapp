@@ -236,4 +236,4 @@ messages of the player and of ServiceApp to the enigma2 debug log.
 
 ## 📜 License
 
-GNU General Public License version 2, see [COPYING](COPYING).
+GNU General Public License version 2, see [LICENSE](LICENSE).
