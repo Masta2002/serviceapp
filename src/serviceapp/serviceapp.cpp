@@ -1831,7 +1831,8 @@ RESULT eServiceApp::getSubtitleList(std::vector<struct SubtitleTrack>& subtitlel
 // __iSubservices
 int eServiceApp::getNumberOfSubservices() {
 	std::string path_str(m_ref.path);
-	if (options->HLSExplorer && path_str.find(m_resolve_uri) && !m_subservices_checked) {
+	/* not for a resolve:// url, it is not resolved yet */
+	if (options->HLSExplorer && path_str.find(m_resolve_uri) != 0 && !m_subservices_checked) {
 		fillSubservices();
 		m_subservices_checked = true;
 	}

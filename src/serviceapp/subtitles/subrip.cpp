@@ -1,6 +1,9 @@
 // adapted ffmpeg srtdec sources:
 // https://github.com/FFmpeg/FFmpeg/blob/master/libavformat/srtdec.c
 
+#include <cstdio>
+#include <cstring>
+
 #include "subrip.h"
 #include "common.h"
 
@@ -56,7 +59,7 @@ bool SubripParser::_parse(std::istream &is, int fps, subtitleMap &submap)
     {
         event_info tmp_ei;
         is.getline(line, sizeof(line));
-        int len = strlen(line);
+        int len = strnlen(line, sizeof(line));
 
         if (len < 0)
             break;
@@ -85,7 +88,7 @@ bool SubripParser::_parse(std::istream &is, int fps, subtitleMap &submap)
             if (strtol(line, &pline, 10) < 0 || line == pline)
                 buf << line << std::endl;
             else
-                strcpy(line_cache, line);
+                snprintf(line_cache, sizeof(line_cache), "%s", line);
         }
         else
         {

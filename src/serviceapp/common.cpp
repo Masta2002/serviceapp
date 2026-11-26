@@ -363,7 +363,7 @@ static int unquotePlus(char* out, const char* in)
         -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
         -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1
     };
-    char c, v1, v2;
+    char c;
     char *beg = out;
     if(in != NULL) {
         while((c=*in++) != '\0') {
@@ -373,12 +373,16 @@ static int unquotePlus(char* out, const char* in)
                 continue;
             }
             if(c == '%') {
-                if(!(v1=*in++) || (v1=tbl[(unsigned char)v1])<0 ||
-                   !(v2=*in++) || (v2=tbl[(unsigned char)v2])<0) {
+                /* int, not char: char is unsigned on ARM, the -1 of the
+                 * table would become 255 and an invalid escape pass */
+                int high = in[0] ? tbl[(unsigned char)in[0]] : -1;
+                int low = (high >= 0 && in[1]) ? tbl[(unsigned char)in[1]] : -1;
+                if (high < 0 || low < 0) {
                     *beg = '\0';
                     return -1;
                 }
-                c = (v1<<4)|v2;
+                in += 2;
+                c = (char)((high << 4) | low);
             }
             *out++ = c;
         }
