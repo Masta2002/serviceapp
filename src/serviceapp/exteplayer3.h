@@ -38,6 +38,7 @@ extern const std::string EXT3_TRANSCODE_TRUEHD_EAC3;
 extern const std::string EXT3_TRANSCODE_HEAAC;
 extern const std::string EXT3_HLS_QUALITY;
 extern const std::string EXT3_HLS_DEFAULT_AUDIO;
+extern const std::string EXT3_COVER;
 
 struct ExtEplayer3Options : public IOption
 {
@@ -57,6 +58,8 @@ class ExtEplayer3: public PlayerApp, public BasePlayer
 	videoStream mVideo, mDecoderVideo;
 	// the player sent FF_ERROR
 	bool mErrorReported;
+	// "seekms" in EPLAYER3_EXTENDED: gf<s.ms>
+	bool mSeekMs;
 	void handleProcessStopped(int retval);
 	void handleJsonOutput(cJSON* json);
 	std::vector<std::string> buildCommand();
@@ -80,6 +83,7 @@ class ExtEplayer3: public PlayerApp, public BasePlayer
 	int sendSubtitleSelectTrack(int trackId);
 	int sendSubtitleDisable();
 	int sendSeekTo(int seconds);
+	int sendSeekToMs(int mseconds);
 	int sendSeekRelative(int seconds);
 	int sendFastForward(int speed);
 	int sendAudioChannel(int channel);

@@ -90,6 +90,8 @@ struct PlayerMessage
 		subtitleFlush,         // the player reset its subtitle output (seek, switch)
 		subtitleTracksChanged, // a track list the player sent by itself (closed captions)
 		metadataChanged,       // title / artist of a radio stream
+		chaptersChanged,       // the chapters of the input
+		coverAvailable,        // the embedded cover was written (--cover)
 	};
 };
 
@@ -118,6 +120,16 @@ struct videoStream
 	int progressive;
 	int gamma; /* 0 SDR, 1 HDR, 2 HDR10, 3 HLG as iServiceInformation::sGamma, -1 unknown */
 	videoStream(): id(-1), width(-1), height(-1), framerate(-1), progressive(-1), gamma(-1){};
+};
+
+
+/* a chapter of the input, exteplayer3 "c_l" (ms from the start of the media) */
+struct chapterEntry
+{
+	int start_ms;
+	int end_ms;
+	std::string title;
+	chapterEntry(): start_ms(0), end_ms(0){};
 };
 
 
@@ -151,6 +163,8 @@ public:
 	// stop sending subtitles, only players that support it
 	virtual int sendSubtitleDisable(){ return -1;}
 	virtual int sendSeekTo(int seconds){ return -1;}
+	// a player without ms seeks takes whole seconds
+	virtual int sendSeekToMs(int mseconds){ return sendSeekTo(mseconds / 1000);}
 	virtual int sendSeekRelative(int seconds){ return -1;}
 	// speed > 1 winds forwards, < 0 backwards
 	virtual int sendFastForward(int speed){ return -1;}
@@ -185,6 +199,9 @@ public:
 	virtual void recvAudioChannel(int status, int channel){};
 	// ICY / radio text of audio-only playback
 	virtual void recvMetadata(const std::string& title, const std::string& artist, const std::string& text){};
+	virtual void recvChapters(std::vector<chapterEntry>& chapters){};
+	// the embedded cover was written to the --cover file, empty: none
+	virtual void recvCover(const std::string& file){};
 };
 
 
@@ -219,6 +236,8 @@ protected:
 	void recvSubtitleFlush(){pCallback->recvSubtitleFlush();};
 	void recvAudioChannel(int status, int channel){pCallback->recvAudioChannel(status, channel);};
 	void recvMetadata(const std::string& title, const std::string& artist, const std::string& text){pCallback->recvMetadata(title, artist, text);};
+	void recvChapters(std::vector<chapterEntry>& chapters){pCallback->recvChapters(chapters);};
+	void recvCover(const std::string& file){pCallback->recvCover(file);};
 	// the player announced the dual mono selection (am<n>)
 	bool mCanSelectChannel = false;
 public:
@@ -281,6 +300,9 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 			subtitleFlush,
 			subtitleTracksChanged,
 			metadataChanged,
+			tSeekToMs,
+			chaptersChanged,
+			coverAvailable,
 		};
 		Message(int type)
 			:type(type), dataInt(0) {}
@@ -375,6 +397,15 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 		mMessageMain.send(Message(Message::metadataChanged));
 	}
 	std::string mMetaTitle, mMetaArtist, mMetaText;
+	std::vector<chapterEntry> mChapters;
+	void recvChapters(std::vector<chapterEntry>& chapters){
+		{
+			eSingleLocker l_(mStreamsLock);
+			mChapters = chapters;
+		}
+		mMessageMain.send(Message(Message::chaptersChanged));
+	}
+	void recvCover(const std::string& file){ if (!file.empty()) mMessageMain.send(Message(Message::coverAvailable)); }
 
 public:
 	PlayerBackend(BasePlayer* extplayer):
@@ -436,6 +467,11 @@ public:
 	bool canSelectAudioChannel(){return pPlayer->canSelectChannel();}
 	int audioSelectChannel(int channel);
 	int audioGetChannel() const { return mAudioChannel; }
+	void getChapters(std::vector<chapterEntry>& chapters){
+		eSingleLocker l_(mStreamsLock);
+		chapters = mChapters;
+	}
+	int seekToMs(int mseconds);
 	/* ICY / radio text: title, artist and the whole line ("Artist - Title") */
 	void getMetadata(std::string& title, std::string& artist, std::string& text){
 		eSingleLocker l_(mStreamsLock);

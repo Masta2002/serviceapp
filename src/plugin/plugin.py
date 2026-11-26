@@ -105,6 +105,9 @@ for key in list(config_serviceapp.exteplayer3.keys()):
 # what the installed exteplayer3 reports in EPLAYER3_EXTENDED: version and feature keys
 EXTEPLAYER3_CAPS = {}
 
+# where servicemp3 puts the cover of a file (evUser+13), exteplayer3 --cover
+COVER_FILE = "/tmp/.id3coverart"
+
 # EPLAYER3_EXTENDED "xcode" bits
 XCODE_AC3 = 1
 XCODE_AACLC = 2
@@ -203,7 +206,8 @@ def init_serviceapp_settings():
 			bool(xcode & XCODE_EAC3) and player_cfg.dts_transcoding.value == "eac3",
 			bool(xcode & XCODE_EAC3) and player_cfg.truehd_transcoding.value == "eac3",
 			int(player_cfg.hls_quality.value) if hls_options else 0,
-			1 if hls_options and player_cfg.hls_default_audio.value else 0)
+			1 if hls_options and player_cfg.hls_default_audio.value else 0,
+			COVER_FILE if EXTEPLAYER3_CAPS.get("cover") else None)
 
 	if config_serviceapp.servicemp3.player.value == "gstplayer":
 		serviceapp_client.setServiceMP3GstPlayer()

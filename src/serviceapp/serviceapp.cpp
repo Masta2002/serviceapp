@@ -719,7 +719,7 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 			if (m_pending_seek >= 0) {
 				/* a resume seek that came before the player accepted commands */
 				eDebug("eServiceApp::gotExtPlayerMessage - deferred seek to %lld", (long long)m_pending_seek);
-				player->seekTo(int(m_pending_seek / 90000));
+				player->seekToMs(int(m_pending_seek / 90));
 				m_pending_seek = -1;
 			}
 			m_event_updated_info_timer->start(1000, true);
@@ -853,6 +853,24 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 		case PlayerMessage::metadataChanged:
 			/* title / artist of a radio stream: sTagTitle, sTagArtist */
 			m_event(this, evUpdatedInfo);
+			break;
+		case PlayerMessage::chaptersChanged: {
+			/* chapters of the file as marks of the cut list (as servicemp3 does
+			 * with TOC chapters); they are not written to the .cuts file */
+			std::vector<chapterEntry> chapters;
+			player->getChapters(chapters);
+			m_chapter_marks.clear();
+			for (std::vector<chapterEntry>::const_iterator i(chapters.begin()); i != chapters.end(); ++i) {
+				if (i->start_ms > 0)
+					m_chapter_marks.insert((pts_t)i->start_ms * 90);
+			}
+			eDebug("eServiceApp::gotExtPlayerMessage - %zu chapters", chapters.size());
+			m_event((iPlayableService*)this, evCuesheetChanged);
+			break;
+		}
+		case PlayerMessage::coverAvailable:
+			/* the embedded cover is in /tmp/.id3coverart, as servicemp3 announces it */
+			m_event((iPlayableService*)this, evUser + 13);
 			break;
 		default:
 			if (m_debug)
@@ -1076,7 +1094,8 @@ RESULT eServiceApp::seekTo(pts_t to) {
 		stop();
 		return 0;
 	}
-	if (player->seekTo(int(to / 90000)) < 0)
+	/* ms: exteplayer3 187 seeks with a fraction (gf), older players get seconds */
+	if (player->seekToMs(int(to / 90)) < 0)
 		m_pending_seek = to; /* the player has not started yet, seek when it has */
 	else
 		m_pending_seek = -1;
@@ -1722,7 +1741,20 @@ static const pts_t RESUME_END_MARGIN = 10 * 90000;
 PyObject* eServiceApp::getCutList() {
 	ePyObject list = PyList_New(0);
 
-	for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end(); ++i) {
+	std::multiset<cueEntry> entries(m_cue_entries);
+	/* chapter marks that are not in the cut list already */
+	for (std::set<pts_t>::const_iterator c(m_chapter_marks.begin()); c != m_chapter_marks.end(); ++c) {
+		bool found = false;
+		for (std::multiset<cueEntry>::const_iterator i(m_cue_entries.begin()); i != m_cue_entries.end(); ++i) {
+			if (i->what == 2 && i->where == *c) {
+				found = true;
+				break;
+			}
+		}
+		if (!found)
+			entries.insert(cueEntry(*c, 2));
+	}
+	for (std::multiset<cueEntry>::iterator i(entries.begin()); i != entries.end(); ++i) {
 		ePyObject tuple = PyTuple_New(2);
 		PyTuple_SET_ITEM(tuple, 0, PyLong_FromLongLong(i->where));
 		PyTuple_SET_ITEM(tuple, 1, PyLong_FromLong(i->what));
@@ -1856,7 +1888,12 @@ void eServiceApp::saveCuesheet() {
 	if (m_media_length > 0)
 		m_cue_entries.insert(cueEntry(m_media_length, 5));
 
-	if (m_cue_entries.empty()) {
+	size_t saved = 0;
+	for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end(); ++i) {
+		if (!(i->what == 2 && m_chapter_marks.count(i->where)))
+			saved++;
+	}
+	if (!saved) {
 		if (::access(filename.c_str(), F_OK) == 0)
 			remove(filename.c_str());
 		return;
@@ -1868,6 +1905,10 @@ void eServiceApp::saveCuesheet() {
 		unsigned int what;
 
 		for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end(); ++i) {
+			/* chapter marks come from the file at every start; the GUI hands
+			 * them back with setCutList, they do not go into the .cuts file */
+			if (i->what == 2 && m_chapter_marks.count(i->where))
+				continue;
 			where = htobe64(i->where);
 			what = htonl(i->what);
 			fwrite(&where, sizeof(where), 1, f);
@@ -2108,8 +2149,9 @@ static PyObject* exteplayer3_set_setting(PyObject* self, PyObject* args) {
 	bool truehdEac3 = false;
 	int hlsQuality = 0;           /* exteplayer3 185: 0 auto, 1 lowest, 2 highest */
 	int hlsDefaultAudio = 0;      /* exteplayer3 185: 1 only the default audio rendition */
+	const char *coverPath = NULL; /* "cover": file for the embedded cover, None or "" off */
 
-	if (!PyArg_ParseTuple(args, "ibbbbbbbbi|bbbbbii", &settingId, &aacSwDecoding, &dtsSwDecoding, &wmaSwDecoding, &lpcmInjection, &downmix, &ac3SwDecoding, &eac3SwDecoding, &mp3SwDecoding, &rtmpProtocol, &dtsAc3, &truehdAc3, &heaacAacLc, &dtsEac3, &truehdEac3, &hlsQuality, &hlsDefaultAudio))
+	if (!PyArg_ParseTuple(args, "ibbbbbbbbi|bbbbbiiz", &settingId, &aacSwDecoding, &dtsSwDecoding, &wmaSwDecoding, &lpcmInjection, &downmix, &ac3SwDecoding, &eac3SwDecoding, &mp3SwDecoding, &rtmpProtocol, &dtsAc3, &truehdAc3, &heaacAacLc, &dtsEac3, &truehdEac3, &hlsQuality, &hlsDefaultAudio, &coverPath))
 		return NULL;
 
 	ExtEplayer3Options* options = NULL;
@@ -2148,6 +2190,10 @@ static PyObject* exteplayer3_set_setting(PyObject* self, PyObject* args) {
 		options->GetSettingMap()[EXT3_TRANSCODE_TRUEHD_EAC3].setValue(truehdEac3);
 		options->GetSettingMap()[EXT3_HLS_QUALITY].setValue(hlsQuality);
 		options->GetSettingMap()[EXT3_HLS_DEFAULT_AUDIO].setValue(hlsDefaultAudio);
+		if (coverPath && *coverPath)
+			options->GetSettingMap()[EXT3_COVER].setValue(std::string(coverPath));
+		else
+			options->GetSettingMap()[EXT3_COVER] = SettingEntry("--cover", "string"); /* not set */
 	}
 	return Py_BuildValue("b", ret);
 }

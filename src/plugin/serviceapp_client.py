@@ -85,8 +85,9 @@ def setGstreamerPlayerSettings(settingId, videoSink, audioSink, subtitleEnabled,
 	)
 
 
-def setExtEplayer3Settings(settingId, aacSwDecoding, dtsSwDecoding, wmaSwDecoding, lpcmInjection, downmix, ac3SwDecoding=False, eac3SwDecoding=False, mp3SwDecoding=False, rtmpProtocol=0, dtsAc3=False, truehdAc3=False, heaacAacLc=False, dtsEac3=False, truehdEac3=False, hlsQuality=0, hlsDefaultAudio=0):
+def setExtEplayer3Settings(settingId, aacSwDecoding, dtsSwDecoding, wmaSwDecoding, lpcmInjection, downmix, ac3SwDecoding=False, eac3SwDecoding=False, mp3SwDecoding=False, rtmpProtocol=0, dtsAc3=False, truehdAc3=False, heaacAacLc=False, dtsEac3=False, truehdEac3=False, hlsQuality=0, hlsDefaultAudio=0, coverPath=None):
 	# dtsAc3 .. truehdEac3: exteplayer3 187 ("xcode" in EPLAYER3_EXTENDED), hlsQuality/hlsDefaultAudio: 185
+	# coverPath: file for the embedded cover ("cover" in EPLAYER3_EXTENDED), None: off
 	return serviceapp.exteplayer3_set_setting(
 		settingId,
 		aacSwDecoding,
@@ -104,5 +105,6 @@ def setExtEplayer3Settings(settingId, aacSwDecoding, dtsSwDecoding, wmaSwDecodin
 		bool(dtsEac3),
 		bool(truehdEac3),
 		int(hlsQuality),
-		int(hlsDefaultAudio)
+		int(hlsDefaultAudio),
+		coverPath or None
 	)

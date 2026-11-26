@@ -137,6 +137,7 @@ class eServiceApp : public sigc::trackable,
 		cueEntry(const pts_t& where, unsigned int what) : where(where), what(what) {}
 	};
 	std::multiset<cueEntry> m_cue_entries;
+	std::set<pts_t> m_chapter_marks; // chapters of the file (exteplayer3 c_l), not saved
 	int m_cuesheet_changed, m_cutlist_enabled;
 	bool m_cuesheet_loaded;
 	bool m_is_streaming;

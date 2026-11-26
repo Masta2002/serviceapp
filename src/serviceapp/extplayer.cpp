@@ -298,6 +298,14 @@ int PlayerBackend::seekTo(int seconds)
 	return 0;
 }
 
+int PlayerBackend::seekToMs(int mseconds)
+{
+	if (!playbackStarted)
+		return -1;
+	mMessageThread.send(Message(Message::tSeekToMs, mseconds));
+	return 0;
+}
+
 int PlayerBackend::seekRelative(int seconds)
 {
 	if (!playbackStarted)
@@ -574,6 +582,17 @@ void PlayerBackend::gotMessage(const PlayerBackend::Message& message)
 			break;
 		case Message::metadataChanged:
 			gotPlayerMessage(PlayerMessage::metadataChanged);
+			break;
+		case Message::tSeekToMs:
+			if(mDebug)
+				eDebug("PlayerBackend::gotMessage - tSeekToMs %d", message.dataInt);
+			pPlayer->sendSeekToMs(message.dataInt);
+			break;
+		case Message::chaptersChanged:
+			gotPlayerMessage(PlayerMessage::chaptersChanged);
+			break;
+		case Message::coverAvailable:
+			gotPlayerMessage(PlayerMessage::coverAvailable);
 			break;
 		case Message::tGetLength:
 			if(mDebug)

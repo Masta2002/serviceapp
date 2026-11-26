@@ -1,5 +1,6 @@
 #include <sstream>
 #include <cctype>
+#include <cstdio>
 #include <unistd.h>
 
 #include <lib/base/eerror.h>
@@ -39,6 +40,7 @@ const std::string  EXT3_TRANSCODE_TRUEHD_EAC3      = "truehd_eac3";
 const std::string  EXT3_TRANSCODE_HEAAC            = "heaac_aaclc";
 const std::string  EXT3_HLS_QUALITY                = "hls_quality";
 const std::string  EXT3_HLS_DEFAULT_AUDIO          = "hls_default_audio";
+const std::string  EXT3_COVER                      = "cover";
 const std::string  EXT3_ARGS_LIST                  = "args"; // cmdline like list of exteplayer3 arguments in a form "-arg1=value1-arg2=value2"
 
 SettingMap &ExtEplayer3Options::GetSettingMap()
@@ -83,6 +85,8 @@ ExtEplayer3Options::ExtEplayer3Options()
 	/* exteplayer3 185 and newer: -Q 0|1|2 (auto, lowest, highest), -D 0|1 (all or only the default audio) */
 	settingMap[EXT3_HLS_QUALITY]                = SettingEntry ("-Q", "nonzero");
 	settingMap[EXT3_HLS_DEFAULT_AUDIO]          = SettingEntry ("-D", "nonzero");
+	/* "cover" in EPLAYER3_EXTENDED: the embedded cover to this file (servicemp3's path) */
+	settingMap[EXT3_COVER]                      = SettingEntry ("--cover", "string");
 	settingMap[EXT3_ARGS_LIST]                  = SettingEntry ("al", "argslist");
 }
 
@@ -159,7 +163,7 @@ void ExtEplayer3Options::print() const
 	}
 }
 
-ExtEplayer3::ExtEplayer3(ExtEplayer3Options& options): PlayerApp(STD_ERROR), mErrorReported(false)
+ExtEplayer3::ExtEplayer3(ExtEplayer3Options& options): PlayerApp(STD_ERROR), mErrorReported(false), mSeekMs(false)
 {
 	mPlayerOptions = options;
 	eDebug("ExtEplayer3::ExtEplayer3 initializing with options:");
@@ -362,6 +366,19 @@ int ExtEplayer3::sendSeekTo(int seconds)
 	std::stringstream sstm;
 	sstm << "gc" << seconds << std::endl;
 	return processSend(sstm.str());
+}
+
+/* exteplayer3 187 ("seekms"): gf takes a fraction and has not the 10 s
+ * limits of gc (length >= 10 s, at most 10 s before the end) */
+int ExtEplayer3::sendSeekToMs(int mseconds)
+{
+	if (!mSeekMs)
+		return sendSeekTo(mseconds / 1000);
+	if (mseconds < 0)
+		mseconds = 0;
+	char buf[32];
+	snprintf(buf, sizeof(buf), "gf%d.%03d\n", mseconds / 1000, mseconds % 1000);
+	return processSend(std::string(buf));
 }
 
 int ExtEplayer3::sendSeekRelative(int seconds)
@@ -649,6 +666,27 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	{
 		mCanWind = cJsonGetInt(value, "trick") != 0;
 		mCanSelectChannel = cJsonGetInt(value, "achannel") != 0;
+		mSeekMs = cJsonGetInt(value, "seekms") != 0;
+	}
+	else if (!strcmp(key, "c_l"))
+	{
+		/* chapters: {"c_l":[{"id":0,"s":0,"e":4321,"t":"Intro"}, ...]} (ms) */
+		std::vector<chapterEntry> chapters;
+		for (int i = 0; value && i < cJSON_GetArraySize(value); i++)
+		{
+			cJSON *item = cJSON_GetArrayItem(value, i);
+			chapterEntry c;
+			c.start_ms = cJsonGetInt(item, "s");
+			c.end_ms = cJsonGetInt(item, "e");
+			c.title = cJsonGetStr(item, "t");
+			chapters.push_back(c);
+		}
+		recvChapters(chapters);
+	}
+	else if (!strcmp(key, "cover"))
+	{
+		/* --cover: {"cover":{"file":"/tmp/.id3coverart","type":"jpeg",...}}, {} without one */
+		recvCover(cJsonGetStr(value, "file"));
 	}
 	else if (!strcmp(key, "s_f"))
 	{
