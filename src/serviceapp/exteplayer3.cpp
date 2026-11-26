@@ -409,6 +409,8 @@ static void readAudioExtras(cJSON *item, audioStream &a)
 	a.codec_name = cJsonGetStr(item, "d");
 	a.channel_layout = cJsonGetStr(item, "cl");
 	a.title = cJsonGetStr(item, "t");
+	a.sample_rate = cJsonGetInt(item, "sr");
+	a.bitrate = cJsonGetInt(item, "br");
 }
 
 static void readSubtitleExtras(cJSON *item, subtitleStream &s)
@@ -464,6 +466,11 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 			static const int gamma[] = {0, 2, 3, 1};
 			v.gamma = gamma[hdr];
 		}
+		/* exteplayer3 187: profile@level, bit depth, bit rate, Dolby Vision profile */
+		v.profile = cJsonGetStr(value, "pr");
+		v.bit_depth = cJsonGetInt(value, "bd");
+		v.bitrate = cJsonGetInt(value, "br");
+		v.dolby_vision = cJsonGetInt(value, "dv");
 		if (v.id >= 0 && (v.width <= 0 || v.height <= 0))
 		{
 			/* live TS, HLS: FFmpeg has not seen the picture, "w" and "h"

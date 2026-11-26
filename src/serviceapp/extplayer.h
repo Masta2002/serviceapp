@@ -105,7 +105,9 @@ struct audioStream
 	int channels; /* channel count, if the player sends it */
 	std::string channel_layout; /* e.g. "5.1(side)", if the player sends it */
 	std::string title; /* track title ("Commentary"), if the player sends it */
-	audioStream(): id(-1), channels(-1){};
+	int sample_rate; /* Hz, 0 unknown */
+	int bitrate; /* bit/s, 0 unknown */
+	audioStream(): id(-1), channels(-1), sample_rate(0), bitrate(0){};
 };
 
 
@@ -119,7 +121,11 @@ struct videoStream
 	int framerate;
 	int progressive;
 	int gamma; /* 0 SDR, 1 HDR, 2 HDR10, 3 HLG as iServiceInformation::sGamma, -1 unknown */
-	videoStream(): id(-1), width(-1), height(-1), framerate(-1), progressive(-1), gamma(-1){};
+	std::string profile; /* "Main 10@5.1", if the player sends it */
+	int bit_depth; /* 0 unknown */
+	int bitrate; /* bit/s, 0 unknown */
+	int dolby_vision; /* Dolby Vision profile, 0 none */
+	videoStream(): id(-1), width(-1), height(-1), framerate(-1), progressive(-1), gamma(-1), bit_depth(0), bitrate(0), dolby_vision(0){};
 };
 
 

@@ -1629,11 +1629,18 @@ int eServiceApp::getInfo(int w) {
 		case sTagPreviewImage:
 		case sTagAttachment:
 			return resIsPyObject;
+		case sTagBitrate: {
+			/* bit rate of the audio track (as servicemp3), exteplayer3 187 "br" */
+			int n = getCurrentTrack();
+			audioStream a;
+			if (n >= 0 && player->audioGetTrackInfo(a, n) == 0 && a.bitrate > 0)
+				return a.bitrate;
+			return resNA;
+		}
 		case sTagTrackNumber:
 		case sTagTrackCount:
 		case sTagAlbumVolumeNumber:
 		case sTagAlbumVolumeCount:
-		case sTagBitrate:
 		case sTagNominalBitrate:
 		case sTagMinimumBitrate:
 		case sTagMaximumBitrate:
@@ -1713,6 +1720,40 @@ std::string eServiceApp::getInfoString(int w) {
 			if (w == sTagArtist)
 				return artist;
 			return title.empty() ? text : title;
+		}
+		case sTagVideoCodec: {
+			/* "HEVC Main 10@5.1 10 bit DV8" with exteplayer3 187 */
+			videoStream v;
+			if (player->videoGetTrackInfo(v, 0))
+				return "";
+			std::string codec = v.description;
+			if (codec.compare(0, 2, "V_") == 0)
+				codec.erase(0, 2);
+			size_t slash = codec.find('/');
+			if (slash != std::string::npos && codec.compare(0, 5, "MPEG4") != 0)
+				codec.erase(slash);
+			if (codec == "MPEG4/ISO/AVC")
+				codec = "H.264";
+			if (!v.profile.empty())
+				codec += " " + v.profile;
+			if (v.bit_depth > 8)
+				codec += " " + std::to_string(v.bit_depth) + " bit";
+			if (v.dolby_vision > 0)
+				codec += " DV" + std::to_string(v.dolby_vision);
+			return codec;
+		}
+		case sTagAudioCodec: {
+			/* the codec as the audio selection shows it, "Dolby Atmos 5.1" */
+			int n = getCurrentTrack();
+			audioStream a;
+			if (n < 0 || player->audioGetTrackInfo(a, n) < 0)
+				return "";
+			std::string codec = a.codec_name.empty() ? a.description : a.codec_name;
+			if (codec.compare(0, 2, "A_") == 0)
+				codec.erase(0, 2);
+			if (a.sample_rate > 0)
+				codec += " " + std::to_string(a.sample_rate / 1000) + "." + std::to_string(a.sample_rate % 1000 / 100) + " kHz";
+			return codec;
 		}
 		default:
 			break;
