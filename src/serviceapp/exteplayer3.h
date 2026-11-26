@@ -55,6 +55,8 @@ class ExtEplayer3: public PlayerApp, public BasePlayer
 	// current video track as passed on, and what the decoder reported
 	// for it with "v_e" (-1 unknown)
 	videoStream mVideo, mDecoderVideo;
+	// the player sent FF_ERROR
+	bool mErrorReported;
 	void handleProcessStopped(int retval);
 	void handleJsonOutput(cJSON* json);
 	std::vector<std::string> buildCommand();

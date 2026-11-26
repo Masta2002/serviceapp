@@ -105,6 +105,20 @@ class eServiceApp : public sigc::trackable,
 	void startDecoderVideoCheck();
 	void checkDecoderVideo();
 
+	/* a network stream without a length whose player ends by itself (server
+	 * or proxy closed the connection) is started again instead of leaving a
+	 * black picture; the InfoBar does nothing on evEOF of a live service */
+	ePtr<eTimer> m_live_reconnect_timer;
+	int m_live_reconnects;
+	time_t m_player_start_time;
+	bool m_player_started;
+	bool m_stopping;
+	bool m_reconnected;
+	std::string m_start_path; // before a resolver replaced it
+	bool isLiveStream();
+	bool isPermanentPlayerError();
+	void liveReconnect();
+
 #ifdef HAVE_EPG
 	ePtr<eTimer> m_nownext_timer;
 	ePtr<eServiceEvent> m_event_now, m_event_next;

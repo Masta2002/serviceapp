@@ -1,5 +1,6 @@
 #include "Python.h"
 #include <algorithm>
+#include <ctime>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 #include <sstream>
@@ -269,6 +270,14 @@ eServiceApp::eServiceApp(eServiceReference ref)
 	m_decoder_video = false;
 	m_decoder_video_timer = eTimer::create(eApp);
 	CONNECT(m_decoder_video_timer->timeout, eServiceApp::checkDecoderVideo);
+	m_live_reconnects = 0;
+	m_player_start_time = 0;
+	m_player_started = false;
+	m_stopping = false;
+	m_reconnected = false;
+	m_start_path = m_ref.path;
+	m_live_reconnect_timer = eTimer::create(eApp);
+	CONNECT(m_live_reconnect_timer->timeout, eServiceApp::liveReconnect);
 
 #ifdef HAVE_EPG
 	m_nownext_timer = eTimer::create(eApp);
@@ -288,6 +297,7 @@ eServiceApp::~eServiceApp() {
 		m_subtitle_widget->destroy();
 	m_subtitle_widget = 0;
 	m_decoder_video_timer->stop();
+	m_live_reconnect_timer->stop();
 #ifdef HAVE_EPG
 	m_nownext_timer->stop();
 #endif
@@ -685,6 +695,14 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 		case PlayerMessage::start:
 			if (m_debug)
 				eDebug("eServiceApp::gotExtPlayerMessage - start");
+			m_player_started = true;
+			m_player_start_time = ::time(0);
+			if (m_reconnected) {
+				/* the new player starts without the subtitle track of the old one */
+				m_reconnected = false;
+				if (m_selected_subtitle_track && isEmbeddedTrack(*m_selected_subtitle_track))
+					player->subtitleSelectTrack(m_selected_subtitle_track->pid);
+			}
 			if (!m_is_streaming && !m_cuesheet_loaded)
 				loadCuesheet();
 			if (m_pending_seek >= 0) {
@@ -719,6 +737,19 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 			// has already ended, so there is no possibility to do so.
 			// This should be fixed on player's side so it doesn't end
 			// immediately but waits at the end for our input..
+			if (!m_stopping && isLiveStream() && !isPermanentPlayerError()) {
+				/* short runs and failed attempts count, a stream that played
+				 * for a while starts the count again */
+				if (m_player_started && ::time(0) - m_player_start_time >= 30)
+					m_live_reconnects = 0;
+				if (m_live_reconnects < 5) {
+					m_live_reconnects++;
+					eDebug("[ServiceApp] live stream ended, reconnect %d/5", m_live_reconnects);
+					m_live_reconnect_timer->start(m_live_reconnects == 1 ? 500 : 3000, true);
+					break;
+				}
+				eDebug("[ServiceApp] live stream: giving up after 5 reconnects");
+			}
 			m_event(this, evEOF);
 			break;
 		case PlayerMessage::pause:
@@ -885,6 +916,8 @@ RESULT eServiceApp::start() {
 RESULT eServiceApp::stop() {
 	if (m_debug)
 		eDebug("eServiceApp::stop");
+	m_stopping = true;
+	m_live_reconnect_timer->stop();
 	if (!m_is_streaming && m_cuesheet_loaded)
 		saveCuesheet();
 	if (m_resolver)
@@ -892,6 +925,76 @@ RESULT eServiceApp::stop() {
 	m_decoder_video_timer->stop();
 	player->stop();
 	return 0;
+}
+
+bool eServiceApp::isLiveStream() {
+	/* a network stream without a length; one that never started is live only
+	 * while it is reconnected (a first open that fails ends as before) */
+	if (!m_is_streaming || m_start_path.compare(0, 7, "file://") == 0)
+		return false;
+	if (!m_player_started)
+		return m_live_reconnects > 0;
+	return player->lengthMs() <= 0;
+}
+
+/* FFmpeg's FFERRTAG, the HTTP errors of FF_ERROR */
+#define SAPP_FFERRTAG(a, b, c, d) (-(int)((unsigned)(a) | ((unsigned)(b) << 8) | ((unsigned)(c) << 16) | ((unsigned)(d) << 24)))
+
+bool eServiceApp::isPermanentPlayerError() {
+	/* a reconnect does not help: the player does not take its options, the
+	 * file or the page is missing, access is denied, no key for the video */
+	if (player->exitCode() == 1)
+		return true;
+	errorMessage e;
+	if (player->getErrorMessage(e))
+		return false;
+	switch (e.code) {
+		case -2:  // ENOENT
+		case -13: // EACCES, also "No key for KID" of exteplayer3
+		case SAPP_FFERRTAG(0xF8, '4', '0', '0'):
+		case SAPP_FFERRTAG(0xF8, '4', '0', '1'):
+		case SAPP_FFERRTAG(0xF8, '4', '0', '3'):
+		case SAPP_FFERRTAG(0xF8, '4', '0', '4'):
+		case SAPP_FFERRTAG(0xF8, '4', 'X', 'X'):
+			eDebug("[ServiceApp] player error %d (%s): no reconnect", e.code, e.message.c_str());
+			return true;
+		default:
+			return false;
+	}
+}
+
+void eServiceApp::liveReconnect() {
+	if (m_stopping)
+		return;
+	eDebug("[ServiceApp] live stream: reconnecting %s", m_start_path.c_str());
+	/* keep the audio track; the subtitle track is selected again at the start */
+	int audio_track = player->audioGetCurrentTrackNum();
+	if (audio_track > 0)
+		m_cachedAudioTrack = audio_track;
+	m_subtitle_sync_timer->stop();
+	m_prev_subtitle_message = NULL;
+	m_embedded_subtitle_pages.clear();
+	m_decoder_video_timer->stop();
+	if (m_resolver) {
+		m_resolver->stop();
+		delete m_resolver;
+		m_resolver = NULL;
+	}
+	/* a resolved url may have expired, resolve it again */
+	m_ref.path = m_start_path;
+	player->stop();
+	delete player;
+	delete extplayer;
+	extplayer = createPlayer(m_ref, getHeaders(m_ref.path));
+	player = new PlayerBackend(extplayer);
+	CONNECT(player->gotPlayerMessage, eServiceApp::gotExtPlayerMessage);
+	m_player_started = false;
+	m_paused = false;
+	m_reconnected = true;
+	start();
+	/* an external subtitle file keeps running on the new player's position */
+	if (m_selected_subtitle_track && isExternalTrack(*m_selected_subtitle_track) && m_subtitle_pages)
+		m_subtitle_sync_timer->start(1, true);
 }
 
 // __iPausableService

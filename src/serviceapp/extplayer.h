@@ -268,6 +268,7 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 	};
 
 	int mPositionInMs, mLengthInMs;
+	int mExitCode; // of the player process, -1 while it runs
 	bool playbackStarted;
 	bool mThreadRunning;
 	bool mDebug;
@@ -329,7 +330,15 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 	void recvVideoTrackCurrent(int status, videoStream& stream);
 	void recvSeekTo(int status, int seconds){eDebug("PlayerBackend::recvSeekTo %ds", seconds);}
 	void recvSeekRelative(int status, int seconds){eDebug("PlayerBackend::recvSeekRelative %ds", seconds);}
-	void recvErrorMessage(errorMessage& message){ eSingleLocker l_(mStreamsLock); if (pErrorMessage) delete pErrorMessage; pErrorMessage = new errorMessage(message);};
+	void recvErrorMessage(errorMessage& message){
+		{
+			eSingleLocker l_(mStreamsLock);
+			if (pErrorMessage) delete pErrorMessage;
+			pErrorMessage = new errorMessage(message);
+		}
+		// evUser+12 in the main thread, the text is sUser+12
+		mMessageMain.send(Message(Message::error));
+	};
 	void recvSubtitleMessage(subtitleMessage& sub);
 	void recvWindEnd(int direction){mMessageMain.send(Message(direction < 0 ? Message::windStart : Message::windEnd));}
 
@@ -337,6 +346,7 @@ public:
 	PlayerBackend(BasePlayer* extplayer):
 		mPositionInMs(0),
 		mLengthInMs(0),
+		mExitCode(-1),
 		playbackStarted(false),
 		mThreadRunning(false),
 		mDebug(false),
@@ -390,6 +400,10 @@ public:
 	int getLength(int& mseconds);
 	int getPlayPosition(int& mseconds);
 	int getErrorMessage(errorMessage& error);
+	/* length the player reported, 0 = none (live stream) */
+	int lengthMs() const { return mLengthInMs; }
+	/* exit code of the player process, -1 while it runs */
+	int exitCode() const { return mExitCode; }
 	int getSubtitles(std::queue<subtitleMessage>&);
 	int audioGetNumberOfTracks(int timeout=0);
 	int audioSelectTrack(int trackId);

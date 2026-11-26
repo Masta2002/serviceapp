@@ -338,8 +338,9 @@ int PlayerBackend::getLength(int& mseconds)
 
 int PlayerBackend::getErrorMessage(errorMessage& error)
 {
+	// also before the start: the reason a stream could not be opened
 	eSingleLocker l_(mStreamsLock);
-	if (!playbackStarted || !pErrorMessage)
+	if (!pErrorMessage)
 	{
 		return -1;
 	}
@@ -667,6 +668,7 @@ void PlayerBackend::recvStopped(int retval)
 	pthread_mutex_unlock(&mWaitForStopMutex);
 	if(mDebug)
 		eDebug("PlayerBackend::recvStopped - retval = %d", retval);
+	mExitCode = retval;
 	quit(0);
 	mMessageMain.send(Message(Message::stop));
 }

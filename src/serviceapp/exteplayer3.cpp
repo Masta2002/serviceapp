@@ -157,7 +157,7 @@ void ExtEplayer3Options::print() const
 	}
 }
 
-ExtEplayer3::ExtEplayer3(ExtEplayer3Options& options): PlayerApp(STD_ERROR)
+ExtEplayer3::ExtEplayer3(ExtEplayer3Options& options): PlayerApp(STD_ERROR), mErrorReported(false)
 {
 	mPlayerOptions = options;
 	eDebug("ExtEplayer3::ExtEplayer3 initializing with options:");
@@ -271,6 +271,7 @@ int ExtEplayer3::start(eMainloop *context)
 {
 	mVideo = videoStream();
 	mDecoderVideo = videoStream();
+	mErrorReported = false;
 	return processStart(context);
 }
 
@@ -332,7 +333,16 @@ int ExtEplayer3::sendSeekRelative(int seconds)
 
 void ExtEplayer3::handleProcessStopped(int retval)
 {
-	recvStopped(0);
+	/* exteplayer3 exit codes: 0 end or stop, 1 usage (an option it does not
+	 * know), 10 the input could not be opened, 11 stop during the open */
+	if (retval == 1 && !mErrorReported)
+	{
+		errorMessage e;
+		e.code = 1;
+		e.message = "exteplayer3 did not accept its options (exit code 1)";
+		recvErrorMessage(e);
+	}
+	recvStopped(retval);
 }
 
 /* fields that only newer exteplayer3 versions send */
@@ -595,6 +605,17 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	else if (!strcmp(key, "EPLAYER3_EXTENDED"))
 	{
 		mCanWind = cJsonGetInt(value, "trick") != 0;
+	}
+	else if (!strcmp(key, "FF_ERROR"))
+	{
+		/* open or read error: {"FF_ERROR":{"msg":"Connection timed out","code":-110}};
+		 * sent before the stop, so a lost connection differs from the end */
+		errorMessage e;
+		e.code = cJsonGetInt(value, "code", -1);
+		e.message = cJsonGetStr(value, "msg");
+		eWarning("ExtEPlayer3::handleJsonOutput - player error %d: %s", e.code, e.message.c_str());
+		mErrorReported = true;
+		recvErrorMessage(e);
 	}
 	else
 	{
