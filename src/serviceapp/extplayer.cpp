@@ -572,6 +572,9 @@ void PlayerBackend::gotMessage(const PlayerBackend::Message& message)
 				eDebug("PlayerBackend::gotMessage - subtitleTracksChanged");
 			gotPlayerMessage(PlayerMessage::subtitleTracksChanged);
 			break;
+		case Message::metadataChanged:
+			gotPlayerMessage(PlayerMessage::metadataChanged);
+			break;
 		case Message::tGetLength:
 			if(mDebug)
 				eDebug("PlayerBackend::gotMessage - tGetLength");

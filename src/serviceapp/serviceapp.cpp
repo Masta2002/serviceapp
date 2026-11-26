@@ -850,6 +850,10 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 			/* closed captions (CC1) showed up: the subtitle list is new */
 			m_event(this, evUpdatedInfo);
 			break;
+		case PlayerMessage::metadataChanged:
+			/* title / artist of a radio stream: sTagTitle, sTagArtist */
+			m_event(this, evUpdatedInfo);
+			break;
 		default:
 			if (m_debug)
 				eDebug("eServiceApp::gotExtPlayerMessage - unhandled message");
@@ -1682,6 +1686,15 @@ std::string eServiceApp::getInfoString(int w) {
 			return m_ref.path.find("://") != std::string::npos ? "IPTV" : "FILE";
 		case sServiceref:
 			return m_ref.toString();
+		case sTagTitle:
+		case sTagArtist: {
+			/* ICY / radio text of exteplayer3 (m_t) */
+			std::string title, artist, text;
+			player->getMetadata(title, artist, text);
+			if (w == sTagArtist)
+				return artist;
+			return title.empty() ? text : title;
+		}
 		default:
 			break;
 	}

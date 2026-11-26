@@ -625,6 +625,12 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 		/* the player reset its subtitle output (seek, track switch) */
 		recvSubtitleFlush();
 	}
+	else if (!strcmp(key, "m_t"))
+	{
+		/* ICY / radio text of audio-only playback:
+		 * {"m_t":{"rt":"Artist - Title","t":"Title","a":"Artist"}} */
+		recvMetadata(cJsonGetStr(value, "t"), cJsonGetStr(value, "a"), cJsonGetStr(value, "rt"));
+	}
 	else if (!strcmp(key, "a_m"))
 	{
 		/* dual mono: {"a_m":{"m":2,"sts":0}} */

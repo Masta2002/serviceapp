@@ -89,6 +89,7 @@ struct PlayerMessage
 		windEnd,
 		subtitleFlush,         // the player reset its subtitle output (seek, switch)
 		subtitleTracksChanged, // a track list the player sent by itself (closed captions)
+		metadataChanged,       // title / artist of a radio stream
 	};
 };
 
@@ -182,6 +183,8 @@ public:
 	virtual void recvWindEnd(int direction){};
 	virtual void recvSubtitleFlush(){};
 	virtual void recvAudioChannel(int status, int channel){};
+	// ICY / radio text of audio-only playback
+	virtual void recvMetadata(const std::string& title, const std::string& artist, const std::string& text){};
 };
 
 
@@ -215,6 +218,7 @@ protected:
 	void recvWindEnd(int direction){pCallback->recvWindEnd(direction);};
 	void recvSubtitleFlush(){pCallback->recvSubtitleFlush();};
 	void recvAudioChannel(int status, int channel){pCallback->recvAudioChannel(status, channel);};
+	void recvMetadata(const std::string& title, const std::string& artist, const std::string& text){pCallback->recvMetadata(title, artist, text);};
 	// the player announced the dual mono selection (am<n>)
 	bool mCanSelectChannel = false;
 public:
@@ -276,6 +280,7 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 			tAudioChannel,
 			subtitleFlush,
 			subtitleTracksChanged,
+			metadataChanged,
 		};
 		Message(int type)
 			:type(type), dataInt(0) {}
@@ -360,6 +365,16 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 	void recvWindEnd(int direction){mMessageMain.send(Message(direction < 0 ? Message::windStart : Message::windEnd));}
 	void recvSubtitleFlush();
 	void recvAudioChannel(int status, int channel){ if (!status && channel >= 0 && channel <= 2) mAudioChannel = channel; }
+	void recvMetadata(const std::string& title, const std::string& artist, const std::string& text){
+		{
+			eSingleLocker l_(mStreamsLock);
+			mMetaTitle = title;
+			mMetaArtist = artist;
+			mMetaText = text;
+		}
+		mMessageMain.send(Message(Message::metadataChanged));
+	}
+	std::string mMetaTitle, mMetaArtist, mMetaText;
 
 public:
 	PlayerBackend(BasePlayer* extplayer):
@@ -421,6 +436,13 @@ public:
 	bool canSelectAudioChannel(){return pPlayer->canSelectChannel();}
 	int audioSelectChannel(int channel);
 	int audioGetChannel() const { return mAudioChannel; }
+	/* ICY / radio text: title, artist and the whole line ("Artist - Title") */
+	void getMetadata(std::string& title, std::string& artist, std::string& text){
+		eSingleLocker l_(mStreamsLock);
+		title = mMetaTitle;
+		artist = mMetaArtist;
+		text = mMetaText;
+	}
 	int getLength(int& mseconds);
 	int getPlayPosition(int& mseconds);
 	int getErrorMessage(errorMessage& error);
