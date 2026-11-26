@@ -30,10 +30,13 @@ const std::string  EXT3_ARG_5                      = "5";
 const std::string  EXT3_ARG_6                      = "6";
 const std::string  EXT3_ARG_7                      = "7";
 // exteplayer3 186 and newer
-const std::string  EXT3_TRANSCODE_DTS              = "dts_transcode";
-const std::string  EXT3_TRANSCODE_TRUEHD           = "truehd_transcode";
-const std::string  EXT3_TRANSCODE_HEAAC            = "heaac_transcode";
-const std::string  EXT3_HLS_BEST_VARIANT           = "hls_best_variant";
+const std::string  EXT3_TRANSCODE_DTS              = "dts_ac3";
+const std::string  EXT3_TRANSCODE_DTS_EAC3         = "dts_eac3";
+const std::string  EXT3_TRANSCODE_TRUEHD           = "truehd_ac3";
+const std::string  EXT3_TRANSCODE_TRUEHD_EAC3      = "truehd_eac3";
+const std::string  EXT3_TRANSCODE_HEAAC            = "heaac_aaclc";
+const std::string  EXT3_HLS_QUALITY                = "hls_quality";
+const std::string  EXT3_HLS_DEFAULT_AUDIO          = "hls_default_audio";
 const std::string  EXT3_ARGS_LIST                  = "args"; // cmdline like list of exteplayer3 arguments in a form "-arg1=value1-arg2=value2"
 
 SettingMap &ExtEplayer3Options::GetSettingMap()
@@ -69,10 +72,15 @@ ExtEplayer3Options::ExtEplayer3Options()
 	settingMap[EXT3_ARG_5]                      = SettingEntry ("-5", "string");
 	settingMap[EXT3_ARG_6]                      = SettingEntry ("-6", "string");
 	settingMap[EXT3_ARG_7]                      = SettingEntry ("-7", "string");
-	settingMap[EXT3_TRANSCODE_DTS]              = SettingEntry ("-D", "bool");
-	settingMap[EXT3_TRANSCODE_TRUEHD]           = SettingEntry ("-X", "bool");
-	settingMap[EXT3_TRANSCODE_HEAAC]            = SettingEntry ("-Y", "bool");
-	settingMap[EXT3_HLS_BEST_VARIANT]           = SettingEntry ("-Q", "bool");
+	/* exteplayer3 187 ("xcode" in EPLAYER3_EXTENDED): the long names, -D and -Q differ between builds */
+	settingMap[EXT3_TRANSCODE_DTS]              = SettingEntry ("--dts-ac3", "bool");
+	settingMap[EXT3_TRANSCODE_DTS_EAC3]         = SettingEntry ("--dts-eac3", "bool");
+	settingMap[EXT3_TRANSCODE_TRUEHD]           = SettingEntry ("--truehd-ac3", "bool");
+	settingMap[EXT3_TRANSCODE_TRUEHD_EAC3]      = SettingEntry ("--truehd-eac3", "bool");
+	settingMap[EXT3_TRANSCODE_HEAAC]            = SettingEntry ("--heaac-aaclc", "bool");
+	/* exteplayer3 185 and newer: -Q 0|1|2 (auto, lowest, highest), -D 0|1 (all or only the default audio) */
+	settingMap[EXT3_HLS_QUALITY]                = SettingEntry ("-Q", "nonzero");
+	settingMap[EXT3_HLS_DEFAULT_AUDIO]          = SettingEntry ("-D", "nonzero");
 	settingMap[EXT3_ARGS_LIST]                  = SettingEntry ("al", "argslist");
 }
 
@@ -94,7 +102,7 @@ int ExtEplayer3Options::update(const std::string &key, const std::string &val)
 				ret = -2;
 			}
 		}
-		else if (entry.getType() == "int")
+		else if (entry.getType() == "int" || entry.getType() == "nonzero")
 		{
 			char *endptr = NULL;
 			int intval = -1;
@@ -212,6 +220,12 @@ std::vector<std::string> ExtEplayer3::buildCommand()
 		if (i->second.getType() == "bool" && i->second.getValueInt())
 		{
 			args.push_back(i->second.getAppArg());
+		}
+		if (i->second.getType() == "nonzero" && i->second.getValueInt() > 0)
+		{
+			/* the player default is 0, older players do not know the option */
+			args.push_back(i->second.getAppArg());
+			args.push_back(i->second.getValue());
 		}
 		if (i->second.getType() == "int" || i->second.getType() == "string")
 		{

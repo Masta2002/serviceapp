@@ -42,7 +42,7 @@ std::string SettingEntry::getAppArg() const
 
 std::string SettingEntry::getValue() const
 {
-    if (m_value_type == "int" || m_value_type == "bool")
+    if (m_value_type == "int" || m_value_type == "bool" || m_value_type == "nonzero")
     {
         std::stringstream ss;
         ss << m_int_value;

@@ -32,9 +32,12 @@ extern const std::string EXT3_ARG_5;
 extern const std::string EXT3_ARG_6;
 extern const std::string EXT3_ARG_7;
 extern const std::string EXT3_TRANSCODE_DTS;
+extern const std::string EXT3_TRANSCODE_DTS_EAC3;
 extern const std::string EXT3_TRANSCODE_TRUEHD;
+extern const std::string EXT3_TRANSCODE_TRUEHD_EAC3;
 extern const std::string EXT3_TRANSCODE_HEAAC;
-extern const std::string EXT3_HLS_BEST_VARIANT;
+extern const std::string EXT3_HLS_QUALITY;
+extern const std::string EXT3_HLS_DEFAULT_AUDIO;
 
 struct ExtEplayer3Options : public IOption
 {

@@ -1939,13 +1939,16 @@ static PyObject* exteplayer3_set_setting(PyObject* self, PyObject* args) {
 	bool downmix;
 	bool lpcmInjection;
 	int rtmpProtocol;
-	/* optional, exteplayer3 186 and newer */
-	bool dtsTranscode = false;
-	bool truehdTranscode = false;
-	bool heaacTranscode = false;
-	bool hlsBestVariant = false;
+	/* optional; the plugin sends them only to a player that knows them */
+	bool dtsAc3 = false;          /* exteplayer3 187, "xcode" & 1 */
+	bool truehdAc3 = false;
+	bool heaacAacLc = false;      /* "xcode" & 2 */
+	bool dtsEac3 = false;         /* "xcode" & 4 */
+	bool truehdEac3 = false;
+	int hlsQuality = 0;           /* exteplayer3 185: 0 auto, 1 lowest, 2 highest */
+	int hlsDefaultAudio = 0;      /* exteplayer3 185: 1 only the default audio rendition */
 
-	if (!PyArg_ParseTuple(args, "ibbbbbbbbi|bbbb", &settingId, &aacSwDecoding, &dtsSwDecoding, &wmaSwDecoding, &lpcmInjection, &downmix, &ac3SwDecoding, &eac3SwDecoding, &mp3SwDecoding, &rtmpProtocol, &dtsTranscode, &truehdTranscode, &heaacTranscode, &hlsBestVariant))
+	if (!PyArg_ParseTuple(args, "ibbbbbbbbi|bbbbbii", &settingId, &aacSwDecoding, &dtsSwDecoding, &wmaSwDecoding, &lpcmInjection, &downmix, &ac3SwDecoding, &eac3SwDecoding, &mp3SwDecoding, &rtmpProtocol, &dtsAc3, &truehdAc3, &heaacAacLc, &dtsEac3, &truehdEac3, &hlsQuality, &hlsDefaultAudio))
 		return NULL;
 
 	ExtEplayer3Options* options = NULL;
@@ -1977,10 +1980,13 @@ static PyObject* exteplayer3_set_setting(PyObject* self, PyObject* args) {
 		options->GetSettingMap()[EXT3_LPCM_INJECTION].setValue(lpcmInjection);
 		options->GetSettingMap()[EXT3_RTMP_PROTOCOL].setValue(rtmpProtocol);
 		options->GetSettingMap()[EXT3_DOWNMIX].setValue(downmix);
-		options->GetSettingMap()[EXT3_TRANSCODE_DTS].setValue(dtsTranscode);
-		options->GetSettingMap()[EXT3_TRANSCODE_TRUEHD].setValue(truehdTranscode);
-		options->GetSettingMap()[EXT3_TRANSCODE_HEAAC].setValue(heaacTranscode);
-		options->GetSettingMap()[EXT3_HLS_BEST_VARIANT].setValue(hlsBestVariant);
+		options->GetSettingMap()[EXT3_TRANSCODE_DTS].setValue(dtsAc3);
+		options->GetSettingMap()[EXT3_TRANSCODE_TRUEHD].setValue(truehdAc3);
+		options->GetSettingMap()[EXT3_TRANSCODE_HEAAC].setValue(heaacAacLc);
+		options->GetSettingMap()[EXT3_TRANSCODE_DTS_EAC3].setValue(dtsEac3);
+		options->GetSettingMap()[EXT3_TRANSCODE_TRUEHD_EAC3].setValue(truehdEac3);
+		options->GetSettingMap()[EXT3_HLS_QUALITY].setValue(hlsQuality);
+		options->GetSettingMap()[EXT3_HLS_DEFAULT_AUDIO].setValue(hlsDefaultAudio);
 	}
 	return Py_BuildValue("b", ret);
 }
