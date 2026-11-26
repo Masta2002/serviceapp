@@ -1,4 +1,4 @@
-AC_INIT([serviceapp], [0.1], [mx3ldev@gmail.com])
+AC_INIT([serviceapp], [0.6], [mx3ldev@gmail.com])
 AM_INIT_AUTOMAKE([subdir-objects foreign dist-bzip2 no-define tar-pax])
 AC_CONFIG_MACRO_DIR([m4])
 LT_INIT

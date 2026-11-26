@@ -160,6 +160,19 @@ jobs:
         fi
         echo "no undefined members of own classes"
 
+    # serviceapp.version() returns PACKAGE_VERSION of AC_INIT, which configure
+    # passes as -DPACKAGE_VERSION (no config header); without it the plugin
+    # would show "unknown"
+    - name: Version in the library
+      run: |
+        version=$(sed -n 's/^AC_INIT(\[serviceapp\], \[\([^]]*\)\].*/\1/p' configure.ac)
+        echo "AC_INIT version: $version"
+        if ! strings src/serviceapp/.libs/serviceapp.so | grep -qx "$version"; then
+          echo "::error title=version::serviceapp.so does not contain the version $version of AC_INIT"
+          exit 1
+        fi
+        echo "serviceapp.so has version $version" >> "$GITHUB_STEP_SUMMARY"
+
   test-program:
     name: test program
     runs-on: ubuntu-24.04

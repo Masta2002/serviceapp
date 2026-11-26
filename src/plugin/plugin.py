@@ -346,6 +346,9 @@ class ServiceAppSettings(Setup):
 		config_list.append((_("ServiceExtEplayer3 (%s)") % str(serviceapp_client.ID_SERVICEEXTEPLAYER3),))
 		self.player_options("exteplayer3", "serviceexteplayer3", config_list)
 		config_list.append((_("Debug"), config_serviceapp.debug, _("Turn on debug messages")))
+		version = serviceapp_client.getVersion()
+		if version:
+			config_list.append((_("ServiceApp"), ConfigSelection([(version, _("version %s") % version)])))
 		self["config"].list = config_list
 
 	def keySave(self):

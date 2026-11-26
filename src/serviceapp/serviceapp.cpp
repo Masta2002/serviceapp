@@ -2551,6 +2551,15 @@ static PyObject* exteplayer3_set_setting(PyObject* self, PyObject* args) {
 	return Py_BuildValue("b", ret);
 }
 
+/* the version of AC_INIT in configure.ac, passed by configure as -DPACKAGE_VERSION */
+#ifndef PACKAGE_VERSION
+#define PACKAGE_VERSION "unknown"
+#endif
+
+static PyObject* serviceapp_version(PyObject* self, PyObject* args) {
+	return Py_BuildValue("s", PACKAGE_VERSION);
+}
+
 static PyObject* serviceapp_can_record(PyObject* self, PyObject* args) {
 	/* recordings need the native 4097 recorder, see eServiceFactoryApp::record */
 	bool ret = (&g_nativeServiceMP3Factory != NULL) || !gReplaceServiceMP3;
@@ -2626,6 +2635,7 @@ static PyMethodDef serviceappMethods[] = {
 	 " mp3SwDecoding - (True, False)\n"
 	 " rtmpProtocol - (0|1|2)\n"},
 	{"can_record", serviceapp_can_record, METH_NOARGS, "recording of 5001/5002 streams is available"},
+	{"version", serviceapp_version, METH_NOARGS, "version of serviceapp (AC_INIT of configure.ac)"},
 	{"serviceapp_set_setting", serviceapp_set_setting, METH_VARARGS,
 	 "set serviceapp settings (setting_id, HLSExplorer, autoSelectStream, connectionSpeedInKb, autoTurnOnSubtitles\n\n"
 	 " setting_id - (0 - servicemp3, 1 - servicegst, 2 - serviceextep3, 3 - user)\n"
