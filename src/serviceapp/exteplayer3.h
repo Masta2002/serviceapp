@@ -40,6 +40,11 @@ extern const std::string EXT3_HLS_QUALITY;
 extern const std::string EXT3_HLS_DEFAULT_AUDIO;
 extern const std::string EXT3_COVER;
 extern const std::string EXT3_KEY;
+extern const std::string EXT3_GRAPHIC_SUBS;
+
+/* the window exteplayer3 scales graphic subtitles for (-W, -H) */
+#define EXT3_GRAPHIC_SUB_WIDTH  1280
+#define EXT3_GRAPHIC_SUB_HEIGHT 720
 
 struct ExtEplayer3Options : public IOption
 {
@@ -63,11 +68,15 @@ class ExtEplayer3: public PlayerApp, public BasePlayer
 	bool mSeekMs;
 	// a live stream: FFmpeg reconnects an HTTP stream without a length itself
 	bool mLiveStream;
+	// graphic subtitles: the PNG directory of this player (-G), empty: off
+	std::string mGraphicSubDir;
+	void removeGraphicSubDir();
 	void handleProcessStopped(int retval);
 	void handleJsonOutput(cJSON* json);
 	std::vector<std::string> buildCommand();
 	public:
 	ExtEplayer3(ExtEplayer3Options& options);
+	~ExtEplayer3();
 	int start(eMainloop *context);
 
 	int sendStop();
@@ -90,6 +99,7 @@ class ExtEplayer3: public PlayerApp, public BasePlayer
 	int sendSeekRelative(int seconds);
 	int sendFastForward(int speed);
 	int sendAudioChannel(int channel);
+	int sendSubtitleForcedOnly(bool on);
 	void setLiveStream(bool live){mLiveStream = live;}
 };
 #endif

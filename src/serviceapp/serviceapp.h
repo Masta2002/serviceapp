@@ -90,7 +90,22 @@ class eServiceApp : public sigc::trackable,
 	static bool isEmbeddedTrack(const SubtitleTrack& track);
 	static bool isExternalTrack(const SubtitleTrack& track);
 	void pullSubtitles();
+	void addSubtitles(std::queue<subtitleMessage>& pulled);
 	void pushSubtitles();
+
+	/* graphic subtitles (PGS, DVB, XSUB of exteplayer3): the page on the
+	 * widget, shown again every few seconds (the widget hides an
+	 * eDVBSubtitlePage after 7.5 s), cleared when its cue is over */
+	eDVBSubtitlePage m_graphic_page;
+	bool m_graphic_shown = false;
+	uint32_t m_graphic_start_ms = 0, m_graphic_end_ms = 0;
+	int64_t m_graphic_shown_at = 0;
+	void addGraphicSubtitle(const subtitleMessage& sub);
+	void removePastGraphicSubtitles(int32_t decoder_ms);
+	void showGraphicSubtitle(const subtitleMessage& sub);
+	void hideGraphicSubtitle();
+	void updateGraphicSubtitle(int32_t decoder_ms, int32_t& next_timer);
+	void clearEmbeddedSubtitlePages(bool hide, const std::set<std::string>* keep = NULL);
 	void signalEventUpdatedInfo();
 	void urlResolved(int success);
 	void passthroughFix();
@@ -116,6 +131,9 @@ class eServiceApp : public sigc::trackable,
 	bool m_reconnected;
 	int m_reconnect_channel; // dual mono selection of the old player
 	int m_clean_ends; // ends without an error, never counted down
+	/* "Forced only" with a PGS track: only its forced pictures (so1) */
+	int m_forced_only_pid;
+	bool m_forced_only_active;
 	/* after a reconnect FFmpeg reconnects the stream itself; a film without
 	 * a length would then start again at byte 0 at its end, inside the same
 	 * player: the position jumps back to the start */

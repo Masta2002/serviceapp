@@ -176,6 +176,8 @@ public:
 	virtual int sendFastForward(int speed){ return -1;}
 	// dual mono: 0 left, 1 stereo, 2 right (iAudioChannelSelection values)
 	virtual int sendAudioChannel(int channel){ return -1;}
+	// only the forced cues of the selected subtitle track (PGS forced pictures)
+	virtual int sendSubtitleForcedOnly(bool on){ return -1;}
 };
 
 
@@ -246,6 +248,8 @@ protected:
 	void recvCover(const std::string& file){pCallback->recvCover(file);};
 	// the player announced the dual mono selection (am<n>)
 	bool mCanSelectChannel = false;
+	// the player announced "forcedonly" (so1 / so0)
+	bool mCanForcedOnly = false;
 public:
 	virtual ~BasePlayer(){}
 
@@ -254,6 +258,7 @@ public:
 	void setHttpHeaders(const std::map<std::string, std::string>& headers){mHeaders = headers;}
 	bool canWind() const {return mCanWind;}
 	bool canSelectChannel() const {return mCanSelectChannel;}
+	bool canForcedOnly() const {return mCanForcedOnly;}
 	// the stream is known to be live (it ended by itself without a length)
 	virtual void setLiveStream(bool live){}
 
@@ -311,6 +316,7 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 			tSeekToMs,
 			chaptersChanged,
 			coverAvailable,
+			tSubtitleForcedOnly,
 		};
 		Message(int type)
 			:type(type), dataInt(0) {}
@@ -473,6 +479,14 @@ public:
 	bool canWind(){return pPlayer->canWind();}
 	/* dual mono: 0 left, 1 stereo, 2 right */
 	bool canSelectAudioChannel(){return pPlayer->canSelectChannel();}
+	/* only the forced cues of the subtitle track, exteplayer3 "forcedonly" */
+	bool canSubtitleForcedOnly(){return pPlayer->canForcedOnly();}
+	int subtitleForcedOnly(bool on){
+		if (!pPlayer->canForcedOnly())
+			return -1;
+		mMessageThread.send(Message(Message::tSubtitleForcedOnly, on ? 1 : 0));
+		return 0;
+	}
 	int audioSelectChannel(int channel);
 	int audioGetChannel() const { return mAudioChannel; }
 	void getChapters(std::vector<chapterEntry>& chapters){

@@ -1,4 +1,5 @@
 #include <time.h>
+#include <unistd.h>
 #include <extplayer.h>
 #include <cJSON/cJSON.h>
 #include <error.h>
@@ -602,6 +603,11 @@ void PlayerBackend::gotMessage(const PlayerBackend::Message& message)
 		case Message::chaptersChanged:
 			gotPlayerMessage(PlayerMessage::chaptersChanged);
 			break;
+		case Message::tSubtitleForcedOnly:
+			if(mDebug)
+				eDebug("PlayerBackend::gotMessage - tSubtitleForcedOnly %d", message.dataInt);
+			pPlayer->sendSubtitleForcedOnly(message.dataInt != 0);
+			break;
 		case Message::coverAvailable:
 			gotPlayerMessage(PlayerMessage::coverAvailable);
 			break;
@@ -872,7 +878,13 @@ void PlayerBackend::recvSubtitleFlush()
 	{
 		eSingleLocker s(mSubLock);
 		while (!mSubtitles.empty())
+		{
+			/* the pictures of a dropped graphic cue are not shown any more */
+			const std::vector<subtitleImage> &images = mSubtitles.front().images;
+			for (size_t i = 0; i < images.size(); i++)
+				unlink(images[i].file.c_str());
 			mSubtitles.pop();
+		}
 	}
 	mMessageMain.send(Message(Message::subtitleFlush));
 }
