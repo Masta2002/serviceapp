@@ -162,9 +162,15 @@ exteplayer3 187 itself.
 
 A network stream without a length whose player stops by itself (server or proxy
 closed the connection) is started again with a new player: after 0.5 s, then
-every 3 s, at most 5 times in a row; the count starts again after 30 s of
-playback. Audio track, dual mono and subtitle track are kept, `resolve://` urls
-are resolved again. Then evEOF, as before.
+every 3 s, at most 5 times in a row; after a lost connection the count starts
+again after 30 s of playback. Audio track, dual mono and subtitle track are
+kept, `resolve://` urls are resolved again. Then evEOF, as before.
+
+From the first reconnect on, FFmpeg bridges short drops of such an http stream
+itself (`reconnect_streamed`, `reconnect_delay_max=15`). A film without a length
+is not mistaken for a live stream for long: ends without an error are started
+again at most 3 times, and a position that jumps back to the start (FFmpeg
+began the film again at byte 0) ends that player.
 
 No reconnect for errors a new attempt cannot fix: the player did not accept its
 options (exit code 1), file or page not found, access denied, no key for the

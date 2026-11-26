@@ -61,6 +61,8 @@ class ExtEplayer3: public PlayerApp, public BasePlayer
 	bool mErrorReported;
 	// "seekms" in EPLAYER3_EXTENDED: gf<s.ms>
 	bool mSeekMs;
+	// a live stream: FFmpeg reconnects an HTTP stream without a length itself
+	bool mLiveStream;
 	void handleProcessStopped(int retval);
 	void handleJsonOutput(cJSON* json);
 	std::vector<std::string> buildCommand();
@@ -88,5 +90,6 @@ class ExtEplayer3: public PlayerApp, public BasePlayer
 	int sendSeekRelative(int seconds);
 	int sendFastForward(int speed);
 	int sendAudioChannel(int channel);
+	void setLiveStream(bool live){mLiveStream = live;}
 };
 #endif

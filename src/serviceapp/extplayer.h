@@ -254,6 +254,8 @@ public:
 	void setHttpHeaders(const std::map<std::string, std::string>& headers){mHeaders = headers;}
 	bool canWind() const {return mCanWind;}
 	bool canSelectChannel() const {return mCanSelectChannel;}
+	// the stream is known to be live (it ended by itself without a length)
+	virtual void setLiveStream(bool live){}
 
 	virtual int start(eMainloop *context) = 0;
 

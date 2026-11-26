@@ -115,6 +115,14 @@ class eServiceApp : public sigc::trackable,
 	bool m_stopping;
 	bool m_reconnected;
 	int m_reconnect_channel; // dual mono selection of the old player
+	int m_clean_ends; // ends without an error, never counted down
+	/* after a reconnect FFmpeg reconnects the stream itself; a film without
+	 * a length would then start again at byte 0 at its end, inside the same
+	 * player: the position jumps back to the start */
+	bool m_ffmpeg_reconnect;
+	pts_t m_max_position;
+	ePtr<eTimer> m_live_check_timer;
+	void checkLiveRestart();
 	std::string m_start_path; // before a resolver replaced it
 	bool isLiveStream();
 	bool isPermanentPlayerError();
