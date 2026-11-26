@@ -398,6 +398,12 @@ int PlayerBackend::audioSelectTrack(int trackNum)
 	if (trackNum >= 0 && trackNum < (int) mAudioStreams.size())
 	{
 		mMessageThread.send(Message(Message::tAudioSelect, mAudioStreams[trackNum].id));
+		/* the new track at once: the audio selection asks getCurrentTrack()
+		 * right after the switch, the answer a_s comes later and corrects
+		 * this if the switch failed */
+		if (pCurrentAudio != NULL)
+			delete pCurrentAudio;
+		pCurrentAudio = new audioStream(mAudioStreams[trackNum]);
 		return 0;
 	}
 	return -1;
@@ -458,6 +464,11 @@ int PlayerBackend::subtitleSelectTrack(int trackNum)
 	if (trackNum >= 0 && trackNum < (int) mSubtitleStreams.size())
 	{
 		mMessageThread.send(Message(Message::tSubtitleSelect, mSubtitleStreams[trackNum].id));
+		/* the new track at once: the GUI asks right after the selection,
+		 * the answer s_s comes later; it corrects this if it differs */
+		if (pCurrentSubtitle != NULL)
+			delete pCurrentSubtitle;
+		pCurrentSubtitle = new subtitleStream(mSubtitleStreams[trackNum]);
 		return 0;
 	}
 	return -1;
@@ -830,6 +841,12 @@ void PlayerBackend::recvAudioTrackSelected(int status, int trackId)
 			}
 		}
 	}
+	else
+	{
+		/* the switch failed: ask for the real track instead of the one
+		 * audioSelectTrack() assumed */
+		pPlayer->sendUpdateAudioTrackCurrent();
+	}
 }
 
 void PlayerBackend::recvSubtitleTracksList(int status, std::vector<subtitleStream>& streams)
@@ -896,6 +913,12 @@ void PlayerBackend::recvSubtitleTrackSelected(int status, int trackId)
 				break;
 			}
 		}
+	}
+	else
+	{
+		/* the switch failed: ask for the real track instead of the one
+		 * subtitleSelectTrack() assumed */
+		pPlayer->sendUpdateSubtitleTrackCurrent();
 	}
 }
 
