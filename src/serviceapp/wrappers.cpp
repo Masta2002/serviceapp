@@ -145,7 +145,6 @@ ssize_t readLine(SSL *ssl, int fd, char** buffer, size_t* bufsize)
 		}
 		if ((*buffer)[i] != '\r') i++;
 	}
-	return -1;
 }
 
 int Connect(const char *hostname, int port, int timeoutsec)
@@ -199,35 +198,25 @@ int Connect(const char *hostname, int port, int timeoutsec)
 			/* remember to restore O_NONBLOCK when we're connected */
 			setblocking = true;
 		}
-		int connectresult;
-		while (1)
+		int connectresult = ::connect(sd, addresses[i]->ai_addr, addresses[i]->ai_addrlen);
+		if (connectresult < 0 && (errno == EINTR || errno == EINPROGRESS))
 		{
-			connectresult = ::connect(sd, addresses[i]->ai_addr, addresses[i]->ai_addrlen);
-			if (connectresult < 0)
-			{
-				if (errno == EINTR || errno == EINPROGRESS)
-				{
-					int error;
-					socklen_t len = sizeof(error);
-					timeval timeout;
-					fd_set wset;
-					FD_ZERO(&wset);
-					FD_SET(sd, &wset);
+			/* non-blocking connect: wait until the socket is writable, then
+			 * it is connected when SO_ERROR is 0 */
+			int error = 0;
+			socklen_t len = sizeof(error);
+			timeval timeout;
+			fd_set wset;
+			FD_ZERO(&wset);
+			FD_SET(sd, &wset);
 
-					timeout.tv_sec = timeoutsec;
-					timeout.tv_usec = 0;
+			timeout.tv_sec = timeoutsec;
+			timeout.tv_usec = 0;
 
-					if (select(sd + 1, NULL, &wset, NULL, &timeout) <= 0) break;
-
-					if (getsockopt(sd, SOL_SOCKET, SO_ERROR, &error, &len) < 0) break;
-
-					if (error) break;
-					/* we are connected */
-					connectresult = 0;
-					break;
-				}
-			}
-			break;
+			if (select(sd + 1, NULL, &wset, NULL, &timeout) > 0 &&
+				getsockopt(sd, SOL_SOCKET, SO_ERROR, &error, &len) == 0 &&
+				!error)
+				connectresult = 0;
 		}
 		if (connectresult < 0)
 		{
@@ -342,6 +331,11 @@ int SSLConnect(const char *hostname, int fd, SSL **ssl, SSL_CTX **ctx)
 		SSL_CTX_free(*ctx);
 		return -1;
 	}
+	/* The certificate is not verified on purpose: this connection only reads
+	 * the HLS master playlist for the variant list, the player opens the
+	 * stream itself without verification (FFmpeg tls_verify=0), and many
+	 * IPTV servers have self-signed or expired certificates - verifying here
+	 * would only hide the variants of streams that play anyway. */
 	long ret = SSL_connect(*ssl);
 	if (ret != 1)
 	{

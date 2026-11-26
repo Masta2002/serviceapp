@@ -144,7 +144,7 @@ the one of an image) keeps working, it just offers less.
 | errors | `FF_ERROR`, exit codes | `sUser+12` text, evUser+12; no reconnect on permanent errors |
 | chapters | `c_l` (after 187) | marks of the cut list |
 | seeks in ms | `seekms` (after 187): `gf<s.ms>` | every seek; older players get `gc<seconds>` |
-| embedded cover | `cover` (after 187): `--cover` | `/tmp/.id3coverart` and evUser+13, as servicemp3 |
+| embedded cover | `cover` (after 187): `--cover` | `/tmp/.id3coverart` and evUpdateIDv3Cover, as servicemp3 of openATV |
 | CENC keys per KID | `drmkey` & 1: `--key` | url option `#sapp_key=` |
 | keyframe winding | `trick` (DreamNextGen) | fast forward / rewind by the player |
 

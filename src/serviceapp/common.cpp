@@ -8,18 +8,20 @@
 #include <sys/stat.h>
 
 #include "common.h"
+#ifndef NO_PYTHON
 #include <Python.h>
+#endif
 
-SettingEntry::SettingEntry():m_is_set(false){}
+SettingEntry::SettingEntry():m_is_set(false), m_int_value(0){}
 SettingEntry::SettingEntry(const std::string &app_arg, int value, const std::string value_type):
     m_is_set(true),
     m_app_arg(app_arg), m_int_value(value), m_value_type(value_type){}
 SettingEntry::SettingEntry(const std::string &app_arg, const std::string &value, const std::string value_type):
     m_is_set(true),
-    m_app_arg(app_arg), m_string_value(value), m_value_type(value_type){}
+    m_app_arg(app_arg), m_string_value(value), m_int_value(0), m_value_type(value_type){}
 SettingEntry::SettingEntry(const std::string &app_arg, const std::string value_type):
     m_is_set(false),
-    m_app_arg(app_arg), m_value_type(value_type){}
+    m_app_arg(app_arg), m_int_value(0), m_value_type(value_type){}
 
 void SettingEntry::setValue(int value)
 {
@@ -361,7 +363,7 @@ static int unquotePlus(char* out, const char* in)
         -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
         -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1
     };
-    char c, v1, v2;
+    char c;
     char *beg = out;
     if(in != NULL) {
         while((c=*in++) != '\0') {
@@ -371,12 +373,16 @@ static int unquotePlus(char* out, const char* in)
                 continue;
             }
             if(c == '%') {
-                if(!(v1=*in++) || (v1=tbl[(unsigned char)v1])<0 ||
-                   !(v2=*in++) || (v2=tbl[(unsigned char)v2])<0) {
+                /* int, not char: char is unsigned on ARM, the -1 of the
+                 * table would become 255 and an invalid escape pass */
+                int high = in[0] ? tbl[(unsigned char)in[0]] : -1;
+                int low = (high >= 0 && in[1]) ? tbl[(unsigned char)in[1]] : -1;
+                if (high < 0 || low < 0) {
                     *beg = '\0';
                     return -1;
                 }
-                c = (v1<<4)|v2;
+                in += 2;
+                c = (char)((high << 4) | low);
             }
             *out++ = c;
         }

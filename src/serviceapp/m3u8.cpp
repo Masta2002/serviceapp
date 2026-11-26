@@ -132,7 +132,7 @@ int M3U8VariantsExplorer::getVariantsFromMasterUrl(const std::string& url, Heade
 {
     if (redirect > redirectLimit)
     {
-        fprintf(stderr, "[%s] - reached maximum number of %d - redirects\n", __func__, redirectLimit);
+        fprintf(stderr, "[%s] - reached maximum number of %u - redirects\n", __func__, redirectLimit);
         return -1;
     }
     Url purl(url);
@@ -244,7 +244,7 @@ int M3U8VariantsExplorer::getVariantsFromMasterUrl(const std::string& url, Heade
 
     int result = readLine(ssl, sd, &lineBuffer, &bufferSize);
     fprintf(stderr, "[%s] Response[%d](size=%d): %s\n", __func__, lines++, result, lineBuffer);
-    result = sscanf(lineBuffer, "%99s %d %99s", protocol, &statusCode, statusMessage);
+    result = sscanf(lineBuffer, "%63s %d %63s", protocol, &statusCode, statusMessage);
     if (result != 3 || (statusCode != 200 && statusCode != 301 && statusCode != 302))
     {
             fprintf(stderr, "[%s] - wrong http response code: %d\n", __func__, statusCode);

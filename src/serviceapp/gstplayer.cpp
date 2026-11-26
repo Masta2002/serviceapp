@@ -130,11 +130,11 @@ std::vector<std::string> GstPlayer::buildCommand()
 		}
 		if (i->second.getType() == "int" || i->second.getType() == "string")
 		{
-			std::stringstream ss;
-			ss << i->second.getAppArg();
-			ss << " ";
-			ss << i->second.getValue();
-			args.push_back(ss.str());
+			/* option and value as two arguments: as one ("-v dvbvideosinkexp")
+			 * getopt saw the value with a leading space, the experimental
+			 * sink never took effect */
+			args.push_back(i->second.getAppArg());
+			args.push_back(i->second.getValue());
 		}
 	}
 

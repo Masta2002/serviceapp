@@ -1101,8 +1101,9 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 			break;
 		}
 		case PlayerMessage::coverAvailable:
-			/* the embedded cover is in /tmp/.id3coverart, as servicemp3 announces it */
-			m_event((iPlayableService*)this, evUser + 13);
+			/* the embedded cover is in /tmp/.id3coverart; evUpdateIDv3Cover is
+			 * what servicemp3 of openATV sends and the MediaPlayer shows */
+			m_event((iPlayableService*)this, evUpdateIDv3Cover);
 			break;
 		default:
 			if (m_debug)
@@ -1166,7 +1167,7 @@ RESULT eServiceApp::start() {
 					}
 					it++;
 				}
-				eDebug("eServiceApp::start - subservice(%lub/s) selected according to connection speed (%lu)", subservice.bitrate, bitrate * 1000L);
+				eDebug("eServiceApp::start - subservice(%lub/s) selected according to connection speed (%lu)", (unsigned long)subservice.bitrate, (unsigned long)bitrate * 1000UL);
 			} else {
 				unsigned int subservice_idx = subservice_flag - SUBSERVICES_INDEX_START;
 				if (subservice_idx < subservice_num) {
@@ -1450,7 +1451,7 @@ int eServiceApp::getNumberOfTracks() {
 
 RESULT eServiceApp::selectTrack(unsigned int i) {
 	if (m_debug)
-		eDebug("eServiceApp::selectTrack = %d", i);
+		eDebug("eServiceApp::selectTrack = %u", i);
 	if (m_paused) {
 		audioStream track;
 		if (player->audioGetTrackInfo(track, i) < 0)
@@ -1830,7 +1831,8 @@ RESULT eServiceApp::getSubtitleList(std::vector<struct SubtitleTrack>& subtitlel
 // __iSubservices
 int eServiceApp::getNumberOfSubservices() {
 	std::string path_str(m_ref.path);
-	if (options->HLSExplorer && path_str.find(m_resolve_uri) && !m_subservices_checked) {
+	/* not for a resolve:// url, it is not resolved yet */
+	if (options->HLSExplorer && path_str.find(m_resolve_uri) != 0 && !m_subservices_checked) {
 		fillSubservices();
 		m_subservices_checked = true;
 	}
@@ -1839,7 +1841,7 @@ int eServiceApp::getNumberOfSubservices() {
 }
 
 RESULT eServiceApp::getSubservice(eServiceReference& subservice, unsigned int n) {
-	eDebug("eServiceApp::getSubservice - %d", n);
+	eDebug("eServiceApp::getSubservice - %u", n);
 	subservice = m_subserviceref_vec[n];
 	return 0;
 }
@@ -1883,6 +1885,11 @@ int eServiceApp::getInfo(int w) {
 				return -1;
 			}
 			float aspect = m_width / float(m_height);
+			/* the sample aspect ratio of exteplayer3 (v_c "an"/"ad"): anamorphic
+			 * SD (720x576 shown as 16:9) is wide although its pixels are not */
+			videoStream v;
+			if (!player->videoGetTrackInfo(v, 0) && v.sar_num > 0 && v.sar_den > 0)
+				aspect = aspect * v.sar_num / float(v.sar_den);
 			// according to wikipedia, widescreen is when width to height is greater then 1.37:1
 			if (aspect > 1.37) {
 				// WIDESCREEN values from ServiceInfo.py: 3, 4, 7, 8, 0xB, 0xC, 0xF, 0x10

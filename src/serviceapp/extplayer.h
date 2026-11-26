@@ -125,7 +125,8 @@ struct videoStream
 	int bit_depth; /* 0 unknown */
 	int bitrate; /* bit/s, 0 unknown */
 	int dolby_vision; /* Dolby Vision profile, 0 none */
-	videoStream(): id(-1), width(-1), height(-1), framerate(-1), progressive(-1), gamma(-1), bit_depth(0), bitrate(0), dolby_vision(0){};
+	int sar_num, sar_den; /* sample aspect ratio ("an", "ad"), 0 unknown */
+	videoStream(): id(-1), width(-1), height(-1), framerate(-1), progressive(-1), gamma(-1), bit_depth(0), bitrate(0), dolby_vision(0), sar_num(0), sar_den(0){};
 };
 
 
@@ -215,7 +216,7 @@ public:
 
 class BasePlayer: public iPlayerSend, public iPlayerCallback
 {
-	iPlayerCallback *pCallback;
+	iPlayerCallback *pCallback = nullptr;
 
 protected:
 	std::string mPath;
@@ -436,8 +437,8 @@ public:
 		pCurrentSubtitle(NULL),
 		pErrorMessage(NULL),
 		mAudioCheckCounter(0),
-		mMessageMain(eApp, 1),
-		mMessageThread(this, 1),
+		mMessageMain(eApp, 1, "extplayer"),
+		mMessageThread(this, 1, "extplayer"),
 		mTimerDelay(100), // updated play position timer
 		mWaitForUpdate(false),
 		mWaitForStop(false)

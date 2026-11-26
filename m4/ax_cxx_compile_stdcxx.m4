@@ -1068,4 +1068,3 @@ namespace cxx23
 #endif  // (defined _MSVC_LANG ? _MSVC_LANG : __cplusplus) < 202302L
 
 ]])
-

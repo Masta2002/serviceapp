@@ -1,6 +1,9 @@
 // adapted ffmpeg srtdec sources:
 // https://github.com/FFmpeg/FFmpeg/blob/master/libavformat/srtdec.c
 
+#include <cstdio>
+#include <cstring>
+
 #include "subrip.h"
 #include "common.h"
 
@@ -12,8 +15,9 @@ int SubripParser::get_event_info(const char *line, event_info *ei)
     ei->x1 = ei->x2 = ei->y1 = ei->y2 = ei->duration = -1;
     ei->start = 0;//fixme
     ei->pos = -1;
-    if (sscanf(line, "%d:%2d:%2d%*1[,.]%3d --> %d:%2d:%2d%*1[,.]%3d"
-               "%*[ ]X1:%u X2:%u Y1:%u Y2:%u",
+    /* not strict about the number of digits ("0:0:1,5"), as FFmpeg srtdec 7af3f27 */
+    if (sscanf(line, "%d:%d:%d%*1[,.]%d --> %d:%d:%d%*1[,.]%d"
+               "%*[ ]X1:%d X2:%d Y1:%d Y2:%d",
                &hh1, &mm1, &ss1, &ms1,
                &hh2, &mm2, &ss2, &ms2,
                &ei->x1, &ei->x2, &ei->y1, &ei->y2) >= 8) {
@@ -49,13 +53,14 @@ bool SubripParser::_parse(std::istream &is, int fps, subtitleMap &submap)
     std::stringstream buf;
     int res = 0;
     char line[4096], line_cache[4096];
+    line_cache[0] = 0;
     int has_event_info = 0;
     event_info ei;
     while (is)
     {
         event_info tmp_ei;
         is.getline(line, sizeof(line));
-        int len = strlen(line);
+        int len = strnlen(line, sizeof(line));
 
         if (len < 0)
             break;
@@ -84,7 +89,7 @@ bool SubripParser::_parse(std::istream &is, int fps, subtitleMap &submap)
             if (strtol(line, &pline, 10) < 0 || line == pline)
                 buf << line << std::endl;
             else
-                strcpy(line_cache, line);
+                snprintf(line_cache, sizeof(line_cache), "%s", line);
         }
         else
         {
