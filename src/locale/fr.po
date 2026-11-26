@@ -1,6 +1,6 @@
 # SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
+# Copyright (C) YEAR the ServiceApp authors
+# This file is distributed under the same license as ServiceApp (GPL-2.0).
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
 msgid ""
@@ -21,23 +21,23 @@ msgstr ""
 #, python-format
 msgid "%d millisecond"
 msgid_plural "%d milliseconds"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%d milliseconde"
+msgstr[1] "%d millisecondes"
 
 msgid "AAC software decoding"
 msgstr "Décodage logiciel du AAC"
 
 msgid "AAC-LC"
-msgstr ""
+msgstr "AAC-LC"
 
 msgid "AC3 software decoding"
 msgstr "Décodage logiciel du AC3"
 
 msgid "AC3+ Passthrough fix delay"
-msgstr ""
+msgstr "Délai du correctif passthrough AC3+"
 
 msgid "Auto"
-msgstr ""
+msgstr "Auto"
 
 msgid "Auto select stream"
 msgstr "Sélection automatique du flux"
@@ -55,25 +55,25 @@ msgid "Buffer size"
 msgstr "Taille du fichier tampon"
 
 msgid "Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
-msgstr ""
+msgstr "Indiquez si les pistes audio DTS / DTS-HD doivent être transcodées en Dolby Digital ou Dolby Digital +."
 
 msgid "Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
-msgstr ""
+msgstr "Indiquez si les pistes audio Dolby TrueHD doivent être transcodées en Dolby Digital ou Dolby Digital +."
 
 msgid "Choose whether HE-AAC sound tracks should be transcoded to AAC-LC."
-msgstr ""
+msgstr "Indiquez si les pistes audio HE-AAC doivent être transcodées en AAC-LC."
 
 msgid "Connection speed"
 msgstr "Vitesse de connexion"
 
 msgid "DTS / DTS-HD transcoding"
-msgstr ""
+msgstr "Transcodage DTS / DTS-HD"
 
 msgid "DTS software decoding"
 msgstr "Décodage logiciel du DTS"
 
 msgid "Debug"
-msgstr ""
+msgstr "Débogage"
 
 msgid "Detecting exteplayer3 player ..."
 msgstr "Détection du lecteur exteplayer3..."
@@ -82,13 +82,13 @@ msgid "Detecting gstreamer player ..."
 msgstr "Détection du lecteur gstreamer..."
 
 msgid "Dolby Digital"
-msgstr ""
+msgstr "Dolby Digital"
 
 msgid "Dolby Digital +"
-msgstr ""
+msgstr "Dolby Digital +"
 
 msgid "Dolby TrueHD transcoding"
-msgstr ""
+msgstr "Transcodage Dolby TrueHD"
 
 msgid "EAC3 software decoding"
 msgstr "Décodage logiciel du EAC3"
@@ -97,10 +97,10 @@ msgid "Embedded subtitles"
 msgstr "Sous-titres embarqués"
 
 msgid "Enable AC3+ passthrough fix"
-msgstr ""
+msgstr "Activer le correctif passthrough AC3+"
 
 msgid "Enables AC3+ passthrough fix for Vu+ Ultimo4K / Duo4KSE."
-msgstr ""
+msgstr "Active le correctif passthrough AC3+ pour Vu+ Ultimo4K / Duo4KSE."
 
 msgid "Enigma2 playback system"
 msgstr "Système de lecture Enigma2"
@@ -118,48 +118,48 @@ msgid "ExtEplayer3"
 msgstr "ExtEplayer3"
 
 msgid "Forced only"
-msgstr ""
+msgstr "Forcés uniquement"
 
 msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
-msgstr ""
+msgstr "Forcés uniquement : une piste forcée intégrée (passages en langue étrangère) dans la langue de la piste audio ou des langues audio préférées."
 
 #. TRANSLATORS: %s is the name of the missing GStreamer plugin
 #, c-format
 msgid "GStreamer plugin %s is not available!"
-msgstr ""
+msgstr "Le plugin GStreamer %s n'est pas disponible !"
 
 msgid "GstPlayer"
 msgstr "GstPlayer"
 
 msgid "HE-AAC transcoding"
-msgstr ""
+msgstr "Transcodage HE-AAC"
 
 msgid "HLS Explorer"
 msgstr "Explorateur de HLS"
 
 msgid "HLS default audio only"
-msgstr ""
+msgstr "HLS : piste audio par défaut uniquement"
 
 msgid "HLS quality"
-msgstr ""
+msgstr "Qualité HLS"
 
 msgid "Highest"
-msgstr ""
+msgstr "La plus haute"
 
 msgid "LPCM injection"
 msgstr "Injection de LPCM"
 
 msgid "Lowest"
-msgstr ""
+msgstr "La plus basse"
 
 msgid "MP3 software decoding"
 msgstr "Décodage logiciel du MP3"
 
 msgid "No"
-msgstr ""
+msgstr "Non"
 
 msgid "Offer only the default audio track of a HLS stream instead of all of its languages."
-msgstr ""
+msgstr "Ne proposer que la piste audio par défaut d'un flux HLS au lieu de toutes ses langues."
 
 msgid "Play with ServiceExtEplayer3"
 msgstr "Lire avec ServiceExtEplayer3"
@@ -176,9 +176,8 @@ msgstr "Implémentation du protocole RTMP"
 msgid "Select sink which you want to use."
 msgstr "Sélectionnez le « sink » que vous souhaitez utiliser."
 
-#, fuzzy
 msgid "Select the delay that will be used for AC3+ Passthrough fix."
-msgstr "Sélectionnez le lecteur qui sera utilisé pour la lecture par Enigma2."
+msgstr "Sélectionnez le délai utilisé pour le correctif passthrough AC3+."
 
 msgid "Select the player which will be used for Enigma2 playback."
 msgstr "Sélectionnez le lecteur qui sera utilisé pour la lecture par Enigma2."
@@ -190,7 +189,7 @@ msgid "ServiceApp"
 msgstr "ServiceApp"
 
 msgid "ServiceApp - player check"
-msgstr ""
+msgstr "ServiceApp - vérification des lecteurs"
 
 #, python-format
 msgid "ServiceExtEplayer3 (%s)"
@@ -256,7 +255,7 @@ msgid "Turn on auto-selection of streams according to set Connection speed."
 msgstr "Activer la sélection automatique des flux selon la vitesse de connexion établie."
 
 msgid "Turn on debug messages"
-msgstr ""
+msgstr "Activer les messages de débogage"
 
 msgid "Turn on downmix to stereo, when software decoding is in use"
 msgstr "Activer le downmix vers stéréo, s’active lorsque le décodage logiciel est utilisé"
@@ -268,13 +267,13 @@ msgid "Turn on the embedded subtitles support."
 msgstr "Activer le support des sous-titres embarqués."
 
 msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
-msgstr ""
+msgstr "Variante d'un flux HLS ou DASH choisie par le lecteur : Auto et La plus haute lisent la meilleure, La plus basse la plus petite."
 
 msgid "WMA software decoding"
 msgstr "Décodage logiciel du WMA"
 
 msgid "Yes"
-msgstr ""
+msgstr "Oui"
 
 msgid "experimental"
 msgstr "expérimental"
@@ -283,11 +282,11 @@ msgid "exteplayer3"
 msgstr "extEplayer3"
 
 msgid "exteplayer3 did not accept its options (exit code 1)"
-msgstr ""
+msgstr "exteplayer3 n'a pas accepté ses options (code de sortie 1)"
 
 #. TRANSLATORS: a forced subtitle track (only the foreign language parts)
 msgid "forced"
-msgstr ""
+msgstr "forcé"
 
 msgid "gstplayer"
 msgstr "gstplayer"
@@ -306,4 +305,4 @@ msgstr "cadre de configuration du lecteur"
 
 #, python-format
 msgid "version %s"
-msgstr ""
+msgstr "version %s"

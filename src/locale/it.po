@@ -1,6 +1,6 @@
 # ServiceApp Italian translation for enigma2
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
+# Copyright (C) YEAR the ServiceApp authors
+# This file is distributed under the same license as ServiceApp (GPL-2.0).
 # FIRST AUTHOR: insanity & alexwilmac @vuplus-community.net ( 01-2019 )
 #
 msgid ""
@@ -11,7 +11,7 @@ msgstr ""
 "PO-Revision-Date: 2019-01-24 21:18+0000\n"
 "Last-Translator: insanity-alexwilmac\n"
 "Language-Team: insanity & alexwilmac @vuplus-community.net\n"
-"Language: it_IT\n"
+"Language: it\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -19,28 +19,27 @@ msgstr ""
 "X-Poedit-Basepath: .\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Poedit-SourceCharset: UTF-8\n"
-"X-Poedit-SearchPath-0: C:/Service APP\n"
 
 #, python-format
 msgid "%d millisecond"
 msgid_plural "%d milliseconds"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%d millisecondo"
+msgstr[1] "%d millisecondi"
 
 msgid "AAC software decoding"
 msgstr "Decodifica AAC via software"
 
 msgid "AAC-LC"
-msgstr ""
+msgstr "AAC-LC"
 
 msgid "AC3 software decoding"
 msgstr "Decodifica AC3 via software"
 
 msgid "AC3+ Passthrough fix delay"
-msgstr ""
+msgstr "Ritardo della correzione passthrough AC3+"
 
 msgid "Auto"
-msgstr ""
+msgstr "Auto"
 
 msgid "Auto select stream"
 msgstr "Selezione automatica del flusso"
@@ -58,25 +57,25 @@ msgid "Buffer size"
 msgstr "Dimensione buffer"
 
 msgid "Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
-msgstr ""
+msgstr "Scegli se le tracce audio DTS / DTS-HD devono essere transcodificate in Dolby Digital o Dolby Digital +."
 
 msgid "Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
-msgstr ""
+msgstr "Scegli se le tracce audio Dolby TrueHD devono essere transcodificate in Dolby Digital o Dolby Digital +."
 
 msgid "Choose whether HE-AAC sound tracks should be transcoded to AAC-LC."
-msgstr ""
+msgstr "Scegli se le tracce audio HE-AAC devono essere transcodificate in AAC-LC."
 
 msgid "Connection speed"
 msgstr "Velocità di connessione"
 
 msgid "DTS / DTS-HD transcoding"
-msgstr ""
+msgstr "Transcodifica DTS / DTS-HD"
 
 msgid "DTS software decoding"
 msgstr "Decodifica DTS via software"
 
 msgid "Debug"
-msgstr ""
+msgstr "Debug"
 
 msgid "Detecting exteplayer3 player ..."
 msgstr "Rilevamento del player exteplayer3 ..."
@@ -85,13 +84,13 @@ msgid "Detecting gstreamer player ..."
 msgstr "Rilevamento del player gstreamer ..."
 
 msgid "Dolby Digital"
-msgstr ""
+msgstr "Dolby Digital"
 
 msgid "Dolby Digital +"
-msgstr ""
+msgstr "Dolby Digital +"
 
 msgid "Dolby TrueHD transcoding"
-msgstr ""
+msgstr "Transcodifica Dolby TrueHD"
 
 msgid "EAC3 software decoding"
 msgstr "Decodifica EAC3 via software"
@@ -100,10 +99,10 @@ msgid "Embedded subtitles"
 msgstr "Sottotitoli incorporati"
 
 msgid "Enable AC3+ passthrough fix"
-msgstr ""
+msgstr "Attiva la correzione passthrough AC3+"
 
 msgid "Enables AC3+ passthrough fix for Vu+ Ultimo4K / Duo4KSE."
-msgstr ""
+msgstr "Attiva la correzione passthrough AC3+ per Vu+ Ultimo4K / Duo4KSE."
 
 msgid "Enigma2 playback system"
 msgstr "Modalità di riproduzione"
@@ -121,48 +120,48 @@ msgid "ExtEplayer3"
 msgstr "ExtEplayer3"
 
 msgid "Forced only"
-msgstr ""
+msgstr "Solo forzati"
 
 msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
-msgstr ""
+msgstr "Solo forzati: una traccia forzata incorporata (parti in lingua straniera) nella lingua della traccia audio o delle lingue audio preferite."
 
 #. TRANSLATORS: %s is the name of the missing GStreamer plugin
 #, c-format
 msgid "GStreamer plugin %s is not available!"
-msgstr ""
+msgstr "Il plugin GStreamer %s non è disponibile!"
 
 msgid "GstPlayer"
 msgstr "Player Gst"
 
 msgid "HE-AAC transcoding"
-msgstr ""
+msgstr "Transcodifica HE-AAC"
 
 msgid "HLS Explorer"
 msgstr "Ricerca HLS"
 
 msgid "HLS default audio only"
-msgstr ""
+msgstr "HLS: solo traccia audio predefinita"
 
 msgid "HLS quality"
-msgstr ""
+msgstr "Qualità HLS"
 
 msgid "Highest"
-msgstr ""
+msgstr "Massima"
 
 msgid "LPCM injection"
 msgstr "Usa LPCM (6 Canali Surround)"
 
 msgid "Lowest"
-msgstr ""
+msgstr "Minima"
 
 msgid "MP3 software decoding"
 msgstr "Decodifica MP3 via software"
 
 msgid "No"
-msgstr ""
+msgstr "No"
 
 msgid "Offer only the default audio track of a HLS stream instead of all of its languages."
-msgstr ""
+msgstr "Offri solo la traccia audio predefinita di un flusso HLS invece di tutte le sue lingue."
 
 msgid "Play with ServiceExtEplayer3"
 msgstr "Riproduci con ExtEplayer3"
@@ -179,9 +178,8 @@ msgstr "Implementazione del protocollo RTMP"
 msgid "Select sink which you want to use."
 msgstr "Seleziona il recipiente che desideri utilizzare"
 
-#, fuzzy
 msgid "Select the delay that will be used for AC3+ Passthrough fix."
-msgstr "Seleziona il player da utilizzare per la riproduzione."
+msgstr "Seleziona il ritardo usato per la correzione passthrough AC3+."
 
 msgid "Select the player which will be used for Enigma2 playback."
 msgstr "Seleziona il player da utilizzare per la riproduzione."
@@ -193,7 +191,7 @@ msgid "ServiceApp"
 msgstr "ServiceApp: gestione dei player"
 
 msgid "ServiceApp - player check"
-msgstr ""
+msgstr "ServiceApp - verifica dei player"
 
 #, python-format
 msgid "ServiceExtEplayer3 (%s)"
@@ -259,7 +257,7 @@ msgid "Turn on auto-selection of streams according to set Connection speed."
 msgstr "Attiva la selezione automatica dei flussi in base alla velocità di connessione impostata."
 
 msgid "Turn on debug messages"
-msgstr ""
+msgstr "Attiva i messaggi di debug"
 
 msgid "Turn on downmix to stereo, when software decoding is in use"
 msgstr "Attiva la miscelazione in stereo quando è in uso la decodifica del software"
@@ -271,13 +269,13 @@ msgid "Turn on the embedded subtitles support."
 msgstr "Attiva il supporto per i sottotitoli incorporati"
 
 msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
-msgstr ""
+msgstr "Variante di un flusso HLS o DASH scelta dal player: Auto e Massima riproducono la migliore, Minima la più piccola."
 
 msgid "WMA software decoding"
 msgstr "Decodifica WMA via software"
 
 msgid "Yes"
-msgstr ""
+msgstr "Sì"
 
 msgid "experimental"
 msgstr "sperimentale"
@@ -286,11 +284,11 @@ msgid "exteplayer3"
 msgstr "exteplayer3"
 
 msgid "exteplayer3 did not accept its options (exit code 1)"
-msgstr ""
+msgstr "exteplayer3 non ha accettato le sue opzioni (codice di uscita 1)"
 
 #. TRANSLATORS: a forced subtitle track (only the foreign language parts)
 msgid "forced"
-msgstr ""
+msgstr "forzati"
 
 msgid "gstplayer"
 msgstr "player gst"
@@ -309,4 +307,4 @@ msgstr "imposta la struttura del player"
 
 #, python-format
 msgid "version %s"
-msgstr ""
+msgstr "versione %s"

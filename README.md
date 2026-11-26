@@ -84,6 +84,7 @@
 - [Translations](#-translations)
 - [Build](#%EF%B8%8F-build)
 - [Debug and log](#-debug-and-log)
+- [Changelog](#-changelog)
 - [Credits](#-credits)
 - [License](#-license)
 
@@ -95,7 +96,7 @@ messages on stderr:
 
 | Service type | Player |
 |---|---|
-| `5001` | gstplayer (GStreamer) |
+| `5001` | gstplayer (GStreamer, the program `gstplayer2`) |
 | `5002` | exteplayer3 (FFmpeg) |
 | `4097` | optional: ServiceApp replaces servicemp3 and plays with the player chosen in the settings |
 
@@ -223,7 +224,7 @@ recorder of the image.
 
 ## 🌍 Translations
 
-Languages: de, en, es, fi, fr, hu, it, lv, nl, pl, pt, ru, tr, uk, zh_CN
+Languages: ar, bs, cs, de, en, es, fi, fr, hr, hu, it, lv, nl, pl, pt, ru, sk, tr, uk, zh_CN
 (`LANGS` in `src/locale/Makefile.am`). After a change of the texts, run in
 `src/locale`:
 
@@ -273,6 +274,22 @@ Contributions: see [CONTRIBUTING](CONTRIBUTING.md) and the [Code of Conduct](COD
 
 The setting "Debug" (`config.plugins.serviceapp.debug`) logs the
 messages of the player and of ServiceApp to the enigma2 debug log.
+
+## 📝 Changelog
+
+The full list of commits of a version is in its [GitHub release](https://github.com/oe-mirrors/serviceapp/releases).
+
+### 0.6
+
+- **exteplayer3 187:** transcoding of DTS / TrueHD to Dolby Digital or Dolby Digital +, HE-AAC to AAC-LC, HLS quality and default audio; every option only for a player that reports it (the old `-D` / `-Q` letters stopped exteplayer3 187 from starting)
+- **graphic subtitles** (PGS, DVB, XSUB), "Forced only" with the forced pictures of a PGS track, closed captions, track titles, subtitle flush after a seek
+- **audio:** dual mono left / stereo / right, channel layout and title of the tracks, the selected track marked at once
+- chapters as marks, seeks exact to the ms, embedded cover, web radio title and artist, video and audio codec details for the info screens
+- **live streams** that end by themselves are reconnected (no endless loop for films without a length), player errors shown as messages, CENC keys per KID from the url (`#sapp_key=`)
+- recording of 5001/5002 streams, resume and cut list for local files, picture size from the decoder, many crash fixes from the other ServiceApp forks
+- security: `sapp_args` can no longer start any program, a stack overflow in the HLS master fetch fixed
+- **translations:** new ar, bs, cs, es, hr, sk, zh_CN; nl installed; de, es, fr, it, ru, uk complete; every visible text translatable, also those of the C++ part
+- CI: compile check, autotools build, static analysis, ruff, translations, hygiene, SonarCloud, release on a version change
 
 ## 🙏 Credits
 

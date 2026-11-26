@@ -6,36 +6,35 @@ msgstr ""
 "PO-Revision-Date: 2018-03-26 21:50+0200\n"
 "Last-Translator: igorrrrr <igorzhugan66@gmail.com>\n"
 "Language-Team: igorrrrr <igorzhugan66@gmail.com>\n"
-"Language: ru_RU\n"
+"Language: ru\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "X-Poedit-SourceCharset: UTF-8\n"
 "X-Generator: Poedit 2.0.6\n"
-"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n != 0 ? 1 : 2);\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
 #, python-format
 msgid "%d millisecond"
 msgid_plural "%d milliseconds"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "%d миллисекунда"
+msgstr[1] "%d миллисекунды"
+msgstr[2] "%d миллисекунд"
 
 msgid "AAC software decoding"
 msgstr "Программное декодирование ААС"
 
 msgid "AAC-LC"
-msgstr ""
+msgstr "AAC-LC"
 
-#, fuzzy
 msgid "AC3 software decoding"
-msgstr "Программное декодирование ААС"
+msgstr "Программное декодирование AC3"
 
 msgid "AC3+ Passthrough fix delay"
-msgstr ""
+msgstr "Задержка исправления passthrough AC3+"
 
 msgid "Auto"
-msgstr ""
+msgstr "Авто"
 
 msgid "Auto select stream"
 msgstr "Автоматический выбор потока"
@@ -53,25 +52,25 @@ msgid "Buffer size"
 msgstr "Размер буфера"
 
 msgid "Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
-msgstr ""
+msgstr "Выберите, перекодировать ли дорожки DTS / DTS-HD в Dolby Digital или Dolby Digital +."
 
 msgid "Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
-msgstr ""
+msgstr "Выберите, перекодировать ли дорожки Dolby TrueHD в Dolby Digital или Dolby Digital +."
 
 msgid "Choose whether HE-AAC sound tracks should be transcoded to AAC-LC."
-msgstr ""
+msgstr "Выберите, перекодировать ли дорожки HE-AAC в AAC-LC."
 
 msgid "Connection speed"
 msgstr "Скорость соединения"
 
 msgid "DTS / DTS-HD transcoding"
-msgstr ""
+msgstr "Перекодирование DTS / DTS-HD"
 
 msgid "DTS software decoding"
 msgstr "Программное декодирование DTS"
 
 msgid "Debug"
-msgstr ""
+msgstr "Отладка"
 
 msgid "Detecting exteplayer3 player ..."
 msgstr "Обнаружение плеера exteplayer3 ..."
@@ -80,26 +79,25 @@ msgid "Detecting gstreamer player ..."
 msgstr "Обнаружение плеера gstreamer ..."
 
 msgid "Dolby Digital"
-msgstr ""
+msgstr "Dolby Digital"
 
 msgid "Dolby Digital +"
-msgstr ""
+msgstr "Dolby Digital +"
 
 msgid "Dolby TrueHD transcoding"
-msgstr ""
+msgstr "Перекодирование Dolby TrueHD"
 
-#, fuzzy
 msgid "EAC3 software decoding"
-msgstr "Программное декодирование ААС"
+msgstr "Программное декодирование EAC3"
 
 msgid "Embedded subtitles"
 msgstr "Встроенные субтитры"
 
 msgid "Enable AC3+ passthrough fix"
-msgstr ""
+msgstr "Включить исправление passthrough AC3+"
 
 msgid "Enables AC3+ passthrough fix for Vu+ Ultimo4K / Duo4KSE."
-msgstr ""
+msgstr "Включает исправление passthrough AC3+ для Vu+ Ultimo4K / Duo4KSE."
 
 msgid "Enigma2 playback system"
 msgstr "Система воспроизведения Enigma2"
@@ -117,49 +115,48 @@ msgid "ExtEplayer3"
 msgstr "ExtEplayer3"
 
 msgid "Forced only"
-msgstr ""
+msgstr "Только вынужденные"
 
 msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
-msgstr ""
+msgstr "Только вынужденные: встроенная вынужденная дорожка (фрагменты на иностранном языке) на языке звуковой дорожки или предпочитаемых языков звука."
 
 #. TRANSLATORS: %s is the name of the missing GStreamer plugin
 #, c-format
 msgid "GStreamer plugin %s is not available!"
-msgstr ""
+msgstr "Плагин GStreamer %s недоступен!"
 
 msgid "GstPlayer"
 msgstr "GstPlayer"
 
 msgid "HE-AAC transcoding"
-msgstr ""
+msgstr "Перекодирование HE-AAC"
 
 msgid "HLS Explorer"
 msgstr "HLS Проводник"
 
 msgid "HLS default audio only"
-msgstr ""
+msgstr "HLS: только звуковая дорожка по умолчанию"
 
 msgid "HLS quality"
-msgstr ""
+msgstr "Качество HLS"
 
 msgid "Highest"
-msgstr ""
+msgstr "Наивысшее"
 
 msgid "LPCM injection"
 msgstr "Вставка LPCM"
 
 msgid "Lowest"
-msgstr ""
+msgstr "Наименьшее"
 
-#, fuzzy
 msgid "MP3 software decoding"
-msgstr "Программное декодирование WMA"
+msgstr "Программное декодирование MP3"
 
 msgid "No"
-msgstr ""
+msgstr "Нет"
 
 msgid "Offer only the default audio track of a HLS stream instead of all of its languages."
-msgstr ""
+msgstr "Предлагать только звуковую дорожку HLS-потока по умолчанию вместо всех его языков."
 
 msgid "Play with ServiceExtEplayer3"
 msgstr "Проигрывать в ServiceExtEplayer3"
@@ -171,14 +168,13 @@ msgid "Player"
 msgstr "Проигрыватель"
 
 msgid "RTMP protocol implementation"
-msgstr ""
+msgstr "Реализация протокола RTMP"
 
 msgid "Select sink which you want to use."
 msgstr "Выберите устройство вывода."
 
-#, fuzzy
 msgid "Select the delay that will be used for AC3+ Passthrough fix."
-msgstr "Выберите плеер который будет использоваться системой для воспроизведения."
+msgstr "Выберите задержку для исправления passthrough AC3+."
 
 msgid "Select the player which will be used for Enigma2 playback."
 msgstr "Выберите плеер который будет использоваться системой для воспроизведения."
@@ -190,7 +186,7 @@ msgid "ServiceApp"
 msgstr "ServiceApp"
 
 msgid "ServiceApp - player check"
-msgstr ""
+msgstr "ServiceApp - проверка плееров"
 
 #, python-format
 msgid "ServiceExtEplayer3 (%s)"
@@ -214,7 +210,7 @@ msgid "Set connection speed in kb/s, according to which you want to have streams
 msgstr "Установите скорость соединения в кб/с, в соответствии с которой Вы хотите, чтобы потоки автоматически выбирались"
 
 msgid "Set which RTMP protocol implementation will be used for playback of RTMP streams"
-msgstr ""
+msgstr "Какая реализация протокола RTMP используется для потоков RTMP"
 
 msgid "Sink"
 msgstr "Приёмник"
@@ -229,28 +225,25 @@ msgid "Stop playing this movie?"
 msgstr "Прекратить воспроизведение фильма?"
 
 msgid "To AAC ADTS"
-msgstr ""
+msgstr "В AAC ADTS"
 
 msgid "To AAC LATM"
-msgstr ""
+msgstr "В AAC LATM"
 
 msgid "Turn on AAC software decoding."
 msgstr "Включает программное декодирование AAC."
 
-#, fuzzy
 msgid "Turn on AC3 software decoding."
-msgstr "Включает программное декодирование AAC."
+msgstr "Включить программное декодирование AC3."
 
 msgid "Turn on DTS software decoding."
 msgstr "Включает программное декодирование DTS."
 
-#, fuzzy
 msgid "Turn on EAC3 software decoding."
-msgstr "Включает программное декодирование AAC."
+msgstr "Включить программное декодирование EAC3."
 
-#, fuzzy
 msgid "Turn on MP3 software decoding."
-msgstr "Включает программное декодирование AAC."
+msgstr "Включить программное декодирование MP3."
 
 msgid "Turn on WMA1, WMA2, WMA/PRO software decoding."
 msgstr "Включает программное декодирование WMA1, WMA2, WMA/PRO."
@@ -259,7 +252,7 @@ msgid "Turn on auto-selection of streams according to set Connection speed."
 msgstr "Включает автоматический выбор потоков в соответствии с установленной скоростью соединения."
 
 msgid "Turn on debug messages"
-msgstr ""
+msgstr "Включить отладочные сообщения"
 
 msgid "Turn on downmix to stereo, when software decoding is in use"
 msgstr "Включает понижающее микширование в стерео, когда используется программное декодирование"
@@ -271,13 +264,13 @@ msgid "Turn on the embedded subtitles support."
 msgstr "Включает поддержку встроенных субтитров."
 
 msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
-msgstr ""
+msgstr "Вариант потока HLS или DASH, который выбирает плеер: Авто и Наивысшее — лучший, Наименьшее — самый маленький."
 
 msgid "WMA software decoding"
 msgstr "Программное декодирование WMA"
 
 msgid "Yes"
-msgstr ""
+msgstr "Да"
 
 msgid "experimental"
 msgstr "экспериментальный"
@@ -286,11 +279,11 @@ msgid "exteplayer3"
 msgstr "exteplayer3"
 
 msgid "exteplayer3 did not accept its options (exit code 1)"
-msgstr ""
+msgstr "exteplayer3 не принял свои параметры (код выхода 1)"
 
 #. TRANSLATORS: a forced subtitle track (only the foreign language parts)
 msgid "forced"
-msgstr ""
+msgstr "вынужденные"
 
 msgid "gstplayer"
 msgstr "gstplayer"
@@ -309,4 +302,4 @@ msgstr "настройка фреймворк плеера"
 
 #, python-format
 msgid "version %s"
-msgstr ""
+msgstr "версия %s"

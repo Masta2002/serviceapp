@@ -1,12 +1,12 @@
 # Keeps the GitHub Actions of .github/workflows/ and the pinned lint tools
-# of .github/workflows/requirements-lint.txt up to date. Monthly, all
+# of .github/workflows/requirements-lint.txt up to date. Every three months, all
 # action updates in one pull request.
 version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "monthly"
+      interval: "quarterly"
     groups:
       github-actions:
         patterns:
@@ -17,7 +17,7 @@ updates:
   - package-ecosystem: "pip"
     directory: "/.github/workflows"
     schedule:
-      interval: "monthly"
+      interval: "quarterly"
     groups:
       lint-tools:
         patterns:

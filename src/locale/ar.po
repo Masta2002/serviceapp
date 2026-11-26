@@ -1,0 +1,311 @@
+# Arabic translation of ServiceApp.
+# Copyright (C) 2026 the ServiceApp authors
+# This file is distributed under the same license as ServiceApp (GPL-2.0).
+# Translated for ServiceApp, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ServiceApp\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-27 00:12+0100\n"
+"PO-Revision-Date: 2026-11-27 00:12+0100\n"
+"Last-Translator: \n"
+"Language-Team: none\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5;\n"
+
+#, python-format
+msgid "%d millisecond"
+msgid_plural "%d milliseconds"
+msgstr[0] "%d مللي ثانية"
+msgstr[1] "%d مللي ثانية"
+msgstr[2] "%d مللي ثانية"
+msgstr[3] "%d مللي ثوانٍ"
+msgstr[4] "%d مللي ثانية"
+msgstr[5] "%d مللي ثانية"
+
+msgid "AAC software decoding"
+msgstr "فك ترميز AAC برمجيًا"
+
+msgid "AAC-LC"
+msgstr "AAC-LC"
+
+msgid "AC3 software decoding"
+msgstr "فك ترميز AC3 برمجيًا"
+
+msgid "AC3+ Passthrough fix delay"
+msgstr "تأخير إصلاح تمرير AC3+"
+
+msgid "Auto"
+msgstr "تلقائي"
+
+msgid "Auto select stream"
+msgstr "اختيار البث تلقائيًا"
+
+msgid "Auto turn on subtitles"
+msgstr "تشغيل الترجمة تلقائيًا"
+
+msgid "Automatically turn on subtitles if available."
+msgstr "تشغيل الترجمة تلقائيًا إذا كانت متوفرة."
+
+msgid "Buffer duration"
+msgstr "مدة المخزن المؤقت"
+
+msgid "Buffer size"
+msgstr "حجم المخزن المؤقت"
+
+msgid "Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr "اختر ما إذا كان يجب تحويل مسارات الصوت DTS / DTS-HD إلى Dolby Digital أو Dolby Digital +."
+
+msgid "Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr "اختر ما إذا كان يجب تحويل مسارات الصوت Dolby TrueHD إلى Dolby Digital أو Dolby Digital +."
+
+msgid "Choose whether HE-AAC sound tracks should be transcoded to AAC-LC."
+msgstr "اختر ما إذا كان يجب تحويل مسارات الصوت HE-AAC إلى AAC-LC."
+
+msgid "Connection speed"
+msgstr "سرعة الاتصال"
+
+msgid "DTS / DTS-HD transcoding"
+msgstr "تحويل DTS / DTS-HD"
+
+msgid "DTS software decoding"
+msgstr "فك ترميز DTS برمجيًا"
+
+msgid "Debug"
+msgstr "تصحيح الأخطاء"
+
+msgid "Detecting exteplayer3 player ..."
+msgstr "جارٍ البحث عن مشغل exteplayer3 ..."
+
+msgid "Detecting gstreamer player ..."
+msgstr "جارٍ البحث عن مشغل gstreamer ..."
+
+msgid "Dolby Digital"
+msgstr "Dolby Digital"
+
+msgid "Dolby Digital +"
+msgstr "Dolby Digital +"
+
+msgid "Dolby TrueHD transcoding"
+msgstr "تحويل Dolby TrueHD"
+
+msgid "EAC3 software decoding"
+msgstr "فك ترميز EAC3 برمجيًا"
+
+msgid "Embedded subtitles"
+msgstr "الترجمة المضمنة"
+
+msgid "Enable AC3+ passthrough fix"
+msgstr "تفعيل إصلاح تمرير AC3+"
+
+msgid "Enables AC3+ passthrough fix for Vu+ Ultimo4K / Duo4KSE."
+msgstr "يفعّل إصلاح تمرير AC3+ لأجهزة Vu+ Ultimo4K / Duo4KSE."
+
+msgid "Enigma2 playback system"
+msgstr "نظام التشغيل في Enigma2"
+
+msgid ""
+"Enigma2 playback system was changed and Enigma2 should be restarted\n"
+"\n"
+"Do you want to restart it now?"
+msgstr ""
+"تم تغيير نظام التشغيل في Enigma2 ويجب إعادة تشغيل Enigma2.\n"
+"\n"
+"هل تريد إعادة تشغيله الآن؟"
+
+msgid "ExtEplayer3"
+msgstr "ExtEplayer3"
+
+msgid "Forced only"
+msgstr "الإجبارية فقط"
+
+msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
+msgstr "الإجبارية فقط: مسار ترجمة إجباري مضمن (المقاطع بلغة أجنبية) بلغة مسار الصوت أو بلغات الصوت المفضلة."
+
+#. TRANSLATORS: %s is the name of the missing GStreamer plugin
+#, c-format
+msgid "GStreamer plugin %s is not available!"
+msgstr "إضافة GStreamer %s غير متوفرة!"
+
+msgid "GstPlayer"
+msgstr "GstPlayer"
+
+msgid "HE-AAC transcoding"
+msgstr "تحويل HE-AAC"
+
+msgid "HLS Explorer"
+msgstr "HLS Explorer"
+
+msgid "HLS default audio only"
+msgstr "HLS: مسار الصوت الافتراضي فقط"
+
+msgid "HLS quality"
+msgstr "جودة HLS"
+
+msgid "Highest"
+msgstr "الأعلى"
+
+msgid "LPCM injection"
+msgstr "حقن LPCM"
+
+msgid "Lowest"
+msgstr "الأدنى"
+
+msgid "MP3 software decoding"
+msgstr "فك ترميز MP3 برمجيًا"
+
+msgid "No"
+msgstr "لا"
+
+msgid "Offer only the default audio track of a HLS stream instead of all of its languages."
+msgstr "عرض مسار الصوت الافتراضي فقط لبث HLS بدلًا من جميع لغاته."
+
+msgid "Play with ServiceExtEplayer3"
+msgstr "تشغيل باستخدام ServiceExtEplayer3"
+
+msgid "Play with ServiceGstPlayer"
+msgstr "تشغيل باستخدام ServiceGstPlayer"
+
+msgid "Player"
+msgstr "المشغل"
+
+msgid "RTMP protocol implementation"
+msgstr "تطبيق بروتوكول RTMP"
+
+msgid "Select sink which you want to use."
+msgstr "اختر الـ sink الذي تريد استخدامه."
+
+msgid "Select the delay that will be used for AC3+ Passthrough fix."
+msgstr "اختر التأخير المستخدم لإصلاح تمرير AC3+."
+
+msgid "Select the player which will be used for Enigma2 playback."
+msgstr "اختر المشغل المستخدم للتشغيل في Enigma2."
+
+msgid "Select the player which will be used in serviceapp for Enigma2 playback."
+msgstr "اختر المشغل الذي يستخدمه serviceapp للتشغيل في Enigma2."
+
+msgid "ServiceApp"
+msgstr "ServiceApp"
+
+msgid "ServiceApp - player check"
+msgstr "ServiceApp - فحص المشغلات"
+
+#, python-format
+msgid "ServiceExtEplayer3 (%s)"
+msgstr "ServiceExtEplayer3 (%s)"
+
+#, python-format
+msgid "ServiceGstPlayer (%s)"
+msgstr "ServiceGstPlayer (%s)"
+
+#, python-format
+msgid "ServiceMp3 (%s)"
+msgstr "ServiceMp3 (%s)"
+
+msgid "Set buffer duration in seconds."
+msgstr "ضبط مدة المخزن المؤقت بالثواني."
+
+msgid "Set buffer size in kilobytes."
+msgstr "ضبط حجم المخزن المؤقت بالكيلوبايت."
+
+msgid "Set connection speed in kb/s, according to which you want to have streams auto-selected"
+msgstr "ضبط سرعة الاتصال بالكيلوبت/ثانية التي يتم على أساسها اختيار البث تلقائيًا"
+
+msgid "Set which RTMP protocol implementation will be used for playback of RTMP streams"
+msgstr "ضبط تطبيق بروتوكول RTMP المستخدم لتشغيل بث RTMP"
+
+msgid "Sink"
+msgstr "Sink"
+
+msgid "Software decoder use LPCM for injection (otherwise wav PCM will be used)"
+msgstr "يستخدم فك الترميز البرمجي LPCM للحقن (وإلا PCM بصيغة wav)"
+
+msgid "Stereo downmix"
+msgstr "مزج ستيريو"
+
+msgid "Stop playing this movie?"
+msgstr "إيقاف تشغيل هذا الفيلم؟"
+
+msgid "To AAC ADTS"
+msgstr "إلى AAC ADTS"
+
+msgid "To AAC LATM"
+msgstr "إلى AAC LATM"
+
+msgid "Turn on AAC software decoding."
+msgstr "تفعيل فك ترميز AAC برمجيًا."
+
+msgid "Turn on AC3 software decoding."
+msgstr "تفعيل فك ترميز AC3 برمجيًا."
+
+msgid "Turn on DTS software decoding."
+msgstr "تفعيل فك ترميز DTS برمجيًا."
+
+msgid "Turn on EAC3 software decoding."
+msgstr "تفعيل فك ترميز EAC3 برمجيًا."
+
+msgid "Turn on MP3 software decoding."
+msgstr "تفعيل فك ترميز MP3 برمجيًا."
+
+msgid "Turn on WMA1, WMA2, WMA/PRO software decoding."
+msgstr "تفعيل فك ترميز WMA1 وWMA2 وWMA/PRO برمجيًا."
+
+msgid "Turn on auto-selection of streams according to set Connection speed."
+msgstr "تفعيل اختيار البث تلقائيًا حسب سرعة الاتصال المضبوطة."
+
+msgid "Turn on debug messages"
+msgstr "تفعيل رسائل تصحيح الأخطاء"
+
+msgid "Turn on downmix to stereo, when software decoding is in use"
+msgstr "تفعيل المزج إلى ستيريو عند استخدام فك الترميز البرمجي"
+
+msgid "Turn on explorer to retrieve different quality streams from HLS variant playlist and select them via subservices."
+msgstr "تفعيل المستكشف الذي يجلب بثوثًا بجودات مختلفة من قائمة متغيرات HLS ويعرضها كخدمات فرعية."
+
+msgid "Turn on the embedded subtitles support."
+msgstr "تفعيل دعم الترجمة المضمنة."
+
+msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
+msgstr "متغير بث HLS أو DASH الذي يختاره المشغل: تلقائي والأعلى يشغلان الأفضل، والأدنى الأصغر."
+
+msgid "WMA software decoding"
+msgstr "فك ترميز WMA برمجيًا"
+
+msgid "Yes"
+msgstr "نعم"
+
+msgid "experimental"
+msgstr "تجريبي"
+
+msgid "exteplayer3"
+msgstr "exteplayer3"
+
+msgid "exteplayer3 did not accept its options (exit code 1)"
+msgstr "لم يقبل exteplayer3 خياراته (رمز الخروج 1)"
+
+#. TRANSLATORS: a forced subtitle track (only the foreign language parts)
+msgid "forced"
+msgstr "إجبارية"
+
+msgid "gstplayer"
+msgstr "gstplayer"
+
+msgid "not installed"
+msgstr "غير مثبت"
+
+msgid "original"
+msgstr "أصلي"
+
+msgid "serviceapp"
+msgstr "serviceapp"
+
+msgid "setup player framework"
+msgstr "إعداد إطار المشغلات"
+
+#, python-format
+msgid "version %s"
+msgstr "الإصدار %s"

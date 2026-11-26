@@ -1,0 +1,309 @@
+# Slovak translations for PACKAGE package
+# Slovenské preklady pre balík PACKAGE.
+# Copyright (C) 2026 the ServiceApp authors
+# This file is distributed under the same license as ServiceApp (GPL-2.0).
+# Translated for ServiceApp, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ServiceApp\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-27 00:12+0100\n"
+"PO-Revision-Date: 2026-11-27 00:12+0100\n"
+"Last-Translator: \n"
+"Language-Team: none\n"
+"Language: sk\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
+
+#, python-format
+msgid "%d millisecond"
+msgid_plural "%d milliseconds"
+msgstr[0] "%d milisekunda"
+msgstr[1] "%d milisekundy"
+msgstr[2] "%d milisekúnd"
+
+msgid "AAC software decoding"
+msgstr "Softvérové dekódovanie AAC"
+
+msgid "AAC-LC"
+msgstr "AAC-LC"
+
+msgid "AC3 software decoding"
+msgstr "Softvérové dekódovanie AC3"
+
+msgid "AC3+ Passthrough fix delay"
+msgstr "Oneskorenie opravy AC3+ passthrough"
+
+msgid "Auto"
+msgstr "Automaticky"
+
+msgid "Auto select stream"
+msgstr "Automatický výber streamu"
+
+msgid "Auto turn on subtitles"
+msgstr "Automaticky zapnúť titulky"
+
+msgid "Automatically turn on subtitles if available."
+msgstr "Automaticky zapnúť titulky, ak sú k dispozícii."
+
+msgid "Buffer duration"
+msgstr "Dĺžka vyrovnávacej pamäte"
+
+msgid "Buffer size"
+msgstr "Veľkosť vyrovnávacej pamäte"
+
+msgid "Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr "Zvoľte, či sa majú zvukové stopy DTS / DTS-HD prevádzať na Dolby Digital alebo Dolby Digital +."
+
+msgid "Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr "Zvoľte, či sa majú zvukové stopy Dolby TrueHD prevádzať na Dolby Digital alebo Dolby Digital +."
+
+msgid "Choose whether HE-AAC sound tracks should be transcoded to AAC-LC."
+msgstr "Zvoľte, či sa majú zvukové stopy HE-AAC prevádzať na AAC-LC."
+
+msgid "Connection speed"
+msgstr "Rýchlosť pripojenia"
+
+msgid "DTS / DTS-HD transcoding"
+msgstr "Prevod DTS / DTS-HD"
+
+msgid "DTS software decoding"
+msgstr "Softvérové dekódovanie DTS"
+
+msgid "Debug"
+msgstr "Ladenie"
+
+msgid "Detecting exteplayer3 player ..."
+msgstr "Zisťovanie prehrávača exteplayer3 ..."
+
+msgid "Detecting gstreamer player ..."
+msgstr "Zisťovanie prehrávača gstreamer ..."
+
+msgid "Dolby Digital"
+msgstr "Dolby Digital"
+
+msgid "Dolby Digital +"
+msgstr "Dolby Digital +"
+
+msgid "Dolby TrueHD transcoding"
+msgstr "Prevod Dolby TrueHD"
+
+msgid "EAC3 software decoding"
+msgstr "Softvérové dekódovanie EAC3"
+
+msgid "Embedded subtitles"
+msgstr "Vložené titulky"
+
+msgid "Enable AC3+ passthrough fix"
+msgstr "Zapnúť opravu AC3+ passthrough"
+
+msgid "Enables AC3+ passthrough fix for Vu+ Ultimo4K / Duo4KSE."
+msgstr "Zapne opravu AC3+ passthrough pre Vu+ Ultimo4K / Duo4KSE."
+
+msgid "Enigma2 playback system"
+msgstr "Systém prehrávania Enigma2"
+
+msgid ""
+"Enigma2 playback system was changed and Enigma2 should be restarted\n"
+"\n"
+"Do you want to restart it now?"
+msgstr ""
+"Systém prehrávania Enigma2 bol zmenený a Enigma2 by sa mala reštartovať.\n"
+"\n"
+"Chcete ju reštartovať teraz?"
+
+msgid "ExtEplayer3"
+msgstr "ExtEplayer3"
+
+msgid "Forced only"
+msgstr "Iba vynútené"
+
+msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
+msgstr "Iba vynútené: vložená vynútená stopa (pasáže v cudzom jazyku) v jazyku zvukovej stopy alebo preferovaných jazykov zvuku."
+
+#. TRANSLATORS: %s is the name of the missing GStreamer plugin
+#, c-format
+msgid "GStreamer plugin %s is not available!"
+msgstr "Plugin GStreamer %s nie je k dispozícii!"
+
+msgid "GstPlayer"
+msgstr "GstPlayer"
+
+msgid "HE-AAC transcoding"
+msgstr "Prevod HE-AAC"
+
+msgid "HLS Explorer"
+msgstr "HLS Explorer"
+
+msgid "HLS default audio only"
+msgstr "HLS: iba predvolená zvuková stopa"
+
+msgid "HLS quality"
+msgstr "Kvalita HLS"
+
+msgid "Highest"
+msgstr "Najvyššia"
+
+msgid "LPCM injection"
+msgstr "Vkladanie LPCM"
+
+msgid "Lowest"
+msgstr "Najnižšia"
+
+msgid "MP3 software decoding"
+msgstr "Softvérové dekódovanie MP3"
+
+msgid "No"
+msgstr "Nie"
+
+msgid "Offer only the default audio track of a HLS stream instead of all of its languages."
+msgstr "Ponúkať iba predvolenú zvukovú stopu streamu HLS namiesto všetkých jeho jazykov."
+
+msgid "Play with ServiceExtEplayer3"
+msgstr "Prehrať pomocou ServiceExtEplayer3"
+
+msgid "Play with ServiceGstPlayer"
+msgstr "Prehrať pomocou ServiceGstPlayer"
+
+msgid "Player"
+msgstr "Prehrávač"
+
+msgid "RTMP protocol implementation"
+msgstr "Implementácia protokolu RTMP"
+
+msgid "Select sink which you want to use."
+msgstr "Vyberte sink, ktorý chcete použiť."
+
+msgid "Select the delay that will be used for AC3+ Passthrough fix."
+msgstr "Vyberte oneskorenie pre opravu AC3+ passthrough."
+
+msgid "Select the player which will be used for Enigma2 playback."
+msgstr "Vyberte prehrávač pre prehrávanie v Enigma2."
+
+msgid "Select the player which will be used in serviceapp for Enigma2 playback."
+msgstr "Vyberte prehrávač, ktorý serviceapp používa na prehrávanie v Enigma2."
+
+msgid "ServiceApp"
+msgstr "ServiceApp"
+
+msgid "ServiceApp - player check"
+msgstr "ServiceApp - kontrola prehrávačov"
+
+#, python-format
+msgid "ServiceExtEplayer3 (%s)"
+msgstr "ServiceExtEplayer3 (%s)"
+
+#, python-format
+msgid "ServiceGstPlayer (%s)"
+msgstr "ServiceGstPlayer (%s)"
+
+#, python-format
+msgid "ServiceMp3 (%s)"
+msgstr "ServiceMp3 (%s)"
+
+msgid "Set buffer duration in seconds."
+msgstr "Nastaviť dĺžku vyrovnávacej pamäte v sekundách."
+
+msgid "Set buffer size in kilobytes."
+msgstr "Nastaviť veľkosť vyrovnávacej pamäte v kilobajtoch."
+
+msgid "Set connection speed in kb/s, according to which you want to have streams auto-selected"
+msgstr "Nastaviť rýchlosť pripojenia v kb/s, podľa ktorej sa streamy automaticky vyberajú"
+
+msgid "Set which RTMP protocol implementation will be used for playback of RTMP streams"
+msgstr "Nastaviť, ktorá implementácia protokolu RTMP sa použije na prehrávanie streamov RTMP"
+
+msgid "Sink"
+msgstr "Sink"
+
+msgid "Software decoder use LPCM for injection (otherwise wav PCM will be used)"
+msgstr "Softvérový dekodér vkladá LPCM (inak WAV PCM)"
+
+msgid "Stereo downmix"
+msgstr "Stereo downmix"
+
+msgid "Stop playing this movie?"
+msgstr "Zastaviť prehrávanie tohto filmu?"
+
+msgid "To AAC ADTS"
+msgstr "Na AAC ADTS"
+
+msgid "To AAC LATM"
+msgstr "Na AAC LATM"
+
+msgid "Turn on AAC software decoding."
+msgstr "Zapnúť softvérové dekódovanie AAC."
+
+msgid "Turn on AC3 software decoding."
+msgstr "Zapnúť softvérové dekódovanie AC3."
+
+msgid "Turn on DTS software decoding."
+msgstr "Zapnúť softvérové dekódovanie DTS."
+
+msgid "Turn on EAC3 software decoding."
+msgstr "Zapnúť softvérové dekódovanie EAC3."
+
+msgid "Turn on MP3 software decoding."
+msgstr "Zapnúť softvérové dekódovanie MP3."
+
+msgid "Turn on WMA1, WMA2, WMA/PRO software decoding."
+msgstr "Zapnúť softvérové dekódovanie WMA1, WMA2, WMA/PRO."
+
+msgid "Turn on auto-selection of streams according to set Connection speed."
+msgstr "Zapnúť automatický výber streamov podľa nastavenej rýchlosti pripojenia."
+
+msgid "Turn on debug messages"
+msgstr "Zapnúť ladiace správy"
+
+msgid "Turn on downmix to stereo, when software decoding is in use"
+msgstr "Zapnúť stereo downmix pri softvérovom dekódovaní"
+
+msgid "Turn on explorer to retrieve different quality streams from HLS variant playlist and select them via subservices."
+msgstr "Zapnúť explorer, ktorý načíta streamy rôznej kvality zo zoznamu variantov HLS a ponúkne ich ako podslužby."
+
+msgid "Turn on the embedded subtitles support."
+msgstr "Zapnúť podporu vložených titulkov."
+
+msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
+msgstr "Variant streamu HLS alebo DASH, ktorý prehrávač zvolí: Automaticky a Najvyššia prehrajú najlepší, Najnižšia najmenší."
+
+msgid "WMA software decoding"
+msgstr "Softvérové dekódovanie WMA"
+
+msgid "Yes"
+msgstr "Áno"
+
+msgid "experimental"
+msgstr "experimentálne"
+
+msgid "exteplayer3"
+msgstr "exteplayer3"
+
+msgid "exteplayer3 did not accept its options (exit code 1)"
+msgstr "exteplayer3 neprijal svoje voľby (návratový kód 1)"
+
+#. TRANSLATORS: a forced subtitle track (only the foreign language parts)
+msgid "forced"
+msgstr "vynútené"
+
+msgid "gstplayer"
+msgstr "gstplayer"
+
+msgid "not installed"
+msgstr "nie je nainštalovaný"
+
+msgid "original"
+msgstr "pôvodný"
+
+msgid "serviceapp"
+msgstr "serviceapp"
+
+msgid "setup player framework"
+msgstr "nastavenie prehrávačov"
+
+#, python-format
+msgid "version %s"
+msgstr "verzia %s"
