@@ -1038,6 +1038,8 @@ void eServiceApp::liveReconnect() {
 	delete player;
 	delete extplayer;
 	extplayer = createPlayer(m_ref, getHeaders(m_ref.path));
+	if (extplayer)
+		extplayer->setLiveStream(true); /* FFmpeg reconnects it itself from now on */
 	player = new PlayerBackend(extplayer);
 	CONNECT(player->gotPlayerMessage, eServiceApp::gotExtPlayerMessage);
 	m_player_started = false;

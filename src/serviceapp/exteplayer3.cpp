@@ -184,7 +184,7 @@ void ExtEplayer3Options::print() const
 	}
 }
 
-ExtEplayer3::ExtEplayer3(ExtEplayer3Options& options): PlayerApp(STD_ERROR), mErrorReported(false), mSeekMs(false)
+ExtEplayer3::ExtEplayer3(ExtEplayer3Options& options): PlayerApp(STD_ERROR), mErrorReported(false), mSeekMs(false), mLiveStream(false)
 {
 	mPlayerOptions = options;
 	eDebug("ExtEplayer3::ExtEplayer3 initializing with options:");
@@ -260,6 +260,18 @@ std::vector<std::string> ExtEplayer3::buildCommand()
 	{
 		args.push_back("-h");
 		args.push_back(headersStr);
+	}
+	/* a stream known to be live (reconnected by ServiceApp): FFmpeg's http
+	 * reconnects a stream without a length only with reconnect_streamed,
+	 * which exteplayer3 sets only in -v mode. Not for the first start: a VOD
+	 * without a length would restart at its end from byte 0. The delays
+	 * 0+1+3+7+15 s stay below the 30 s after which enigma2 restarts. */
+	if (mLiveStream && (mPath.compare(0, 7, "http://") == 0 || mPath.compare(0, 8, "https://") == 0))
+	{
+		args.push_back("-f");
+		args.push_back("reconnect_streamed=1");
+		args.push_back("-f");
+		args.push_back("reconnect_delay_max=15");
 	}
 	for (SettingIter i(mPlayerOptions.GetSettingMap().begin()); i != mPlayerOptions.GetSettingMap().end(); i++)
 	{
