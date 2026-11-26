@@ -277,6 +277,11 @@ eServiceApp::eServiceApp(eServiceReference ref)
 	m_stopping = false;
 	m_reconnected = false;
 	m_reconnect_channel = STEREO;
+	m_clean_ends = 0;
+	m_ffmpeg_reconnect = true;
+	m_max_position = 0;
+	m_live_check_timer = eTimer::create(eApp);
+	CONNECT(m_live_check_timer->timeout, eServiceApp::checkLiveRestart);
 	m_start_path = m_ref.path;
 	m_live_reconnect_timer = eTimer::create(eApp);
 	CONNECT(m_live_reconnect_timer->timeout, eServiceApp::liveReconnect);
@@ -300,6 +305,7 @@ eServiceApp::~eServiceApp() {
 	m_subtitle_widget = 0;
 	m_decoder_video_timer->stop();
 	m_live_reconnect_timer->stop();
+	m_live_check_timer->stop();
 #ifdef HAVE_EPG
 	m_nownext_timer->stop();
 #endif
@@ -755,11 +761,24 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 			// has already ended, so there is no possibility to do so.
 			// This should be fixed on player's side so it doesn't end
 			// immediately but waits at the end for our input..
+			m_live_check_timer->stop();
 			if (!m_stopping && isLiveStream() && !isPermanentPlayerError()) {
-				/* short runs and failed attempts count, a stream that played
-				 * for a while starts the count again */
-				if (m_player_started && ::time(0) - m_player_start_time >= 30)
+				errorMessage e;
+				if (player->getErrorMessage(e) != 0) {
+					/* an end without an error: a server that closed the stream,
+					 * or a film without a length that played to its end; FFmpeg
+					 * bridges closes of a live stream after the first reconnect,
+					 * so few of these, and never counted down again */
+					if (++m_clean_ends > 3) {
+						eDebug("[ServiceApp] stream ended without an error %d times, a film without a length: no reconnect", m_clean_ends);
+						m_event(this, evEOF);
+						break;
+					}
+				} else if (m_player_started && ::time(0) - m_player_start_time >= 30) {
+					/* lost connection: short runs and failed attempts count, a
+					 * stream that played for a while starts the count again */
 					m_live_reconnects = 0;
+				}
 				if (m_live_reconnects < 5) {
 					m_live_reconnects++;
 					eDebug("[ServiceApp] live stream ended, reconnect %d/5", m_live_reconnects);
@@ -969,6 +988,7 @@ RESULT eServiceApp::stop() {
 		eDebug("eServiceApp::stop");
 	m_stopping = true;
 	m_live_reconnect_timer->stop();
+	m_live_check_timer->stop();
 	if (!m_is_streaming && m_cuesheet_loaded)
 		saveCuesheet();
 	if (m_resolver)
@@ -976,6 +996,24 @@ RESULT eServiceApp::stop() {
 	m_decoder_video_timer->stop();
 	player->stop();
 	return 0;
+}
+
+void eServiceApp::checkLiveRestart() {
+	/* live TS keeps its timestamps over a reconnect of FFmpeg; a film without
+	 * a length that FFmpeg starts again at byte 0 jumps back to its start */
+	pts_t pos;
+	if (getPlayPosition(pos) < 0)
+		return;
+	if (pos > m_max_position) {
+		m_max_position = pos;
+		return;
+	}
+	if (m_max_position - pos > 30 * 90000LL && pos < 10 * 90000LL) {
+		eDebug("[ServiceApp] position back from %lld to %lld s: a film without a length started again, ended", (long long)(m_max_position / 90000), (long long)(pos / 90000));
+		m_live_check_timer->stop();
+		m_ffmpeg_reconnect = false; /* the next start without the reconnect of FFmpeg */
+		player->stop();
+	}
 }
 
 bool eServiceApp::isLiveStream() {
@@ -1038,8 +1076,13 @@ void eServiceApp::liveReconnect() {
 	delete player;
 	delete extplayer;
 	extplayer = createPlayer(m_ref, getHeaders(m_ref.path));
-	if (extplayer)
-		extplayer->setLiveStream(true); /* FFmpeg reconnects it itself from now on */
+	if (extplayer && m_ffmpeg_reconnect) {
+		/* FFmpeg reconnects it itself from now on; watch for a film that
+		 * starts again at byte 0 */
+		extplayer->setLiveStream(true);
+		m_max_position = 0;
+		m_live_check_timer->start(1000, false);
+	}
 	player = new PlayerBackend(extplayer);
 	CONNECT(player->gotPlayerMessage, eServiceApp::gotExtPlayerMessage);
 	m_player_started = false;
