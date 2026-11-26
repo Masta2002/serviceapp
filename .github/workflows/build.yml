@@ -75,10 +75,14 @@ jobs:
       run: autoreconf -fi
 
     # CPPFLAGS: the mhw.h probe asks for <enigma2/lib/dvb/lowlevel/mhw.h>
+    # PYTHON_CPPFLAGS: ax_python_devel.m4 puts a sysroot prefix taken from the
+    # libdir in front of the include path for OE cross builds; on this native
+    # host that gives -I/x86_64-linux-gnu/usr/include/python3.x
     - name: configure
       run: |
         export PKG_CONFIG_PATH="$E2ROOT/lib/pkgconfig"
         ./configure --prefix=/usr \
+          PYTHON_CPPFLAGS="$(python3-config --includes)" \
           CPPFLAGS="-I$E2ROOT/include $(pkg-config --cflags enigma2)" \
           CXXFLAGS="-O2 -Wall" CFLAGS="-O2 -Wall" \
           || { cat config.log; exit 1; }
