@@ -679,7 +679,14 @@ void eServiceApp::signalEventUpdatedInfo() {
 	bool is_passthrough_fix_enabled = eSimpleConfig::getBool("config.plugins.serviceapp.passthrough_fix_enable", false);
 	if (is_passthrough_fix_enabled) {
 		std::string pass = CFile::read("/proc/stb/audio/ac3");
-		if (replace_all(replace_all(pass, "\r", ""), "\n", "") == "passthrough") {
+		/* the AC3+ workaround seeks back a second: only for an E-AC-3 track,
+		 * the proc value stays "passthrough" after an AC3+ service and the
+		 * seek also hit AAC and AC3 streams */
+		audioStream track;
+		int current = player->audioGetCurrentTrackNum();
+		bool eac3 = current >= 0 && player->audioGetTrackInfo(track, current) == 0 &&
+					(track.description == "A_EAC3" || track.codec_name == "Dolby Digital +" || track.codec_name == "Dolby Atmos");
+		if (eac3 && replace_all(replace_all(pass, "\r", ""), "\n", "") == "passthrough") {
 			int passthrough_delay = eSimpleConfig::getInt("config.plugins.serviceapp.passthrough_fix_delay", 0);
 			m_passthrough_fix_timer->stop();
 			m_passthrough_fix_timer->start(passthrough_delay, true);
