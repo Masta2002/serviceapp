@@ -1,4 +1,6 @@
 #include <sstream>
+#include <cctype>
+#include <unistd.h>
 
 #include <lib/base/eerror.h>
 #include "exteplayer3.h"
@@ -164,6 +166,29 @@ ExtEplayer3::ExtEplayer3(ExtEplayer3Options& options): PlayerApp(STD_ERROR), mEr
 	mPlayerOptions.print();
 }
 
+/* an exteplayer3 binary in /usr/bin or /usr/local/bin (exteplayer3, exteplayer3-test ...) */
+static bool isInstalledPlayer(const std::string &path)
+{
+	static const char *dirs[] = {"/usr/bin/", "/usr/local/bin/"};
+	for (size_t i = 0; i < sizeof(dirs) / sizeof(dirs[0]); i++)
+	{
+		std::string dir(dirs[i]);
+		if (path.compare(0, dir.size(), dir) != 0)
+			continue;
+		std::string name = path.substr(dir.size());
+		if (name.compare(0, 11, "exteplayer3") != 0 || name.find('/') != std::string::npos)
+			return false;
+		for (size_t j = 0; j < name.size(); j++)
+		{
+			char c = name[j];
+			if (!isalnum((unsigned char)c) && c != '_' && c != '.' && c != '-')
+				return false;
+		}
+		return access(path.c_str(), X_OK) == 0;
+	}
+	return false;
+}
+
 std::vector<std::string> ExtEplayer3::buildCommand()
 {
 	// TODO add all options
@@ -243,7 +268,12 @@ std::vector<std::string> ExtEplayer3::buildCommand()
                                 {
                                         if (item.find("exteplayer3") != std::string::npos)
                                         {
-                                                args[0] = item;
+                                                /* the args come with the url (#sapp_args=): only another
+                                                 * installed exteplayer3 build, never any program */
+                                                if (isInstalledPlayer(item))
+                                                        args[0] = item;
+                                                else
+                                                        eWarning("ExtEplayer3::buildCommand - sapp_args: player '%s' refused", item.c_str());
                                         }
                                         else
                                         {
