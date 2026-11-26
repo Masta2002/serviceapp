@@ -131,6 +131,9 @@ class eServiceApp : public sigc::trackable,
 	bool m_reconnected;
 	int m_reconnect_channel; // dual mono selection of the old player
 	int m_clean_ends; // ends without an error, never counted down
+	/* "Forced only" with a PGS track: only its forced pictures (so1) */
+	int m_forced_only_pid;
+	bool m_forced_only_active;
 	/* after a reconnect FFmpeg reconnects the stream itself; a film without
 	 * a length would then start again at byte 0 at its end, inside the same
 	 * player: the position jumps back to the start */

@@ -280,6 +280,8 @@ eServiceApp::eServiceApp(eServiceReference ref)
 	m_reconnected = false;
 	m_reconnect_channel = STEREO;
 	m_clean_ends = 0;
+	m_forced_only_pid = -1;
+	m_forced_only_active = false;
 	m_ffmpeg_reconnect = true;
 	m_max_position = 0;
 	m_live_check_timer = eTimer::create(eApp);
@@ -915,6 +917,8 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 					player->subtitleSelectTrack(m_selected_subtitle_track->pid);
 				if (m_reconnect_channel != STEREO)
 					player->audioSelectChannel(m_reconnect_channel);
+				if (m_forced_only_active)
+					player->subtitleForcedOnly(true);
 			}
 			if (!m_is_streaming && !m_cuesheet_loaded)
 				loadCuesheet();
@@ -1591,6 +1595,14 @@ RESULT eServiceApp::enableSubtitles(iSubtitleUser* user, struct SubtitleTrack& t
 	// pointer into freed vector storage dangling -> UAF in pushSubtitles.
 	m_selected_subtitle_track = new SubtitleTrack(m_subtitle_tracks[track_pos]);
 	m_subtitle_widget = user;
+	/* forced only: the track the "Forced only" auto mode picked for its
+	 * forced pictures; any other selection shows the whole track again */
+	bool forced_only = isEmbeddedTrack(track) && track.pid == m_forced_only_pid;
+	m_forced_only_pid = -1;
+	if (forced_only != m_forced_only_active) {
+		player->subtitleForcedOnly(forced_only);
+		m_forced_only_active = forced_only;
+	}
 	return 0;
 }
 
@@ -1615,6 +1627,10 @@ RESULT eServiceApp::disableSubtitles() {
 
 	// an embedded track is decoded by the player until it is told to stop
 	player->subtitleSelectTrack(-1);
+	if (m_forced_only_active) {
+		player->subtitleForcedOnly(false);
+		m_forced_only_active = false;
+	}
 
 	m_decoder_time_valid_state = 0;
 	m_prev_decoder_time = -1;
@@ -1679,6 +1695,28 @@ RESULT eServiceApp::getCachedSubtitle(struct SubtitleTrack& track) {
 			track = forced_tracks.front();
 			eDebug("eServiceApp::getCachedSubtitle - selected forced track, no audio language known");
 			return 0;
+		}
+		/* Blu-ray rips often have no forced track of their own: the forced
+		 * pictures are marked in the full PGS track. exteplayer3 187 sends only
+		 * those with "forcedonly" (so1), enableSubtitles turns it on. */
+		if (player->canSubtitleForcedOnly()) {
+			for (auto const& lang : langs) {
+				for (auto const& t : tracks) {
+					if (!isEmbeddedTrack(t))
+						continue;
+					ssize_t pos = getTrackPosition(t);
+					if (pos < 0 || m_subtitle_streams[pos].description.find("PGS") == std::string::npos)
+						continue;
+					std::string code = t.language_code;
+					std::transform(code.begin(), code.end(), code.begin(), ::tolower);
+					if (code == lang) {
+						track = t;
+						m_forced_only_pid = t.pid;
+						eDebug("eServiceApp::getCachedSubtitle - PGS track (%s) with only its forced pictures", code.c_str());
+						return 0;
+					}
+				}
+			}
 		}
 		eDebug("eServiceApp::getCachedSubtitle - no forced track in the audio language (%zu forced tracks)", forced_tracks.size());
 		return -1;

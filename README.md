@@ -107,6 +107,8 @@ the one of an image) keeps working, it just offers less.
 | dual mono | `achannel`: stdin `am<n>`, `a_m` | iAudioChannelSelection (left, stereo, right) |
 | codec, channels, layout, title of audio tracks | `a_l`/`a_c`: `d`, `c`, `cl`, `t`, `sr`, `br` | audio selection, `sTagAudioCodec`, `sTagBitrate` |
 | forced and titled subtitle tracks, closed captions | `s_l`: `f`, `t`; CC1 sent by itself | subtitle selection (`forced`, `SDH`, `CC1`), list refreshed when captions start |
+| graphic subtitles (PGS, DVB, XSUB) | version 63: `-G dir -W 1280 -H 720`, `s_a` with `r` | PNG pictures shown as subtitle pages, files removed once shown |
+| forced pictures of a PGS track | `forcedonly`: stdin `so1` / `so0` | "Auto turn on subtitles: Forced only" without a forced track: the PGS track in the audio language with only its forced pictures |
 | subtitle flush | `s_f` | cues of the old position dropped after a seek |
 | HDR type | `v_c` `hdr` | `sGamma`, evVideoGammaChanged |
 | video profile, bit depth, Dolby Vision | `v_c` `pr`, `bd`, `dv` | `sTagVideoCodec` ("HEVC Main 10@5.1 10 bit DV8") |

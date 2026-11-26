@@ -603,6 +603,11 @@ void PlayerBackend::gotMessage(const PlayerBackend::Message& message)
 		case Message::chaptersChanged:
 			gotPlayerMessage(PlayerMessage::chaptersChanged);
 			break;
+		case Message::tSubtitleForcedOnly:
+			if(mDebug)
+				eDebug("PlayerBackend::gotMessage - tSubtitleForcedOnly %d", message.dataInt);
+			pPlayer->sendSubtitleForcedOnly(message.dataInt != 0);
+			break;
 		case Message::coverAvailable:
 			gotPlayerMessage(PlayerMessage::coverAvailable);
 			break;

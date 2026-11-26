@@ -99,6 +99,7 @@ class ExtEplayer3: public PlayerApp, public BasePlayer
 	int sendSeekRelative(int seconds);
 	int sendFastForward(int speed);
 	int sendAudioChannel(int channel);
+	int sendSubtitleForcedOnly(bool on);
 	void setLiveStream(bool live){mLiveStream = live;}
 };
 #endif

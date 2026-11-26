@@ -467,6 +467,14 @@ int ExtEplayer3::sendSubtitleSelectTrack(int trackId)
 /* exteplayer3 takes track -1 as "no subtitles" */
 int ExtEplayer3::sendSubtitleDisable(){ return processSend(std::string("s-1\n"));}
 
+/* exteplayer3 187 ("forcedonly"): so1 only the forced cues, so0 all again */
+int ExtEplayer3::sendSubtitleForcedOnly(bool on)
+{
+	if (!mCanForcedOnly)
+		return -1;
+	return processSend(std::string(on ? "so1\n" : "so0\n"));
+}
+
 /* dual mono, exteplayer3 187 ("achannel"): am0 left, am1 stereo, am2 right */
 int ExtEplayer3::sendAudioChannel(int channel)
 {
@@ -821,6 +829,7 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 		mCanWind = cJsonGetInt(value, "trick") != 0;
 		mCanSelectChannel = cJsonGetInt(value, "achannel") != 0;
 		mSeekMs = cJsonGetInt(value, "seekms") != 0;
+		mCanForcedOnly = cJsonGetInt(value, "forcedonly") != 0;
 	}
 	else if (!strcmp(key, "c_l"))
 	{
