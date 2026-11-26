@@ -21,7 +21,9 @@
 #include <lib/dvb/idvb.h>
 #include <lib/dvb/db.h>
 #include <lib/gui/esubtitle.h>
+#include <lib/gdi/epng.h>
 #include <endian.h>
+#include <unistd.h>
 #include <netinet/in.h>
 
 #include "exteplayer3.h"
@@ -504,17 +506,194 @@ void eServiceApp::pullSubtitles() {
 	player->getSubtitles(pulled);
 	if (m_debug)
 		eDebug("eServiceApp::pullSubtitles - pulling %zu subtitles", pulled.size());
+	addSubtitles(pulled);
+	m_subtitle_sync_timer->start(1, true);
+}
+
+void eServiceApp::addSubtitles(std::queue<subtitleMessage>& pulled) {
 	while (!pulled.empty()) {
 		subtitleMessage sub = pulled.front();
-		m_embedded_subtitle_pages.insert(subtitle_pages_map_pair(sub.end_ms, sub));
+		if (sub.graphic)
+			addGraphicSubtitle(sub);
+		else
+			m_embedded_subtitle_pages.insert(subtitle_pages_map_pair(sub.end_ms, sub));
 		pulled.pop();
 	}
-	m_subtitle_sync_timer->start(1, true);
+}
+
+/* graphic subtitles: exteplayer3 writes each picture as a PNG file into its -G
+ * directory in /tmp (RAM). A file is deleted once its cue is over, skipped or
+ * dropped; the player's directory goes when it has stopped (ExtEplayer3). */
+static void removeSubtitleFiles(const subtitleMessage& sub, const std::set<std::string>* keep = NULL) {
+	for (size_t i = 0; i < sub.images.size(); i++) {
+		if (keep && keep->count(sub.images[i].file))
+			continue; /* a newer cue has a file of that name (same track and start) */
+		unlink(sub.images[i].file.c_str());
+	}
+}
+
+static int64_t monotonicMs() {
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+void eServiceApp::addGraphicSubtitle(const subtitleMessage& sub) {
+	/* A graphic page replaces the one on the screen: it ends the pages that are
+	 * still open at its start (PGS sends no end, "e" null came as start + 30 s),
+	 * as in the DreamOS port. The map is keyed by the end, a shortened page is
+	 * inserted again. A page without pictures is only a clear. */
+	std::set<std::string> files;
+	for (size_t i = 0; i < sub.images.size(); i++)
+		files.insert(sub.images[i].file);
+	std::vector<subtitleMessage> cut;
+	std::vector<bool> cut_shown;
+	for (subtitle_pages_map::iterator it = m_embedded_subtitle_pages.begin(); it != m_embedded_subtitle_pages.end();) {
+		const subtitleMessage& m = it->second;
+		if (!m.graphic || m.start_ms > sub.start_ms || m.end_ms <= sub.start_ms) {
+			++it;
+			continue;
+		}
+		bool shown = (m_prev_subtitle_message == &m);
+		if (m.start_ms == sub.start_ms) {
+			/* the same page again: the new one takes its place */
+			removeSubtitleFiles(m, &files);
+			if (shown)
+				m_prev_subtitle_message = NULL;
+		} else {
+			subtitleMessage c = m;
+			c.end_ms = sub.start_ms;
+			c.duration_ms = c.end_ms - c.start_ms;
+			cut.push_back(c);
+			cut_shown.push_back(shown);
+		}
+		m_embedded_subtitle_pages.erase(it++);
+	}
+	for (size_t k = 0; k < cut.size(); k++) {
+		std::pair<subtitle_pages_map::iterator, bool> r = m_embedded_subtitle_pages.insert(subtitle_pages_map_pair(cut[k].end_ms, cut[k]));
+		if (!r.second) {
+			/* another cue ends there already: this one is not shown any more */
+			std::set<std::string> keep(files);
+			for (size_t i = 0; i < r.first->second.images.size(); i++)
+				keep.insert(r.first->second.images[i].file);
+			removeSubtitleFiles(cut[k], &keep);
+			if (cut_shown[k])
+				m_prev_subtitle_message = NULL;
+		} else if (cut_shown[k]) {
+			m_prev_subtitle_message = &(r.first->second);
+		}
+	}
+	/* the page on the screen ends at the new start */
+	if (m_graphic_shown && m_graphic_start_ms <= sub.start_ms && m_graphic_end_ms > sub.start_ms)
+		m_graphic_end_ms = sub.start_ms;
+	if (sub.images.empty())
+		return;
+	/* a later page that came first ends this one */
+	subtitleMessage page = sub;
+	for (subtitle_pages_map::const_iterator it = m_embedded_subtitle_pages.begin(); it != m_embedded_subtitle_pages.end(); ++it)
+		if (it->second.graphic && it->second.start_ms > page.start_ms && it->second.start_ms < page.end_ms)
+			page.end_ms = it->second.start_ms;
+	page.duration_ms = page.end_ms - page.start_ms;
+	if (!m_embedded_subtitle_pages.insert(subtitle_pages_map_pair(page.end_ms, page)).second) {
+		std::set<std::string> keep;
+		subtitle_pages_map::const_iterator other = m_embedded_subtitle_pages.find(page.end_ms);
+		for (size_t i = 0; i < other->second.images.size(); i++)
+			keep.insert(other->second.images[i].file);
+		removeSubtitleFiles(page, &keep);
+	}
+}
+
+void eServiceApp::removePastGraphicSubtitles(int32_t decoder_ms) {
+	/* cues that are over (or were skipped): their files are not needed any more */
+	if (decoder_ms <= 0)
+		return;
+	subtitle_pages_map::iterator end = m_embedded_subtitle_pages.lower_bound((uint32_t)decoder_ms);
+	for (subtitle_pages_map::iterator it = m_embedded_subtitle_pages.begin(); it != end;) {
+		if (!it->second.graphic) {
+			++it;
+			continue;
+		}
+		removeSubtitleFiles(it->second);
+		if (m_prev_subtitle_message == &(it->second))
+			m_prev_subtitle_message = NULL;
+		m_embedded_subtitle_pages.erase(it++);
+	}
+}
+
+void eServiceApp::showGraphicSubtitle(const subtitleMessage& sub) {
+	/* loadPNG in the main thread only; the pictures are kept in the page,
+	 * the page is shown again from memory (updateGraphicSubtitle) */
+	eDVBSubtitlePage page;
+	page.m_show_time = (pts_t)sub.start_ms * 90;
+	page.m_display_size = eSize(EXT3_GRAPHIC_SUB_WIDTH, EXT3_GRAPHIC_SUB_HEIGHT);
+	for (size_t i = 0; i < sub.images.size(); i++) {
+		ePtr<gPixmap> pixmap;
+		if (loadPNG(pixmap, sub.images[i].file.c_str(), 0, 0) || !pixmap) {
+			eWarning("eServiceApp::showGraphicSubtitle - cannot load %s", sub.images[i].file.c_str());
+			continue;
+		}
+		eDVBSubtitleRegion region;
+		region.m_pixmap = pixmap;
+		region.m_position = ePoint(sub.images[i].x, sub.images[i].y);
+		page.m_regions.push_back(region);
+	}
+	m_graphic_page = page;
+	m_subtitle_widget->setPage(m_graphic_page);
+	m_graphic_shown = true;
+	m_graphic_start_ms = sub.start_ms;
+	m_graphic_end_ms = sub.end_ms;
+	m_graphic_shown_at = monotonicMs();
+}
+
+void eServiceApp::hideGraphicSubtitle() {
+	/* an empty page with the same window; no clearPage(): older enigma2
+	 * builds do not have it in iSubtitleUser */
+	if (m_graphic_shown && m_subtitle_widget) {
+		eDVBSubtitlePage page;
+		page.m_show_time = 0;
+		page.m_display_size = eSize(EXT3_GRAPHIC_SUB_WIDTH, EXT3_GRAPHIC_SUB_HEIGHT);
+		m_subtitle_widget->setPage(page);
+	}
+	m_graphic_shown = false;
+	m_graphic_page = eDVBSubtitlePage();
+}
+
+void eServiceApp::updateGraphicSubtitle(int32_t decoder_ms, int32_t& next_timer) {
+	if (!m_graphic_shown)
+		return;
+	if (!m_subtitle_widget || decoder_ms > (int32_t)m_graphic_end_ms) {
+		/* the cue is over and no other page took its place */
+		hideGraphicSubtitle();
+		return;
+	}
+	int64_t now = monotonicMs();
+	if (now - m_graphic_shown_at >= 5000) {
+		/* also while paused: the widget would hide the page after 7.5 s */
+		m_subtitle_widget->setPage(m_graphic_page);
+		m_graphic_shown_at = now;
+	}
+	int32_t wait = std::min((int32_t)m_graphic_end_ms - decoder_ms + 1, (int32_t)(m_graphic_shown_at + 5000 - now));
+	if (wait < 10)
+		wait = 10;
+	if (next_timer == 0 || wait < next_timer)
+		next_timer = wait;
+}
+
+void eServiceApp::clearEmbeddedSubtitlePages(bool hide, const std::set<std::string>* keep) {
+	for (subtitle_pages_map::const_iterator it = m_embedded_subtitle_pages.begin(); it != m_embedded_subtitle_pages.end(); ++it)
+		if (it->second.graphic)
+			removeSubtitleFiles(it->second, keep);
+	m_embedded_subtitle_pages.clear();
+	m_prev_subtitle_message = NULL;
+	if (!hide)
+		m_graphic_shown = false;
+	hideGraphicSubtitle();
 }
 
 void eServiceApp::pushSubtitles() {
 	pts_t running_pts = 0;
-	int32_t next_timer = 0, decoder_ms, start_ms, end_ms, diff_start_ms, diff_end_ms;
+	int32_t next_timer = 0, decoder_ms = 0, start_ms, end_ms, diff_start_ms, diff_end_ms;
+	bool clock_ok = false;
 	subtitle_pages_map::const_iterator current;
 
 	int delay = eSubtitleSettings::pango_subtitles_delay;
@@ -563,7 +742,12 @@ void eServiceApp::pushSubtitles() {
 		}
 		// eDebug("eServiceApp::pushSubtitles - push subtitles, clock stable");
 	}
+	/* the subtitle delay setting applies to graphic pages as to text ones:
+	 * both are cues of exteplayer3 on the same clock */
 	decoder_ms = (running_pts - delay) / 90;
+	clock_ok = true;
+	if (m_subtitle_pages == &m_embedded_subtitle_pages)
+		removePastGraphicSubtitles(decoder_ms);
 
 	for (current = m_subtitle_pages->lower_bound(decoder_ms); current != m_subtitle_pages->end(); current++) {
 		start_ms = current->second.start_ms;
@@ -588,7 +772,10 @@ void eServiceApp::pushSubtitles() {
 			next_timer = 30;
 			goto exit;
 		}
-		if (m_subtitle_widget && !m_paused) {
+		if (m_subtitle_widget && !m_paused && current->second.graphic) {
+			m_prev_subtitle_message = &(current->second);
+			showGraphicSubtitle(current->second);
+		} else if (m_subtitle_widget && !m_paused) {
 			// eDebug("eServiceApp::pushSubtitles - current sub actual, show!");
 			m_prev_subtitle_message = &(current->second);
 			ePangoSubtitlePage pango_page;
@@ -603,6 +790,8 @@ void eServiceApp::pushSubtitles() {
 		// eDebug("eServiceApp::pushSubtitles - no next sub scheduled, check NEXT subtitle");
 	}
 exit:
+	if (clock_ok)
+		updateGraphicSubtitle(decoder_ms, next_timer);
 	if (next_timer == 0) {
 		// eDebug("eServiceApp::pushSubtitles - next timer = 0, set default timer!");
 		next_timer = 1000;
@@ -868,8 +1057,21 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 		case PlayerMessage::subtitleFlush:
 			/* seek or track switch: cues of the old position must not come back */
 			if (m_selected_subtitle_track && isEmbeddedTrack(*m_selected_subtitle_track)) {
+				/* cues still queued came after the flush (the player thread dropped
+				 * the older ones): they are for the new position, and a graphic one
+				 * may have a file of the same name as an old cue */
+				std::queue<subtitleMessage> pulled;
+				player->getSubtitles(pulled);
+				std::set<std::string> keep;
+				std::queue<subtitleMessage> check(pulled);
+				for (; !check.empty(); check.pop())
+					for (size_t i = 0; i < check.front().images.size(); i++)
+						keep.insert(check.front().images[i].file);
 				m_prev_subtitle_message = NULL;
-				m_embedded_subtitle_pages.clear();
+				clearEmbeddedSubtitlePages(true, &keep);
+				addSubtitles(pulled);
+				if (!m_embedded_subtitle_pages.empty())
+					m_subtitle_sync_timer->start(1, true);
 			}
 			break;
 		case PlayerMessage::subtitleTracksChanged:
@@ -995,6 +1197,10 @@ RESULT eServiceApp::stop() {
 		m_resolver->stop();
 	m_decoder_video_timer->stop();
 	player->stop();
+	/* graphic subtitles: the files of the pages left (the player removes its
+	 * directory when it has ended) */
+	if (m_subtitle_pages == &m_embedded_subtitle_pages)
+		clearEmbeddedSubtitlePages(true);
 	return 0;
 }
 
@@ -1063,7 +1269,7 @@ void eServiceApp::liveReconnect() {
 	m_reconnect_channel = player->audioGetChannel();
 	m_subtitle_sync_timer->stop();
 	m_prev_subtitle_message = NULL;
-	m_embedded_subtitle_pages.clear();
+	clearEmbeddedSubtitlePages(true);
 	m_decoder_video_timer->stop();
 	if (m_resolver) {
 		m_resolver->stop();
@@ -1360,7 +1566,10 @@ RESULT eServiceApp::enableSubtitles(iSubtitleUser* user, struct SubtitleTrack& t
 	}
 	if (isEmbeddedTrack(track)) {
 		eDebug("eServiceApp::enableSubtitles - track = %d (embedded)", track.pid);
-		m_embedded_subtitle_pages.clear();
+		/* the page of the former track goes; hide it when the widget stays */
+		if (m_subtitle_widget != user)
+			m_graphic_shown = false;
+		clearEmbeddedSubtitlePages(true);
 		m_subtitle_pages = &m_embedded_subtitle_pages;
 		player->subtitleSelectTrack(track.pid);
 	} else if (isExternalTrack(track)) {
@@ -1389,7 +1598,14 @@ RESULT eServiceApp::disableSubtitles() {
 	eDebug("eServiceApp::disableSubtitles");
 	m_subtitle_sync_timer->stop();
 	m_prev_subtitle_message = NULL;
-	m_embedded_subtitle_pages.clear();
+	clearEmbeddedSubtitlePages(true);
+	{
+		/* queued cues are not shown any more: their pictures can go */
+		std::queue<subtitleMessage> pulled;
+		player->getSubtitles(pulled);
+		for (; !pulled.empty(); pulled.pop())
+			removeSubtitleFiles(pulled.front());
+	}
 	m_subtitle_pages = NULL;
 	delete m_selected_subtitle_track;
 	m_selected_subtitle_track = NULL;
@@ -2243,8 +2459,9 @@ static PyObject* exteplayer3_set_setting(PyObject* self, PyObject* args) {
 	int hlsQuality = 0;           /* exteplayer3 185: 0 auto, 1 lowest, 2 highest */
 	int hlsDefaultAudio = 0;      /* exteplayer3 185: 1 only the default audio rendition */
 	const char *coverPath = NULL; /* "cover": file for the embedded cover, None or "" off */
+	const char *graphicSubDir = NULL; /* -G (exteplayer3 63): graphic subtitles as PNG files there, None or "" off */
 
-	if (!PyArg_ParseTuple(args, "ibbbbbbbbi|bbbbbiiz", &settingId, &aacSwDecoding, &dtsSwDecoding, &wmaSwDecoding, &lpcmInjection, &downmix, &ac3SwDecoding, &eac3SwDecoding, &mp3SwDecoding, &rtmpProtocol, &dtsAc3, &truehdAc3, &heaacAacLc, &dtsEac3, &truehdEac3, &hlsQuality, &hlsDefaultAudio, &coverPath))
+	if (!PyArg_ParseTuple(args, "ibbbbbbbbi|bbbbbiizz", &settingId, &aacSwDecoding, &dtsSwDecoding, &wmaSwDecoding, &lpcmInjection, &downmix, &ac3SwDecoding, &eac3SwDecoding, &mp3SwDecoding, &rtmpProtocol, &dtsAc3, &truehdAc3, &heaacAacLc, &dtsEac3, &truehdEac3, &hlsQuality, &hlsDefaultAudio, &coverPath, &graphicSubDir))
 		return NULL;
 
 	ExtEplayer3Options* options = NULL;
@@ -2287,6 +2504,10 @@ static PyObject* exteplayer3_set_setting(PyObject* self, PyObject* args) {
 			options->GetSettingMap()[EXT3_COVER].setValue(std::string(coverPath));
 		else
 			options->GetSettingMap()[EXT3_COVER] = SettingEntry("--cover", "string"); /* not set */
+		if (graphicSubDir && *graphicSubDir)
+			options->GetSettingMap()[EXT3_GRAPHIC_SUBS].setValue(std::string(graphicSubDir));
+		else
+			options->GetSettingMap()[EXT3_GRAPHIC_SUBS] = SettingEntry("-G", "subdir"); /* not set */
 	}
 	return Py_BuildValue("b", ret);
 }

@@ -85,9 +85,10 @@ def setGstreamerPlayerSettings(settingId, videoSink, audioSink, subtitleEnabled,
 	)
 
 
-def setExtEplayer3Settings(settingId, aacSwDecoding, dtsSwDecoding, wmaSwDecoding, lpcmInjection, downmix, ac3SwDecoding=False, eac3SwDecoding=False, mp3SwDecoding=False, rtmpProtocol=0, dtsAc3=False, truehdAc3=False, heaacAacLc=False, dtsEac3=False, truehdEac3=False, hlsQuality=0, hlsDefaultAudio=0, coverPath=None):
+def setExtEplayer3Settings(settingId, aacSwDecoding, dtsSwDecoding, wmaSwDecoding, lpcmInjection, downmix, ac3SwDecoding=False, eac3SwDecoding=False, mp3SwDecoding=False, rtmpProtocol=0, dtsAc3=False, truehdAc3=False, heaacAacLc=False, dtsEac3=False, truehdEac3=False, hlsQuality=0, hlsDefaultAudio=0, coverPath=None, graphicSubDir=None):
 	# dtsAc3 .. truehdEac3: exteplayer3 187 ("xcode" in EPLAYER3_EXTENDED), hlsQuality/hlsDefaultAudio: 185
 	# coverPath: file for the embedded cover ("cover" in EPLAYER3_EXTENDED), None: off
+	# graphicSubDir: graphic subtitles (PGS, DVB, XSUB) as PNG files below it (-G, exteplayer3 63), None: off
 	return serviceapp.exteplayer3_set_setting(
 		settingId,
 		aacSwDecoding,
@@ -106,5 +107,6 @@ def setExtEplayer3Settings(settingId, aacSwDecoding, dtsSwDecoding, wmaSwDecodin
 		bool(truehdEac3),
 		int(hlsQuality),
 		int(hlsDefaultAudio),
-		coverPath or None
+		coverPath or None,
+		graphicSubDir or None
 	)

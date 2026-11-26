@@ -1,4 +1,5 @@
 #include <time.h>
+#include <unistd.h>
 #include <extplayer.h>
 #include <cJSON/cJSON.h>
 #include <error.h>
@@ -872,7 +873,13 @@ void PlayerBackend::recvSubtitleFlush()
 	{
 		eSingleLocker s(mSubLock);
 		while (!mSubtitles.empty())
+		{
+			/* the pictures of a dropped graphic cue are not shown any more */
+			const std::vector<subtitleImage> &images = mSubtitles.front().images;
+			for (size_t i = 0; i < images.size(); i++)
+				unlink(images[i].file.c_str());
 			mSubtitles.pop();
+		}
 	}
 	mMessageMain.send(Message(Message::subtitleFlush));
 }

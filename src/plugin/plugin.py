@@ -108,6 +108,10 @@ EXTEPLAYER3_CAPS = {}
 # where servicemp3 puts the cover of a file (evUser+13), exteplayer3 --cover
 COVER_FILE = "/tmp/.id3coverart"
 
+# graphic subtitles (PGS, DVB, XSUB): exteplayer3 -G writes the pictures as PNG
+# files, each player in a directory of its own below this one (RAM)
+GRAPHIC_SUB_DIR = "/tmp/serviceapp_subs"
+
 # EPLAYER3_EXTENDED "xcode" bits
 XCODE_AC3 = 1
 XCODE_AACLC = 2
@@ -124,6 +128,12 @@ def exteplayer3_xcode():
 def exteplayer3_has_hls_options():
 	# -Q 0|1|2 and -D 0|1 with a value: OE-A and skyjet 185 and newer
 	return bool(EXTEPLAYER3_VERSION) and EXTEPLAYER3_VERSION >= 185
+
+
+def exteplayer3_has_graphic_subtitles():
+	# -G DIR -W -H: since version 63 (2019) in all builds (OE-A, skyjet, ...);
+	# a player that does not know an option exits with its usage text
+	return bool(EXTEPLAYER3_VERSION) and EXTEPLAYER3_VERSION >= 63
 
 
 def key_to_setting_id(key):
@@ -177,6 +187,7 @@ def init_serviceapp_settings():
 	# a player does not start with an option it does not know: send only what it reports
 	xcode = exteplayer3_xcode()
 	hls_options = exteplayer3_has_hls_options()
+	graphic_sub_dir = GRAPHIC_SUB_DIR if exteplayer3_has_graphic_subtitles() else None
 	for key in list(config_serviceapp.exteplayer3.keys()):
 		setting_id = key_to_setting_id(key)
 		player_cfg = config_serviceapp.exteplayer3[key]
@@ -207,7 +218,8 @@ def init_serviceapp_settings():
 			bool(xcode & XCODE_EAC3) and player_cfg.truehd_transcoding.value == "eac3",
 			int(player_cfg.hls_quality.value) if hls_options else 0,
 			1 if hls_options and player_cfg.hls_default_audio.value else 0,
-			COVER_FILE if EXTEPLAYER3_CAPS.get("cover") else None)
+			COVER_FILE if EXTEPLAYER3_CAPS.get("cover") else None,
+			graphic_sub_dir)
 
 	if config_serviceapp.servicemp3.player.value == "gstplayer":
 		serviceapp_client.setServiceMP3GstPlayer()

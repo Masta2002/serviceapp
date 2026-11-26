@@ -90,7 +90,22 @@ class eServiceApp : public sigc::trackable,
 	static bool isEmbeddedTrack(const SubtitleTrack& track);
 	static bool isExternalTrack(const SubtitleTrack& track);
 	void pullSubtitles();
+	void addSubtitles(std::queue<subtitleMessage>& pulled);
 	void pushSubtitles();
+
+	/* graphic subtitles (PGS, DVB, XSUB of exteplayer3): the page on the
+	 * widget, shown again every few seconds (the widget hides an
+	 * eDVBSubtitlePage after 7.5 s), cleared when its cue is over */
+	eDVBSubtitlePage m_graphic_page;
+	bool m_graphic_shown = false;
+	uint32_t m_graphic_start_ms = 0, m_graphic_end_ms = 0;
+	int64_t m_graphic_shown_at = 0;
+	void addGraphicSubtitle(const subtitleMessage& sub);
+	void removePastGraphicSubtitles(int32_t decoder_ms);
+	void showGraphicSubtitle(const subtitleMessage& sub);
+	void hideGraphicSubtitle();
+	void updateGraphicSubtitle(int32_t decoder_ms, int32_t& next_timer);
+	void clearEmbeddedSubtitlePages(bool hide, const std::set<std::string>* keep = NULL);
 	void signalEventUpdatedInfo();
 	void urlResolved(int success);
 	void passthroughFix();

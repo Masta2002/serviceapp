@@ -2,6 +2,8 @@
 #include <cctype>
 #include <cstdio>
 #include <unistd.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
 #include <lib/base/eerror.h>
 #include "exteplayer3.h"
@@ -42,6 +44,7 @@ const std::string  EXT3_HLS_QUALITY                = "hls_quality";
 const std::string  EXT3_HLS_DEFAULT_AUDIO          = "hls_default_audio";
 const std::string  EXT3_COVER                      = "cover";
 const std::string  EXT3_KEY                        = "key"; // #sapp_key=kid:key[,kid:key...]
+const std::string  EXT3_GRAPHIC_SUBS               = "graphic_subs"; // -G base directory, set by the plugin only
 const std::string  EXT3_ARGS_LIST                  = "args"; // cmdline like list of exteplayer3 arguments in a form "-arg1=value1-arg2=value2"
 
 SettingMap &ExtEplayer3Options::GetSettingMap()
@@ -90,6 +93,9 @@ ExtEplayer3Options::ExtEplayer3Options()
 	settingMap[EXT3_COVER]                      = SettingEntry ("--cover", "string");
 	/* "drmkey" & 1: CENC keys per KID, one --key each (MP4, DASH, HLS fMP4) */
 	settingMap[EXT3_KEY]                        = SettingEntry ("--key", "keylist");
+	/* graphic subtitles (PGS, DVB, XSUB) as PNG files, -G (exteplayer3 63 and newer).
+	 * Own type: update() does not take it, a url cannot point it elsewhere */
+	settingMap[EXT3_GRAPHIC_SUBS]               = SettingEntry ("-G", "subdir");
 	settingMap[EXT3_ARGS_LIST]                  = SettingEntry ("al", "argslist");
 }
 
@@ -189,6 +195,40 @@ ExtEplayer3::ExtEplayer3(ExtEplayer3Options& options): PlayerApp(STD_ERROR), mEr
 	mPlayerOptions = options;
 	eDebug("ExtEplayer3::ExtEplayer3 initializing with options:");
 	mPlayerOptions.print();
+}
+
+ExtEplayer3::~ExtEplayer3()
+{
+	removeGraphicSubDir();
+}
+
+/* graphic subtitles: the pictures of this player go to a directory of its own
+ * below the base directory, the next player (zap, live reconnect) may start
+ * before this one has ended. It is emptied at the start and removed when the
+ * player has stopped; eServiceApp deletes each file once its cue is over. */
+static void clearGraphicSubDir(const std::string &dir, bool remove)
+{
+	DIR *d = opendir(dir.c_str());
+	if (d)
+	{
+		struct dirent *e;
+		while ((e = readdir(d)) != NULL)
+		{
+			std::string n(e->d_name);
+			if (n == "." || n == "..")
+				continue;
+			unlink((dir + "/" + n).c_str()); /* NNN_PTS_I.png and its .tmp while written */
+		}
+		closedir(d);
+	}
+	if (remove)
+		rmdir(dir.c_str());
+}
+
+void ExtEplayer3::removeGraphicSubDir()
+{
+	if (!mGraphicSubDir.empty())
+		clearGraphicSubDir(mGraphicSubDir, true);
 }
 
 /* an exteplayer3 binary in /usr/bin or /usr/local/bin (exteplayer3, exteplayer3-test ...) */
@@ -348,6 +388,32 @@ std::vector<std::string> ExtEplayer3::buildCommand()
                                 }
                         }
                 }
+			if (i->second.getType() == "subdir")
+			{
+				/* only below /tmp (RAM): the directory is emptied */
+				std::string base = i->second.getValue();
+				if (base.compare(0, 5, "/tmp/") != 0 || base.find("..") != std::string::npos)
+				{
+					eWarning("ExtEplayer3::buildCommand - graphic subtitle directory '%s' refused", base.c_str());
+					continue;
+				}
+				if (mGraphicSubDir.empty())
+				{
+					static unsigned int instance = 0;
+					std::ostringstream dir;
+					dir << base << "/" << ++instance;
+					mGraphicSubDir = dir.str();
+				}
+				mkdir(base.c_str(), 0755);
+				mkdir(mGraphicSubDir.c_str(), 0755);
+				clearGraphicSubDir(mGraphicSubDir, false);
+				args.push_back(i->second.getAppArg());
+				args.push_back(mGraphicSubDir);
+				args.push_back("-W");
+				args.push_back(std::to_string(EXT3_GRAPHIC_SUB_WIDTH));
+				args.push_back("-H");
+				args.push_back(std::to_string(EXT3_GRAPHIC_SUB_HEIGHT));
+			}
 	}
 	return args;
 }
@@ -449,6 +515,8 @@ void ExtEplayer3::handleProcessStopped(int retval)
 		e.message = "exteplayer3 did not accept its options (exit code 1)";
 		recvErrorMessage(e);
 	}
+	/* no more pictures come: the files still there are not needed any more */
+	removeGraphicSubDir();
 	recvStopped(retval);
 }
 
@@ -647,8 +715,37 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 		subtitleMessage s;
 		s.start_ms = cJsonGetInt(value, "s");
 		s.end_ms = cJsonGetInt(value, "e");
-		s.duration_ms = s.end_ms - s.start_ms;
 		s.text = cJsonGetStr(value, "t");
+		cJSON *rects = value ? cJSON_GetObjectItem(value, "r") : NULL;
+		if (rects && rects->type == cJSON_Array)
+		{
+			/* graphic subtitle (-G): {"s_a":{"id":3,"s":1000,"e":null,"r":[{"x":..,"y":..,
+			 * "w":..,"h":..,"f":"3_1000_0.png"}]}}, the files are in the -G directory.
+			 * "e" null: the end is not known, the next page ends it (eServiceApp cuts
+			 * it there), 30 s at most as in the DreamOS port. No rectangles: a clear. */
+			s.graphic = true;
+			cJSON *end = cJSON_GetObjectItem(value, "e");
+			if (!end || end->type != cJSON_Number)
+				s.end_ms = s.start_ms + 30000;
+			for (int i = 0; i < cJSON_GetArraySize(rects); i++)
+			{
+				cJSON *r = cJSON_GetArrayItem(rects, i);
+				std::string f = cJsonGetStr(r, "f");
+				/* a file name in the directory, nothing else */
+				if (f.empty() || f.find('/') != std::string::npos || f[0] == '.' || mGraphicSubDir.empty())
+					continue;
+				subtitleImage img;
+				img.x = cJsonGetInt(r, "x");
+				img.y = cJsonGetInt(r, "y");
+				img.w = cJsonGetInt(r, "w");
+				img.h = cJsonGetInt(r, "h");
+				img.file = mGraphicSubDir + "/" + f;
+				s.images.push_back(img);
+			}
+			if (s.end_ms < s.start_ms)
+				s.end_ms = s.start_ms;
+		}
+		s.duration_ms = s.end_ms - s.start_ms;
 		recvSubtitleMessage(s);
 	}
 	else if (!strcmp(key, "PLAYBACK_LENGTH"))
