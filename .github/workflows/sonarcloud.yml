@@ -1,0 +1,126 @@
+name: SonarCloud
+
+# CI-based analysis of ServiceApp on SonarCloud (sonarcloud.io, free for
+# public repositories), as in exteplayer3: the C++ analysis gets the real
+# compile commands, ServiceApp is built with autotools against the openATV
+# enigma2 headers (as in build.yml) under SonarSource's build wrapper.
+#
+# The project currently runs in SonarCloud's Automatic Analysis mode, which
+# needs no workflow (scope: sonar-project.properties). This workflow stays
+# off until the project is switched to CI-based analysis:
+#   1. sonarcloud.io -> project -> Administration -> Analysis Method:
+#      turn Automatic Analysis off (both at once make the scan fail)
+#   2. GitHub repository settings:
+#        secret   SONAR_TOKEN          token of the SonarCloud account
+#        variable SONAR_ORGANIZATION   key of the organization (masta2002)
+#        variable SONAR_PROJECT_KEY    key of the project (Masta2002_serviceapp)
+# Without them the analysis is skipped with a notice and the run stays
+# green. Pull requests from forks get no secrets from GitHub, so for them
+# the analysis is skipped as well.
+
+on:
+  push:
+    branches: [openATV]
+  pull_request:
+    branches: [openATV]
+  workflow_dispatch:
+
+concurrency:
+  group: sonarcloud-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Settings check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+    - name: SONAR_TOKEN, SONAR_ORGANIZATION and SONAR_PROJECT_KEY set?
+      id: check
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+        SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+      run: |
+        missing=""
+        [ -n "$SONAR_TOKEN" ] || missing="$missing secret SONAR_TOKEN,"
+        [ -n "$SONAR_ORGANIZATION" ] || missing="$missing variable SONAR_ORGANIZATION,"
+        [ -n "$SONAR_PROJECT_KEY" ] || missing="$missing variable SONAR_PROJECT_KEY,"
+        if [ -z "$missing" ]; then
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+        else
+          missing=${missing%,}
+          echo "enabled=false" >> "$GITHUB_OUTPUT"
+          echo "::notice title=SonarCloud analysis skipped::Not set (Automatic Analysis mode, or not available to this event):$missing"
+          echo "SonarCloud CI analysis skipped, not set:$missing (the project uses Automatic Analysis)" >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+  analysis:
+    name: Build and analyse
+    needs: check
+    if: needs.check.outputs.enabled == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      E2ROOT: ${{ github.workspace }}/../e2root
+      BUILD_WRAPPER_OUT_DIR: /home/runner/bw-output
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        # full history: blame data and detection of new code
+        fetch-depth: 0
+
+    - name: Install packages
+      run: |
+        sudo apt-get update -q
+        sudo apt-get install -y -q build-essential autoconf automake libtool pkgconf gettext \
+          python3-dev libsigc++-3.0-dev libuchardet-dev libssl-dev libfreetype-dev libfribidi-dev libxml2-dev
+
+    - name: enigma2 and libdvbsi++ headers
+      run: |
+        mkdir -p "$E2ROOT/include" "$E2ROOT/lib/pkgconfig"
+        git clone -q --depth 1 https://github.com/openatv/enigma2 "$E2ROOT/include/enigma2"
+        git clone -q --depth 1 https://github.com/oe-alliance/libdvbsi "$E2ROOT/dvbsi"
+        touch "$E2ROOT/include/enigma2/config.h"
+        cat > "$E2ROOT/lib/pkgconfig/enigma2.pc" <<EOF
+        prefix=$E2ROOT
+        includedir=\${prefix}/include
+        Name: enigma2
+        Description: enigma2 headers (CI stand-in, no library)
+        Version: 0
+        Requires: sigc++-3.0 freetype2 fribidi
+        Cflags: -I\${includedir}/enigma2 -I\${includedir}/enigma2/include -I\${prefix}/dvbsi/include
+        EOF
+
+    - name: configure
+      run: |
+        autoreconf -fi
+        export PKG_CONFIG_PATH="$E2ROOT/lib/pkgconfig"
+        ./configure --prefix=/usr \
+          PYTHON_CPPFLAGS="$(python3-config --includes)" \
+          CPPFLAGS="-I$E2ROOT/include $(pkg-config --cflags enigma2)" \
+          CXXFLAGS="-O2 -Wall" CFLAGS="-O2 -Wall" \
+          || { cat config.log; exit 1; }
+
+    - name: Install the build wrapper
+      uses: SonarSource/sonarqube-scan-action/install-build-wrapper@e805d875275f728fac1885b413934be6d7c63f65 # v8.4.1
+
+    - name: make under the build wrapper
+      run: build-wrapper-linux-x86-64 --out-dir "$BUILD_WRAPPER_OUT_DIR" make -j"$(nproc)"
+
+    - name: SonarCloud scan
+      uses: SonarSource/sonarqube-scan-action@e805d875275f728fac1885b413934be6d7c63f65 # v8.4.1
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      with:
+        args: >
+          --define sonar.organization=${{ vars.SONAR_ORGANIZATION }}
+          --define sonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+          --define sonar.cfamily.compile-commands=${{ env.BUILD_WRAPPER_OUT_DIR }}/compile_commands.json
