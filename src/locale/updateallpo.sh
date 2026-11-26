@@ -59,10 +59,18 @@ fi
 
 printf "Creating temporary file $PluginName-py.pot\n"
 find $findoptions .. -name "*.py" -exec xgettext --no-wrap -L Python --from-code=UTF-8 -kpgettext:1c,2 -k_ngettext:1,2 --add-comments="TRANSLATORS:" -d $PluginName -s -o $PluginName-py.pot {} \+
+printf "Creating temporary file $PluginName-cpp.pot\n"
+# texts of the C++ part the user sees: SAPP_TR("...") (common.h)
+find $findoptions ../serviceapp \( -name "*.cpp" -o -name "*.h" \) -exec xgettext --no-wrap -L C++ --from-code=UTF-8 -kSAPP_TR --add-comments="TRANSLATORS:" -d $PluginName -s -o $PluginName-cpp.pot {} \+
 printf "Merging to create: $PluginName.pot\n"
-msguniq --no-wrap --no-location -o $PluginName.pot $PluginName-py.pot
+if [[ -f $PluginName-cpp.pot ]]; then
+	msgcat --no-wrap --use-first $PluginName-py.pot $PluginName-cpp.pot -o $PluginName-all.pot
+else
+	cp $PluginName-py.pot $PluginName-all.pot
+fi
+msguniq --no-wrap --no-location -s -o $PluginName.pot $PluginName-all.pot
 $localgsed --in-place $PluginName.pot --expression=s/CHARSET/UTF-8/
-rm $PluginName-py.pot
+rm -f $PluginName-py.pot $PluginName-cpp.pot $PluginName-all.pot
 
 # if nothing but the auto-generated POT-Creation-Date line differs from the
 # previous pot, restore it and stop - no merge needed, po files (and git) stay clean

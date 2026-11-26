@@ -92,7 +92,7 @@ for key in list(config_serviceapp.exteplayer3.keys()):
 	config_serviceapp.exteplayer3[key].wma_swdecoding = ConfigYesNo(default=False)
 	config_serviceapp.exteplayer3[key].lpcm_injecion = ConfigYesNo(default=False)
 	config_serviceapp.exteplayer3[key].downmix = ConfigYesNo(default=False)
-	config_serviceapp.exteplayer3[key].rtmp_protocol = ConfigSelection(default="auto", choices=["auto", "ffmpeg", "librtmp"])
+	config_serviceapp.exteplayer3[key].rtmp_protocol = ConfigSelection(default="auto", choices=[("auto", _("Auto")), ("ffmpeg", "ffmpeg"), ("librtmp", "librtmp")])
 	# exteplayer3 187, offered by the "xcode" bits of the player (names as in OpenBH/OpenViX)
 	config_serviceapp.exteplayer3[key].dts_transcoding = ConfigSelection(default="no", choices=[("no", _("No")), ("ac3", _("Dolby Digital")), ("eac3", _("Dolby Digital +"))])
 	config_serviceapp.exteplayer3[key].truehd_transcoding = ConfigSelection(default="no", choices=[("no", _("No")), ("ac3", _("Dolby Digital")), ("eac3", _("Dolby Digital +"))])
@@ -383,6 +383,8 @@ class ServiceAppDetectPlayers(Screen):
 
 	def __init__(self, session):
 		Screen.__init__(self, session)
+		# the title in the skin above is not translated
+		self.setTitle(_("ServiceApp - player check"))
 		self["text"] = Label()
 		self.players_iter = iter(
 			[

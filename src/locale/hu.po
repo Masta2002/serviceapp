@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: serviceapp v1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-26 23:42+0100\n"
+"POT-Creation-Date: 2026-11-27 00:12+0100\n"
 "PO-Revision-Date: 2020-01-31 14:05+0100\n"
 "Last-Translator: Alec <alex1vagyok@gmail.com>\n"
 "Language-Team: Alec <alex1vagyok@gmail.com>\n"
@@ -123,6 +123,11 @@ msgstr ""
 msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
 msgstr ""
 
+#. TRANSLATORS: %s is the name of the missing GStreamer plugin
+#, c-format
+msgid "GStreamer plugin %s is not available!"
+msgstr ""
+
 msgid "GstPlayer"
 msgstr "GstPlayer"
 
@@ -183,6 +188,9 @@ msgstr "Válassza ki azt a lejátszót, amelyet az Enigma2 a lejátszáshoz a se
 
 msgid "ServiceApp"
 msgstr "ServiceApp"
+
+msgid "ServiceApp - player check"
+msgstr ""
 
 #, python-format
 msgid "ServiceExtEplayer3 (%s)"
@@ -273,6 +281,13 @@ msgstr "kísérleti"
 
 msgid "exteplayer3"
 msgstr "exteplayer3"
+
+msgid "exteplayer3 did not accept its options (exit code 1)"
+msgstr ""
+
+#. TRANSLATORS: a forced subtitle track (only the foreign language parts)
+msgid "forced"
+msgstr ""
 
 msgid "gstplayer"
 msgstr "gstplayer"
