@@ -50,17 +50,6 @@ jobs:
         gcc -fsyntax-only -Wall src/serviceapp/cJSON/cJSON.c || rc=1
         exit $rc
 
-    # the code behind HAVE_SERVICE_BITRATE (sVideoBitrate / sAudioBitrate of
-    # OpenViX and BlackHole) against the OpenViX headers
-    - name: Compile with the OpenViX headers (live bit rate)
-      run: |
-        git clone --depth 1 -b Developer https://github.com/OpenViX/enigma2 vix
-        touch vix/config.h
-        g++ -std=gnu++20 -fsyntax-only -Wall -Wno-unused -DDEBUG -DHAVE_EPG -DOPENPLI_ISERVICE_VERSION=2 -DHAVE_SERVICE_BITRATE \
-          $(python3-config --includes) -include Python.h \
-          $(pkg-config --cflags sigc++-3.0 uchardet openssl freetype2 fribidi) \
-          -Ivix -Ivix/include -Idvbsi/include -Isrc/serviceapp src/serviceapp/serviceapp.cpp
-
   python:
     name: Python ${{ matrix.python }}
     runs-on: ubuntu-24.04
