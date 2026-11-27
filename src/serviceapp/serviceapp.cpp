@@ -1065,13 +1065,26 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 				if (m_player_started && ::time(0) - m_player_start_time >= 600) {
 					m_clean_ends = 0;
 					m_live_reconnects = 0;
+					m_last_clean_end_ms = -1;
 				}
 				errorMessage e;
 				if (player->getErrorMessage(e) != 0) {
 					/* an end without an error: a server that closed the stream,
-					 * or a film without a length that played to its end; FFmpeg
-					 * bridges closes of a live stream after the first reconnect,
-					 * so few of these (reset after a run of 10 minutes) */
+					 * or a film without a length that played to its end (reset
+					 * after a run of 10 minutes). FFmpeg's own reconnect is not
+					 * used from now on: it would start such a film again at its
+					 * end, endlessly and unseen */
+					m_ffmpeg_reconnect = false;
+					int end_ms = -1;
+					if (player->getPlayPosition(end_ms) < 0)
+						end_ms = -1;
+					/* played again up to the same position: a film, its end */
+					if (end_ms >= 30000 && m_last_clean_end_ms >= 0 && abs(end_ms - m_last_clean_end_ms) <= 3000) {
+						eDebug("[ServiceApp] stream ended without an error at %d s again, a film without a length: no reconnect", end_ms / 1000);
+						m_event(this, evEOF);
+						break;
+					}
+					m_last_clean_end_ms = end_ms;
 					if (++m_clean_ends > 3) {
 						eDebug("[ServiceApp] stream ended without an error %d times, a film without a length: no reconnect", m_clean_ends);
 						m_event(this, evEOF);
@@ -1942,11 +1955,11 @@ RESULT eServiceApp::getCachedSubtitle(struct SubtitleTrack& track) {
 		if (options->preferEmbeddedSubtitles && isEmbeddedTrack(track))
 			eDebug("eServiceApp::getCachedSubtitle - selected preferred embedded track");
 		else if (options->preferEmbeddedSubtitles && !isEmbeddedTrack(track))
-			eDebug("eServiceApp::getCachedSubtitle - selected embedded track");
+			eDebug("eServiceApp::getCachedSubtitle - selected external track");
 		else if (!options->preferEmbeddedSubtitles && isExternalTrack(track))
 			eDebug("eServiceApp::getCachedSubtitle - selected preferred external track");
 		else if (!options->preferEmbeddedSubtitles && !isExternalTrack(track))
-			eDebug("eServiceApp::getCachedSubtitle - selected external track");
+			eDebug("eServiceApp::getCachedSubtitle - selected embedded track");
 	} else {
 		eDebug("eServiceApp::getCachedSubtitle - no track selected, more than one external track found, name doesn't correspond to video file");
 	}

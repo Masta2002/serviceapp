@@ -168,9 +168,14 @@ class eServiceApp : public sigc::trackable,
 	bool m_forced_only_active;
 	/* after a reconnect FFmpeg reconnects the stream itself; a film without
 	 * a length would then start again at byte 0 at its end, inside the same
-	 * player: the position jumps back to the start */
+	 * player. Only while no end was clean: exteplayer3 >= 185 keeps its
+	 * position running over that restart (pts clock), the jump back that
+	 * checkLiveRestart() looks for is never seen with it */
 	bool m_ffmpeg_reconnect;
 	pts_t m_max_position;
+	/* play position (ms) at the last clean end, -1: none; a film without a
+	 * length ends again at the same position */
+	int m_last_clean_end_ms = -1;
 	ePtr<eTimer> m_live_check_timer;
 	void checkLiveRestart();
 	std::string m_start_path; // before a resolver replaced it
