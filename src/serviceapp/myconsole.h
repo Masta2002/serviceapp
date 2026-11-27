@@ -9,11 +9,11 @@
 
 struct queue_data
 {
-	queue_data( char *data, int len )
-		:data(data), len(len), dataSent(0)
+	queue_data( const char *data, int len )
+		:data(data, data+len), len(len), dataSent(0)
 	{
 	}
-	char *data;
+	std::vector<char> data;
 	int len;
 	int dataSent;
 };

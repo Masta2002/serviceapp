@@ -42,7 +42,7 @@ void scriptrun::run(eMainloop *context)
     for (size_t i = 0;  i < m_params.size(); i++)
         args.push_back(m_params[i]);
 
-    char **cargs = (char **) malloc(sizeof(char *) * (args.size()+1));
+    std::vector<const char *> cargs(args.size()+1);
     for (size_t i=0; i <= args.size(); i++)
     {
         // execvp needs args array terminated with NULL
@@ -53,18 +53,15 @@ void scriptrun::run(eMainloop *context)
         }
         else
         {
-            cargs[i] = strdup(args[i].c_str());
+            cargs[i] = args[i].c_str();
             if (i != 0 && cargs[i][0] != '-')
                 eDebugNoNewLine("\"%s\" ", cargs[i]);
             else
                 eDebugNoNewLine("%s ", cargs[i]);
         }
     }
-    int ret = m_console->execute(context, cargs[0], cargs);
-    // vfork suspends the parent until execvp, so freeing here is safe
-    for (size_t i=0; i < args.size(); i++)
-        free(cargs[i]);
-    free(cargs);
+    // vfork suspends the parent until execvp, so args/cargs may go after this
+    int ret = m_console->execute(context, cargs[0], cargs.data());
     // if the process never started, appClosed will never fire and the
     // caller would wait forever; drive the end-of-script path ourselves
     if (ret < 0)
@@ -86,7 +83,6 @@ void scriptrun::kill()
 
 ResolveUrl::ResolveUrl(const std::string &url):
 
-    m_scriptrun(0),
     m_url(url),
     m_success(0),
     mThreadRunning(false),
@@ -107,7 +103,8 @@ ResolveUrl::~ResolveUrl()
     stop();
     pthread_mutex_destroy(&mWaitForStopMutex);
     pthread_cond_destroy(&mWaitForStopCond);
-    delete m_scriptrun;
+    // before the message pumps, as the old delete here did
+    m_scriptrun.reset();
 }
 
 void ResolveUrl::start()
@@ -122,7 +119,7 @@ void ResolveUrl::start()
     }
     params.push_back(m_url.substr(last));
 
-    m_scriptrun = new scriptrun("/etc/enigma2/script", params);
+    m_scriptrun = std::make_unique<scriptrun>("/etc/enigma2/script", params);
 
     // start player only when mainloop in player thread has started
     mMessageThread.send(Message(Message::tStart));

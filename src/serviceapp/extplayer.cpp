@@ -91,7 +91,7 @@ int PlayerApp::processStart(eMainloop *context)
 	CONNECT(console->stderrAvail, PlayerApp::stderrAvail);
 	const std::vector<std::string> args = buildCommand();
 	eDebugNoNewLine("PlayerApp::processStart: ");
-	char **cargs = (char **) malloc(sizeof(char *) * (args.size()+1));
+	std::vector<const char *> cargs(args.size()+1);
 	for (size_t i=0; i <= args.size(); i++)
 	{
 		// execvp needs args array terminated with NULL
@@ -102,17 +102,14 @@ int PlayerApp::processStart(eMainloop *context)
 		}
 		else
 		{
-			cargs[i] = strdup(args[i].c_str());
+			cargs[i] = args[i].c_str();
 			if (i != 0 && cargs[i][0] != '-')
 				eDebugNoNewLine("\"%s\" ", cargs[i]);
 			else
 				eDebugNoNewLine("%s ", cargs[i]);
 		}
 	}
-	int ret = console->execute(context, cargs[0], cargs);
-	for (size_t i=0; i < args.size(); i++)
-		free(cargs[i]);
-	free(cargs);
+	int ret = console->execute(context, cargs[0], cargs.data());
 	return ret;
 }
 
@@ -402,9 +399,7 @@ int PlayerBackend::audioSelectTrack(int trackNum)
 		/* the new track at once: the audio selection asks getCurrentTrack()
 		 * right after the switch, the answer a_s comes later and corrects
 		 * this if the switch failed */
-		if (pCurrentAudio != NULL)
-			delete pCurrentAudio;
-		pCurrentAudio = new audioStream(mAudioStreams[trackNum]);
+		pCurrentAudio = mAudioStreams[trackNum];
 		return 0;
 	}
 	return -1;
@@ -455,11 +450,7 @@ int PlayerBackend::subtitleSelectTrack(int trackNum)
 	{
 		// subtitles off: the player stops decoding and sending them
 		mMessageThread.send(Message(Message::tSubtitleSelect, -1));
-		if (pCurrentSubtitle != NULL)
-		{
-			delete pCurrentSubtitle;
-			pCurrentSubtitle = NULL;
-		}
+		pCurrentSubtitle.reset();
 		return 0;
 	}
 	if (trackNum >= 0 && trackNum < (int) mSubtitleStreams.size())
@@ -467,9 +458,7 @@ int PlayerBackend::subtitleSelectTrack(int trackNum)
 		mMessageThread.send(Message(Message::tSubtitleSelect, mSubtitleStreams[trackNum].id));
 		/* the new track at once: the GUI asks right after the selection,
 		 * the answer s_s comes later; it corrects this if it differs */
-		if (pCurrentSubtitle != NULL)
-			delete pCurrentSubtitle;
-		pCurrentSubtitle = new subtitleStream(mSubtitleStreams[trackNum]);
+		pCurrentSubtitle = mSubtitleStreams[trackNum];
 		return 0;
 	}
 	return -1;
@@ -489,7 +478,7 @@ int PlayerBackend::subtitleGetTrackInfo(subtitleStream& trackInfo, int trackNum)
 int PlayerBackend::videoGetTrackInfo(videoStream& trackInfo, int trackNum)
 {
 	eSingleLocker l_(mStreamsLock);
-	if (pCurrentVideo == NULL)
+	if (!pCurrentVideo)
 		return -1;
 	trackInfo = *pCurrentVideo;
 	return 0;
@@ -788,12 +777,7 @@ void PlayerBackend::recvAudioTrackCurrent(int status, audioStream& stream)
 	{
 		bool changed = false;
 		eSingleLocker l_(mStreamsLock);
-		if (pCurrentAudio != NULL)
-		{
-			delete pCurrentAudio;
-			pCurrentAudio = NULL;
-		}
-		pCurrentAudio = new audioStream(stream);
+		pCurrentAudio = stream;
 
 		/* the answer to the periodic "ac" carries the live channel count and
 		 * codec name; update the track list entry the track info reads */
@@ -837,12 +821,7 @@ void PlayerBackend::recvAudioTrackSelected(int status, int trackId)
 		{
 			if (trackId == i->id)
 			{
-				if (pCurrentAudio != NULL)
-				{
-					delete pCurrentAudio;
-					pCurrentAudio = NULL;
-				}
-				pCurrentAudio = new audioStream(*i);
+				pCurrentAudio = *i;
 				break;
 			}
 		}
@@ -896,12 +875,7 @@ void PlayerBackend::recvSubtitleTrackCurrent(int status, subtitleStream& stream)
 	if(!status)
 	{
 		eSingleLocker l_(mStreamsLock);
-		if (pCurrentSubtitle != NULL)
-		{
-			delete pCurrentSubtitle;
-			pCurrentSubtitle = NULL;
-		}
-		pCurrentSubtitle = new subtitleStream(stream);
+		pCurrentSubtitle = stream;
 	}
 } 
 
@@ -916,12 +890,7 @@ void PlayerBackend::recvSubtitleTrackSelected(int status, int trackId)
 		{
 			if (trackId == i->id)
 			{
-				if (pCurrentSubtitle != NULL)
-				{
-					delete pCurrentSubtitle;
-					pCurrentSubtitle = NULL;
-				}
-				pCurrentSubtitle = new subtitleStream(*i);
+				pCurrentSubtitle = *i;
 				break;
 			}
 		}
@@ -942,13 +911,9 @@ void PlayerBackend::recvVideoTrackCurrent(int status, videoStream& stream)
 	{
 		eSingleLocker l_(mStreamsLock);
 		videoStream prev;
-		if (pCurrentVideo != NULL)
-		{
+		if (pCurrentVideo)
 			prev = *pCurrentVideo;
-			delete pCurrentVideo;
-			pCurrentVideo = NULL;
-		}
-		pCurrentVideo = new videoStream(stream);
+		pCurrentVideo = stream;
 		if (stream.progressive >= 0 && prev.progressive != stream.progressive)
 			mMessageMain.send(Message(Message::videoProgressiveChanged));
 		if (stream.gamma >= 0 && prev.gamma != stream.gamma)

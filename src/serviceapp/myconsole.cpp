@@ -167,9 +167,7 @@ void eConsoleContainer::kill()
 	}
 	while( !outbuf.empty() ) // cleanup out buffer
 	{
-		queue_data d = outbuf.front();
 		outbuf.pop();
-		delete [] d.data;
 	}
 	in = 0;
 	out = 0;
@@ -241,9 +239,7 @@ void eConsoleContainer::closePipes()
 	}
 	while( outbuf.size() ) // cleanup out buffer
 	{
-		queue_data d = outbuf.front();
 		outbuf.pop();
-		delete [] d.data;
 	}
 	in = 0; out = 0; err = 0;
 	pid = -1;
@@ -312,9 +308,7 @@ void eConsoleContainer::readyErrRead(int what)
 
 void eConsoleContainer::write( const char *data, int len )
 {
-	char *tmp = new char[len];
-	memcpy(tmp, data, len);
-	outbuf.push(queue_data(tmp,len));
+	outbuf.push(queue_data(data,len));
 	if (out)
 		out->start();
 }
@@ -324,11 +318,10 @@ void eConsoleContainer::readyWrite(int what)
 	if (what&eSocketNotifier::Write && outbuf.size() )
 	{
 		queue_data &d = outbuf.front();
-		int wr = ::write( fd[1], d.data+d.dataSent, d.len-d.dataSent );
+		int wr = ::write( fd[1], d.data.data()+d.dataSent, d.len-d.dataSent );
 		if (wr < 0)
 		{
 /*			eDebug("[ServiceApp][eConsoleContainer]2 write on fd=%d failed: %m", fd[1]);  */
-			delete [] d.data;
 			outbuf.pop();
 			if ( filefd[0] == -1 )
 			/* emit */ dataSent(0);
@@ -338,7 +331,6 @@ void eConsoleContainer::readyWrite(int what)
 			d.dataSent += wr;
 			if (d.dataSent == d.len)
 			{
-				delete [] d.data;
 				outbuf.pop();
 				if ( filefd[0] == -1 )
 				/* emit */ dataSent(0);

@@ -86,8 +86,8 @@ static void updatePlayerOptions(IOption& options, const HeaderMap& headers) {
 	}
 }
 
-static BasePlayer* createPlayer(const eServiceReference& ref, const HeaderMap& headers) {
-	BasePlayer* player = NULL;
+static std::unique_ptr<BasePlayer> createPlayer(const eServiceReference& ref, const HeaderMap& headers) {
+	std::unique_ptr<BasePlayer> player;
 	if (ref.type == eServiceFactoryApp::idServiceExtEplayer3 || (ref.type == eServiceFactoryApp::idServiceMP3 && g_playerServiceMP3 == EXTEPLAYER3)) {
 		ExtEplayer3Options options;
 		if (g_useUserSettings)
@@ -97,7 +97,7 @@ static BasePlayer* createPlayer(const eServiceReference& ref, const HeaderMap& h
 		else
 			options = *g_ExtEplayer3OptionsServiceMP3;
 		updatePlayerOptions(options, headers);
-		player = new ExtEplayer3(options);
+		player = std::make_unique<ExtEplayer3>(options);
 	} else if (ref.type == eServiceFactoryApp::idServiceGstPlayer || (ref.type == eServiceFactoryApp::idServiceMP3 && g_playerServiceMP3 == GSTPLAYER)) {
 		GstPlayerOptions options;
 		if (g_useUserSettings)
@@ -107,12 +107,12 @@ static BasePlayer* createPlayer(const eServiceReference& ref, const HeaderMap& h
 		else
 			options = *g_GstPlayerOptionsServiceMP3;
 		updatePlayerOptions(options, headers);
-		player = new GstPlayer(options);
+		player = std::make_unique<GstPlayer>(options);
 	}
 	return player;
 }
 
-static eServiceAppOptions* createOptions(const eServiceReference& ref) {
+static std::unique_ptr<eServiceAppOptions> createOptions(const eServiceReference& ref) {
 	eServiceAppOptions* options = NULL;
 	switch (ref.type) {
 		case eServiceFactoryApp::idServiceMP3:
@@ -130,7 +130,7 @@ static eServiceAppOptions* createOptions(const eServiceReference& ref) {
 	if (g_useUserSettings) {
 		options = g_ServiceAppOptionsUser;
 	}
-	return new eServiceAppOptions(*options);
+	return std::make_unique<eServiceAppOptions>(*options);
 }
 
 
@@ -239,8 +239,8 @@ RESULT eServiceFactoryApp::record(const eServiceReference& ref, ePtr<iRecordable
 DEFINE_REF(eServiceApp);
 
 eServiceApp::eServiceApp(eServiceReference ref)
-	: m_ref(ref), m_subservices_checked(false), player(0), extplayer(0), m_resolver(0), m_resolve_uri("resolve://"), m_event_started(false), m_paused(false), m_debug(false), m_framerate(-1),
-	  m_width(-1), m_height(-1), m_progressive(-1), m_gamma(-1), m_subtitle_pages(0), m_selected_subtitle_track(0), m_prev_subtitle_message(0), m_prev_subtitle_fps(1), m_prev_decoder_time(-1),
+	: m_ref(ref), m_subservices_checked(false), m_resolve_uri("resolve://"), m_event_started(false), m_paused(false), m_debug(false), m_framerate(-1),
+	  m_width(-1), m_height(-1), m_progressive(-1), m_gamma(-1), m_subtitle_pages(0), m_prev_subtitle_message(0), m_prev_subtitle_fps(1), m_prev_decoder_time(-1),
 	  m_decoder_time_valid_state(0), m_cuesheet_changed(0), m_cutlist_enabled(0), m_cuesheet_loaded(false), m_is_streaming(false), m_last_seek_pos(0),
 	  m_media_length(0), m_pending_seek(-1) {
 	options = createOptions(ref);
@@ -259,7 +259,7 @@ eServiceApp::eServiceApp(eServiceReference ref)
 	}
 
 	extplayer = createPlayer(ref, getHeaders(m_ref.path));
-	player = new PlayerBackend(extplayer);
+	player = std::make_unique<PlayerBackend>(extplayer.get());
 
 	m_subtitle_widget = 0;
 	m_subtitle_sync_timer = eTimer::create(eApp);
@@ -298,11 +298,11 @@ eServiceApp::eServiceApp(eServiceReference ref)
 };
 
 eServiceApp::~eServiceApp() {
-	delete options;
-	delete player;
-	delete extplayer;
-	delete m_resolver;
-	delete m_selected_subtitle_track;
+	options.reset();
+	player.reset();
+	extplayer.reset();
+	m_resolver.reset();
+	m_selected_subtitle_track.reset();
 
 	if (m_subtitle_widget)
 		m_subtitle_widget->destroy();
@@ -1132,7 +1132,7 @@ RESULT eServiceApp::start() {
 	std::string path_str(m_ref.path);
 
 	if (path_str.find(m_resolve_uri) == 0) {
-		m_resolver = new ResolveUrl(m_ref.path.substr(m_resolve_uri.size()));
+		m_resolver = std::make_unique<ResolveUrl>(m_ref.path.substr(m_resolve_uri.size()));
 		CONNECT(m_resolver->urlResolved, eServiceApp::urlResolved);
 		m_resolver->start();
 		return 0;
@@ -1278,14 +1278,14 @@ void eServiceApp::liveReconnect() {
 	m_decoder_video_timer->stop();
 	if (m_resolver) {
 		m_resolver->stop();
-		delete m_resolver;
-		m_resolver = NULL;
+		m_resolver.reset();
 	}
 	/* a resolved url may have expired, resolve it again */
 	m_ref.path = m_start_path;
 	player->stop();
-	delete player;
-	delete extplayer;
+	/* the old players go before the new one is created */
+	player.reset();
+	extplayer.reset();
 	extplayer = createPlayer(m_ref, getHeaders(m_ref.path));
 	if (extplayer && m_ffmpeg_reconnect) {
 		/* FFmpeg reconnects it itself from now on; watch for a film that
@@ -1294,7 +1294,7 @@ void eServiceApp::liveReconnect() {
 		m_max_position = 0;
 		m_live_check_timer->start(1000, false);
 	}
-	player = new PlayerBackend(extplayer);
+	player = std::make_unique<PlayerBackend>(extplayer.get());
 	CONNECT(player->gotPlayerMessage, eServiceApp::gotExtPlayerMessage);
 	m_player_started = false;
 	m_paused = false;
@@ -1558,8 +1558,7 @@ RESULT eServiceApp::enableSubtitles(iSubtitleUser* user, struct SubtitleTrack& t
 	m_subtitle_sync_timer->stop();
 	m_prev_subtitle_message = NULL;
 	m_subtitle_pages = NULL;
-	delete m_selected_subtitle_track;
-	m_selected_subtitle_track = NULL;
+	m_selected_subtitle_track.reset();
 
 	m_decoder_time_valid_state = 0;
 	m_prev_decoder_time = -1;
@@ -1594,7 +1593,7 @@ RESULT eServiceApp::enableSubtitles(iSubtitleUser* user, struct SubtitleTrack& t
 	// own a standalone copy: getSubtitleList() clears m_subtitle_tracks
 	// while playing (the UI calls it to repopulate), which would leave a
 	// pointer into freed vector storage dangling -> UAF in pushSubtitles.
-	m_selected_subtitle_track = new SubtitleTrack(m_subtitle_tracks[track_pos]);
+	m_selected_subtitle_track = std::make_unique<SubtitleTrack const>(m_subtitle_tracks[track_pos]);
 	m_subtitle_widget = user;
 	/* forced only: the track the "Forced only" auto mode picked for its
 	 * forced pictures; any other selection shows the whole track again */
@@ -1620,8 +1619,7 @@ RESULT eServiceApp::disableSubtitles() {
 			removeSubtitleFiles(pulled.front());
 	}
 	m_subtitle_pages = NULL;
-	delete m_selected_subtitle_track;
-	m_selected_subtitle_track = NULL;
+	m_selected_subtitle_track.reset();
 	if (m_subtitle_widget)
 		m_subtitle_widget->destroy();
 	m_subtitle_widget = 0;
