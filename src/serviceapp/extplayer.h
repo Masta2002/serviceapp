@@ -6,8 +6,12 @@
 #include <lib/base/thread.h>
 #include <lib/python/connections.h>
 
+#include <atomic>
 #include <map>
 #include <optional>
+#include <pthread.h>
+#include <stdint.h>
+#include <time.h>
 
 #include "cJSON/cJSON.h"
 #include "myconsole.h"
@@ -34,6 +38,13 @@ static inline std::string cJsonGetStr(cJSON *obj, const char *key)
 #ifndef eLog
  #define eLog(lvl,...)
 #endif
+
+/* the signal that ended the player: eConsoleContainer reports 128 + signal
+ * number (as a shell does), 0 for a normal exit */
+static inline int exitSignal(int exitCode)
+{
+	return (exitCode > 128 && exitCode <= 128 + 64) ? exitCode - 128 : 0;
+}
 
 enum
 {
@@ -364,10 +375,22 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 	pthread_mutex_t mWaitForStopMutex;
 	pthread_cond_t mWaitForStopCond;
 	bool mWaitForStop;
+	// the player process has ended (recvStopped, or it never started);
+	// set under mWaitForStopMutex, read without it by the send paths
+	std::atomic<bool> mProcessEnded;
+	// stop() was called: a signal that ends the player then is ours
+	std::atomic<bool> mStopRequested;
+	// the player answered "l" with length 0 (live): ask less often
+	std::atomic<bool> mLengthZero;
+	int64_t mLastLengthAsk; // main thread only, monotonic ms
 
 	void gotMessage(const Message &message);
 	void _updatePosition();
 
+	// the backend loop runs and the player has not ended
+	bool canPost() const { return mThreadRunning && !mProcessEnded; }
+	// a t* message to the backend loop, false (not sent) without a player
+	bool postToPlayer(const Message& m);
 	void sendMessage(const Message& m, int timeout=0);
 	void recvMessage();
 
@@ -380,7 +403,12 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 	void recvStopped(int status);
 	void recvPaused(int status);
 	void recvResumed(int status);
-	void recvLength(int status, int mseconds){ if (!status) mLengthInMs = mseconds; }
+	void recvLength(int status, int mseconds){
+		if (status)
+			return;
+		mLengthInMs = mseconds;
+		mLengthZero = mseconds <= 0;
+	}
 	void recvPosition(int status, int mseconds){ if (!status) mPositionInMs = mseconds; }
 	void recvAudioTracksList(int status, std::vector<audioStream>& streams);
 	void recvAudioTrackCurrent(int status, audioStream& stream);
@@ -438,16 +466,26 @@ public:
 		mMessageThread(this, 1, "extplayer"),
 		mTimerDelay(100), // updated play position timer
 		mWaitForUpdate(false),
-		mWaitForStop(false)
+		mWaitForStop(false),
+		mProcessEnded(false),
+		mStopRequested(false),
+		mLengthZero(false),
+		mLastLengthAsk(0)
 
 	{
 		pPlayer->setCallback(this);
 		CONNECT(mMessageThread.recv_msg, PlayerBackend::gotMessage);
 		CONNECT(mMessageMain.recv_msg, PlayerBackend::gotMessage);
+		/* the timed waits use CLOCK_MONOTONIC: a step of the wall clock
+		 * (DVB TDT, NTP) neither cuts them short nor stretches them */
+		pthread_condattr_t attr;
+		pthread_condattr_init(&attr);
+		pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
 		pthread_mutex_init(&mWaitMutex, NULL);
-		pthread_cond_init(&mWaitCond, NULL);
+		pthread_cond_init(&mWaitCond, &attr);
 		pthread_mutex_init(&mWaitForStopMutex, NULL);
-		pthread_cond_init(&mWaitForStopCond, NULL);
+		pthread_cond_init(&mWaitForStopCond, &attr);
+		pthread_condattr_destroy(&attr);
 	}
 	~PlayerBackend()
 	{
@@ -475,8 +513,7 @@ public:
 	int subtitleForcedOnly(bool on){
 		if (!pPlayer->canForcedOnly())
 			return -1;
-		mMessageThread.send(Message(Message::tSubtitleForcedOnly, on ? 1 : 0));
-		return 0;
+		return postToPlayer(Message(Message::tSubtitleForcedOnly, on ? 1 : 0)) ? 0 : -1;
 	}
 	int audioSelectChannel(int channel);
 	int audioGetChannel() const { return mAudioChannel; }
@@ -514,6 +551,9 @@ public:
 	PSignal1<void,int> gotPlayerMessage;
 };
 
+/* a timed wait in a thread of its own; PlayerBackend waits on the calling
+ * thread now, ResolveUrl (scriptrun) still uses this. Its cond is made with
+ * the default clock, CLOCK_REALTIME. */
 class WaitThread: public eThread
 {
 	bool& waitForUpdate;

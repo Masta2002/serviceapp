@@ -1,9 +1,12 @@
+#include <errno.h>
+#include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
 #include <extplayer.h>
 #include <cJSON/cJSON.h>
 #include <error.h>
+#include "common.h"
 
 void PlayerApp::handleJsonStr(const std::string& data)
 {
@@ -169,57 +172,84 @@ bool PlayerApp::processRunning()
 }
 
 
-void WaitThread::thread()
+static int64_t monotonicMs()
 {
-	hasStarted();
-	pthread_mutex_lock(&mutex);
-	if (!waitForUpdate)
-	{
-		eDebug("WaitThread - not waiting");
-		goto unlock;
-	}
 	struct timespec ts;
-	if (clock_gettime(CLOCK_REALTIME, &ts) == -1)
-	{
-		perror("WaitThread - cannot get clock:");
-		goto unlock;
-	}
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+/* Waits on the calling thread until the backend thread clears flag (and
+ * signals cond), at most timeout ms; false on a timeout, the flag is cleared
+ * then, so a late answer finds nobody waiting. A loop on the flag: a single
+ * pthread_cond_timedwait took a spurious wakeup for "in time" (stop() then
+ * joined a running player, the GUI froze). The conds use CLOCK_MONOTONIC.
+ * Before, a pthread was created for every wait. */
+static bool waitForClear(pthread_mutex_t &mutex, pthread_cond_t &cond, bool &flag, long timeout, clockid_t clock = CLOCK_MONOTONIC)
+{
+	struct timespec ts;
+	clock_gettime(clock, &ts);
 	ts.tv_sec += timeout / 1000;
-	ts.tv_nsec += (timeout % 1000) * 1000000;
-	// normalise: pthread_cond_timedwait requires tv_nsec in [0, 1e9); an
-	// unnormalised value returns EINVAL immediately (mistaken for "in time")
+	ts.tv_nsec += (timeout % 1000) * 1000000L;
+	// pthread_cond_timedwait requires tv_nsec in [0, 1e9)
 	if (ts.tv_nsec >= 1000000000L)
 	{
 		ts.tv_sec += ts.tv_nsec / 1000000000L;
 		ts.tv_nsec %= 1000000000L;
 	}
-	eDebug("WaitThread - waiting for %ldms", timeout);
-	if (pthread_cond_timedwait(&cond, &mutex, &ts) == ETIMEDOUT)
+	bool cleared = true;
+	pthread_mutex_lock(&mutex);
+	while (flag)
 	{
-		eDebug("WaitThread - timed out");
-		waitForUpdate = false;
-		timedOut = true;
-		goto unlock;
+		int ret = pthread_cond_timedwait(&cond, &mutex, &ts);
+		if (ret != 0 && ret != EINTR && flag)
+		{
+			// ETIMEDOUT (or an error that would only repeat)
+			flag = false;
+			cleared = false;
+			break;
+		}
 	}
-	eDebug("WaitThread - in time\n");
-unlock:
 	pthread_mutex_unlock(&mutex);
+	return cleared;
 }
 
+void WaitThread::thread()
+{
+	hasStarted();
+	/* in a loop on the flag as well: a spurious wakeup is no answer */
+	timedOut = !waitForClear(mutex, cond, waitForUpdate, timeout, CLOCK_REALTIME);
+}
+
+bool PlayerBackend::postToPlayer(const Message& m)
+{
+	/* the loop of an ended player takes no more messages: they piled up in
+	 * mMessageThread for good (a live stream's getLength on every poll) */
+	if (!canPost())
+		return false;
+	mMessageThread.send(m);
+	return true;
+}
 
 void PlayerBackend::sendMessage(const Message& m, int timeout)
 {
+	if (!canPost())
+		return;
 	if (timeout > 0)
 	{
+		pthread_mutex_lock(&mWaitMutex);
 		mWaitForUpdate = true;
-		WaitThread t(mWaitMutex, mWaitCond, mWaitForUpdate, timeout);
-		t.run();
+		pthread_mutex_unlock(&mWaitMutex);
 		mMessageThread.send(m);
-		t.kill();
+		bool inTime = waitForClear(mWaitMutex, mWaitCond, mWaitForUpdate, timeout);
+		if (mDebug)
+			eDebug("PlayerBackend::sendMessage - answer %s", inTime ? "in time" : "timed out");
 	}
 	else
 	{
+		pthread_mutex_lock(&mWaitMutex);
 		mWaitForUpdate = false;
+		pthread_mutex_unlock(&mWaitMutex);
 		mMessageThread.send(m);
 	}
 }
@@ -230,7 +260,7 @@ void PlayerBackend::recvMessage()
 	if (mWaitForUpdate)
 	{
 		mWaitForUpdate = false;
-		pthread_cond_signal(&mWaitCond);
+		pthread_cond_broadcast(&mWaitCond);
 	}
 	pthread_mutex_unlock(&mWaitMutex);
 }
@@ -258,26 +288,32 @@ int PlayerBackend::start(const std::string& path, const std::map<std::string,std
 	run();
 	return 0;
 }
+/* arms the stop wait unless the player has ended already; false: ended */
+static bool armStopWait(pthread_mutex_t &mutex, bool &waitForStop, const std::atomic<bool> &ended)
+{
+	pthread_mutex_lock(&mutex);
+	bool arm = !ended;
+	waitForStop = arm;
+	pthread_mutex_unlock(&mutex);
+	return arm;
+}
+
 int PlayerBackend::stop()
 {
-	if (mThreadRunning)
+	mStopRequested = true;
+	/* a player that has ended already (recvStopped ran, the loop is about to
+	 * quit) answers no "q": the 3 + 2 s waits only blocked the GUI */
+	if (mThreadRunning && armStopWait(mWaitForStopMutex, mWaitForStop, mProcessEnded))
 	{
-		// wait 10 seconds for normal exit if timed out then kill process
-		mWaitForStop = true;
-		WaitThread t(mWaitForStopMutex, mWaitForStopCond, mWaitForStop, 3000);
-		t.run();
+		// wait 3 seconds for a normal exit, then SIGINT, then SIGKILL
 		mMessageThread.send(Message(Message::tStop));
-		t.kill();
-		if (t.isTimedOut())
+		if (!waitForClear(mWaitForStopMutex, mWaitForStopCond, mWaitForStop, 3000)
+			&& armStopWait(mWaitForStopMutex, mWaitForStop, mProcessEnded))
 		{
 			/* the join in kill() blocks the main loop until the app ends,
 			 * a SIGKILL follows when it ignores SIGINT */
-			mWaitForStop = true;
-			WaitThread t2(mWaitForStopMutex, mWaitForStopCond, mWaitForStop, 2000);
-			t2.run();
 			mMessageThread.send(Message(Message::tKill));
-			t2.kill();
-			if (t2.isTimedOut())
+			if (!waitForClear(mWaitForStopMutex, mWaitForStopCond, mWaitForStop, 2000))
 			{
 				mMessageThread.send(Message(Message::tForceKill));
 			}
@@ -291,48 +327,42 @@ int PlayerBackend::pause()
 {
 	if (!playbackStarted)
 		return -1;
-	mMessageThread.send(Message(Message::tPause));
-	return 0;
+	return postToPlayer(Message(Message::tPause)) ? 0 : -1;
 }
 
 int PlayerBackend::fastForward(int speed)
 {
 	if (!playbackStarted || !pPlayer->canWind())
 		return -1;
-	mMessageThread.send(Message(Message::tFastForward, speed));
-	return 0;
+	return postToPlayer(Message(Message::tFastForward, speed)) ? 0 : -1;
 }
 
 int PlayerBackend::resume()
 {
 	if (!playbackStarted)
 		return -1;
-	mMessageThread.send(Message(Message::tResume));
-	return 0;
+	return postToPlayer(Message(Message::tResume)) ? 0 : -1;
 }
 
 int PlayerBackend::seekTo(int seconds)
 {
 	if (!playbackStarted)
 		return -1;
-	mMessageThread.send(Message(Message::tSeekTo, seconds));
-	return 0;
+	return postToPlayer(Message(Message::tSeekTo, seconds)) ? 0 : -1;
 }
 
 int PlayerBackend::seekToMs(int mseconds)
 {
 	if (!playbackStarted)
 		return -1;
-	mMessageThread.send(Message(Message::tSeekToMs, mseconds));
-	return 0;
+	return postToPlayer(Message(Message::tSeekToMs, mseconds)) ? 0 : -1;
 }
 
 int PlayerBackend::seekRelative(int seconds)
 {
 	if (!playbackStarted)
 		return -1;
-	mMessageThread.send(Message(Message::tSeekRelative, seconds));
-	return 0;
+	return postToPlayer(Message(Message::tSeekRelative, seconds)) ? 0 : -1;
 }
 
 int PlayerBackend::getPlayPosition(int& mseconds)
@@ -356,12 +386,18 @@ int PlayerBackend::getLength(int& mseconds)
 	{
 		return -1;
 	}
-	if (!mLengthInMs) 
+	int length = mLengthInMs;
+	if (!length)
 	{
-		mMessageThread.send(Message(Message::tGetLength));
+		/* the GUI polls this several times a second; a live stream has no
+		 * length: once the player answered 0, ask only every 5 s (a length
+		 * may still come), before the first answer every 0.5 s */
+		int64_t now = monotonicMs();
+		if (now - mLastLengthAsk >= (mLengthZero ? 5000 : 500) && postToPlayer(Message(Message::tGetLength)))
+			mLastLengthAsk = now;
 		return -2;
 	}
-	mseconds = mLengthInMs;
+	mseconds = length;
 	return 0;
 }
 
@@ -409,8 +445,7 @@ int PlayerBackend::audioSelectChannel(int channel)
 	if (channel < 0 || channel > 2 || !pPlayer->canSelectChannel())
 		return -1;
 	mAudioChannel = channel;
-	mMessageThread.send(Message(Message::tAudioChannel, channel));
-	return 0;
+	return postToPlayer(Message(Message::tAudioChannel, channel)) ? 0 : -1;
 }
 
 int PlayerBackend::audioSelectTrack(int trackNum)
@@ -418,7 +453,7 @@ int PlayerBackend::audioSelectTrack(int trackNum)
 	eSingleLocker l_(mStreamsLock);
 	if (trackNum >= 0 && trackNum < (int) mAudioStreams.size())
 	{
-		mMessageThread.send(Message(Message::tAudioSelect, mAudioStreams[trackNum].id));
+		postToPlayer(Message(Message::tAudioSelect, mAudioStreams[trackNum].id));
 		/* the new track at once: the audio selection asks getCurrentTrack()
 		 * right after the switch, the answer a_s comes later and corrects
 		 * this if the switch failed */
@@ -472,13 +507,13 @@ int PlayerBackend::subtitleSelectTrack(int trackNum)
 	if (trackNum == -1)
 	{
 		// subtitles off: the player stops decoding and sending them
-		mMessageThread.send(Message(Message::tSubtitleSelect, -1));
+		postToPlayer(Message(Message::tSubtitleSelect, -1));
 		pCurrentSubtitle.reset();
 		return 0;
 	}
 	if (trackNum >= 0 && trackNum < (int) mSubtitleStreams.size())
 	{
-		mMessageThread.send(Message(Message::tSubtitleSelect, mSubtitleStreams[trackNum].id));
+		postToPlayer(Message(Message::tSubtitleSelect, mSubtitleStreams[trackNum].id));
 		/* the new track at once: the GUI asks right after the selection,
 		 * the answer s_s comes later; it corrects this if it differs */
 		pCurrentSubtitle = mSubtitleStreams[trackNum];
@@ -517,6 +552,9 @@ void PlayerBackend::gotMessage(const PlayerBackend::Message& message)
 				eDebug("PlayerBackend::gotMessage - tStart");
 			if (pPlayer->start(this) < 0)
 			{
+				pthread_mutex_lock(&mWaitForStopMutex);
+				mProcessEnded = true; // stop() has nothing to wait for
+				pthread_mutex_unlock(&mWaitForStopMutex);
 				quit(0);
 				mMessageMain.send(Message(Message::stop));
 			}
@@ -733,14 +771,38 @@ void PlayerBackend::recvStarted(int status)
 void PlayerBackend::recvStopped(int retval)
 {
 	pthread_mutex_lock(&mWaitForStopMutex);
+	mProcessEnded = true;
 	if (mWaitForStop)
 	{
 		mWaitForStop = false;
-		pthread_cond_signal(&mWaitForStopCond);
+		pthread_cond_broadcast(&mWaitForStopCond);
 	}
 	pthread_mutex_unlock(&mWaitForStopMutex);
 	if(mDebug)
 		eDebug("PlayerBackend::recvStopped - retval = %d", retval);
+	int sig = exitSignal(retval);
+	if (sig && !mStopRequested)
+	{
+		/* killed by a signal (SIGSEGV, the OOM killer) without our stop: an
+		 * error, not the end of the stream; a live stream counts it as a lost
+		 * connection. An error the player reported itself is kept. */
+		bool reported;
+		{
+			eSingleLocker l_(mStreamsLock);
+			reported = pErrorMessage.has_value();
+		}
+		if (!reported)
+		{
+			errorMessage e;
+			char buf[128];
+			/* TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL) */
+			snprintf(buf, sizeof(buf), SAPP_TR("player ended by signal %d"), sig);
+			e.code = retval;
+			e.message = buf;
+			eWarning("PlayerBackend::recvStopped - player ended by signal %d", sig);
+			recvErrorMessage(e);
+		}
+	}
 	mExitCode = retval;
 	quit(0);
 	mMessageMain.send(Message(Message::stop));

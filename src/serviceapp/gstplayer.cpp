@@ -189,7 +189,9 @@ int GstPlayer::sendSeekRelative(int seconds)
 
 void GstPlayer::handleProcessStopped(int retval)
 {
-	recvStopped(0);
+	/* the exit codes of gstplayer are not used, but a death by a signal
+	 * (128 + n) is an error and not the end of the stream */
+	recvStopped(exitSignal(retval) ? retval : 0);
 }
 
 void GstPlayer::handleJsonOutput(cJSON *json)
