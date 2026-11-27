@@ -528,9 +528,11 @@ int PlayerBackend::subtitleGetNumberOfTracks(int timeout)
 		return count;
 	if (timeout == 0)
 	{
-		/* asynchronous: an answer that changes the list comes as
+		/* asynchronous, only while no list is known (the player pushes its
+		 * changes): an answer that changes the list comes as
 		 * subtitleTracksChanged */
-		sendListRequest(Message(Message::tSubtitleList), mWaitForSubtitleList, 0);
+		if (!known)
+			sendListRequest(Message(Message::tSubtitleList), mWaitForSubtitleList, 0);
 		return count;
 	}
 	if (known || !playbackStarted)

@@ -74,6 +74,11 @@ class eServiceApp : public sigc::trackable,
 
 	std::vector<SubtitleTrack> m_subtitle_tracks;
 	std::vector<subtitleStream> m_subtitle_streams;
+	/* the external .srt tracks (name, path), scanned once per start */
+	std::vector<std::pair<std::string, std::string>> m_external_subtitles;
+	bool m_external_subtitles_scanned = false;
+	void scanExternalSubtitles();
+	RESULT fillSubtitleList(std::vector<SubtitleTrack>& subtitlelist, int timeout);
 
 	subtitle_pages_map m_embedded_subtitle_pages;
 	subtitle_pages_map const* m_subtitle_pages;

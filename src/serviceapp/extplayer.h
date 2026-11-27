@@ -570,7 +570,8 @@ public:
 	 * seek bar), 100 ms while subtitles are shown (their timing) */
 	void setPositionInterval(int ms);
 	/* timeout < 0: the cached count only; 0: also ask the player without
-	 * waiting; > 0: wait (at most 200 ms) only while no list is known */
+	 * waiting (subtitles: only while no list is known); > 0: wait (at most
+	 * 200 ms) only while no list is known */
 	int audioGetNumberOfTracks(int timeout=0);
 	int audioSelectTrack(int trackId);
 	int audioGetTrackInfo(audioStream& trackInfo, int trackId);

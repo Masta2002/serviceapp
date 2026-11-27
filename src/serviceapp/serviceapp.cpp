@@ -1219,6 +1219,8 @@ RESULT eServiceApp::start() {
 		loadCuesheet();
 	/* a "forced only" pick of getCachedSubtitle() is for one enableSubtitles() */
 	m_forced_only_pid = -1;
+	/* the .srt files are looked for again once per start */
+	m_external_subtitles_scanned = false;
 	std::string path_str(m_ref.path);
 
 	if (path_str.find(m_resolve_uri) == 0) {
@@ -1545,7 +1547,9 @@ void eServiceApp::saveAudioTrack(int track) {
 }
 
 int eServiceApp::getNumberOfTracks() {
-	eDebug("eServiceApp::getNumberOfTracks");
+	/* polled by the GUI: logged only in debug mode */
+	if (m_debug)
+		eDebug("eServiceApp::getNumberOfTracks");
 	return player->audioGetNumberOfTracks(500);
 }
 
@@ -1570,7 +1574,8 @@ RESULT eServiceApp::selectTrack(unsigned int i) {
 }
 
 RESULT eServiceApp::getTrackInfo(iAudioTrackInfo& trackInfo, unsigned int n) {
-	eDebug("eServiceApp::getTrackInfo = %d", n);
+	if (m_debug)
+		eDebug("eServiceApp::getTrackInfo = %d", n);
 	audioStream track;
 	if (player->audioGetTrackInfo(track, n) < 0) {
 		return -1;
@@ -1788,7 +1793,9 @@ RESULT eServiceApp::getCachedSubtitle(struct SubtitleTrack& track) {
 		return -1;
 	}
 	std::vector<struct SubtitleTrack> tracks;
-	if (getSubtitleList(tracks) < 0 || tracks.empty()) {
+	/* no blocking wait: the InfoBar asks on every evUpdatedInfo; an unknown
+	 * list is requested, an answer that changes it sends evUpdatedInfo */
+	if (fillSubtitleList(tracks, 0) < 0 || tracks.empty()) {
 		eDebug("eServiceApp::getCachedSubtitle - no subtitles available");
 		return -1;
 	}
@@ -1901,22 +1908,15 @@ RESULT eServiceApp::getCachedSubtitle(struct SubtitleTrack& track) {
 }
 
 RESULT eServiceApp::getSubtitleList(std::vector<struct SubtitleTrack>& subtitlelist) {
-	m_subtitle_tracks.clear();
-	m_subtitle_streams.clear();
-	int embedded_track_num = player->subtitleGetNumberOfTracks(500);
-	eDebug("eServiceApp::getSubtitleList - found embedded tracks (%d)", embedded_track_num);
-	int pid = 0;
-	for (; pid < embedded_track_num; pid++) {
-		subtitleStream s;
-		if (player->subtitleGetTrackInfo(s, pid) == 0) {
-			addEmbeddedTrack(subtitlelist, s, pid);
-		}
-	}
-	if (m_is_streaming) {
-		/* no .srt next to a url: listDir("http://...") only logs an error
-		 * with the stream url on every call */
-		return 0;
-	}
+	return fillSubtitleList(subtitlelist, 500);
+}
+
+/* the .srt files next to a local file and in its Subs directory: scanned once
+ * per start, the GUI asks for the list often (a stat() per directory entry,
+ * thousands in a movie directory, in the GUI thread every time) */
+void eServiceApp::scanExternalSubtitles() {
+	m_external_subtitles.clear();
+	m_external_subtitles_scanned = true;
 	std::string basename, extension;
 	splitExtension(m_ref.path, basename, extension);
 	std::string subtitle_path(basename + ".srt");
@@ -1931,7 +1931,7 @@ RESULT eServiceApp::getSubtitleList(std::vector<struct SubtitleTrack>& subtitlel
 	//
 	// - probably whole thing should be moved to manager
 	if (!access(subtitle_path.c_str(), F_OK)) {
-		addExternalTrack(subtitlelist, pid++, filename, subtitle_path);
+		m_external_subtitles.push_back(std::make_pair(filename, subtitle_path));
 	}
 	std::vector<std::string> directories, files;
 	if (listDir(dirname, &files, &directories) == 0) {
@@ -1942,7 +1942,7 @@ RESULT eServiceApp::getSubtitleList(std::vector<struct SubtitleTrack>& subtitlel
 				for (it = subsdir_files.begin(); it != subsdir_files.end(); it++) {
 					splitExtension(*it, basename, extension);
 					if (extension == ".srt") {
-						addExternalTrack(subtitlelist, pid++, basename, dirname + "/Subs/" + *it);
+						m_external_subtitles.push_back(std::make_pair(basename, dirname + "/Subs/" + *it));
 					}
 				}
 			}
@@ -1951,11 +1951,37 @@ RESULT eServiceApp::getSubtitleList(std::vector<struct SubtitleTrack>& subtitlel
 			splitExtension(*it, basename, extension);
 			std::string path = dirname + "/" + *it;
 			if (extension == ".srt" && subtitle_path != path) {
-				addExternalTrack(subtitlelist, pid++, basename, path);
+				m_external_subtitles.push_back(std::make_pair(basename, path));
 			}
 		}
 	}
-	eDebug("eServiceApp::getSubtitleList - found external tracks (%d)", pid - embedded_track_num);
+}
+
+/* timeout of PlayerBackend::subtitleGetNumberOfTracks: 0 never waits */
+RESULT eServiceApp::fillSubtitleList(std::vector<struct SubtitleTrack>& subtitlelist, int timeout) {
+	m_subtitle_tracks.clear();
+	m_subtitle_streams.clear();
+	int embedded_track_num = player->subtitleGetNumberOfTracks(timeout);
+	if (m_debug)
+		eDebug("eServiceApp::getSubtitleList - found embedded tracks (%d)", embedded_track_num);
+	int pid = 0;
+	for (; pid < embedded_track_num; pid++) {
+		subtitleStream s;
+		if (player->subtitleGetTrackInfo(s, pid) == 0) {
+			addEmbeddedTrack(subtitlelist, s, pid);
+		}
+	}
+	if (m_is_streaming) {
+		/* no .srt next to a url: listDir("http://...") only logs an error
+		 * with the stream url on every call */
+		return 0;
+	}
+	if (!m_external_subtitles_scanned)
+		scanExternalSubtitles();
+	for (size_t i = 0; i < m_external_subtitles.size(); i++)
+		addExternalTrack(subtitlelist, pid++, m_external_subtitles[i].first, m_external_subtitles[i].second);
+	if (m_debug)
+		eDebug("eServiceApp::getSubtitleList - found external tracks (%d)", pid - embedded_track_num);
 	return 0;
 }
 
@@ -1967,12 +1993,16 @@ int eServiceApp::getNumberOfSubservices() {
 		fillSubservices();
 		m_subservices_checked = true;
 	}
-	eDebug("eServiceApp::getNumberOfSubservices - %zu", m_subserviceref_vec.size());
+	if (m_debug)
+		eDebug("eServiceApp::getNumberOfSubservices - %zu", m_subserviceref_vec.size());
 	return m_subserviceref_vec.size();
 }
 
 RESULT eServiceApp::getSubservice(eServiceReference& subservice, unsigned int n) {
-	eDebug("eServiceApp::getSubservice - %u", n);
+	if (m_debug)
+		eDebug("eServiceApp::getSubservice - %u", n);
+	if (n >= m_subserviceref_vec.size())
+		return -1;
 	subservice = m_subserviceref_vec[n];
 	return 0;
 }
@@ -2343,24 +2373,34 @@ void eServiceApp::saveCuesheet() {
 	getPlayPosition(tmp);
 	getLength(tmp);
 
-	/* save old CUT_TYPE_LAST as CUT_TYPE_SAVEDLAST before replacing it */
-	pts_t old_last = 0;
-	for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end();) {
-		if (i->what == 3) { /* CUT_TYPE_LAST */
-			old_last = i->where;
-			i = m_cue_entries.erase(i);
-		} else if (i->what == 4) /* CUT_TYPE_SAVEDLAST */
-			i = m_cue_entries.erase(i);
-		else
-			++i;
-	}
-	if (old_last > 0)
-		m_cue_entries.insert(cueEntry(old_last, 4));
+	/* a resume seek the player has not applied yet is where the user is */
+	pts_t position = m_pending_seek >= 0 ? m_pending_seek : m_last_seek_pos;
+	bool started = m_player_started || m_pending_seek >= 0;
+	bool near_end = m_media_length > 0 && position >= m_media_length - RESUME_END_MARGIN;
+	/* the player never started, or the user left within the first 10 s:
+	 * the old resume point stays (it was erased and not written again) */
+	bool keep_last = (m_cutlist_enabled & 2) == 0 && (!started || position <= 900000) && !near_end;
 
-	/* no resume position near the end: the next start begins from 0 */
-	if ((m_cutlist_enabled & 2) == 0 && m_last_seek_pos > 900000 && (m_media_length <= 0 || m_last_seek_pos < m_media_length - RESUME_END_MARGIN)) {
-		m_cue_entries.insert(cueEntry(m_last_seek_pos, 3));
-		eDebug("eServiceApp::saveCuesheet - last play position saved: %lld", (long long)m_last_seek_pos);
+	if (!keep_last) {
+		/* save old CUT_TYPE_LAST as CUT_TYPE_SAVEDLAST before replacing it */
+		pts_t old_last = 0;
+		for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end();) {
+			if (i->what == 3) { /* CUT_TYPE_LAST */
+				old_last = i->where;
+				i = m_cue_entries.erase(i);
+			} else if (i->what == 4) /* CUT_TYPE_SAVEDLAST */
+				i = m_cue_entries.erase(i);
+			else
+				++i;
+		}
+		if (old_last > 0)
+			m_cue_entries.insert(cueEntry(old_last, 4));
+
+		/* no resume position near the end: the next start begins from 0 */
+		if ((m_cutlist_enabled & 2) == 0 && position > 900000 && !near_end) {
+			m_cue_entries.insert(cueEntry(position, 3));
+			eDebug("eServiceApp::saveCuesheet - last play position saved: %lld", (long long)position);
+		}
 	}
 
 	/* update CUT_TYPE_LENGTH with the media length */
@@ -2760,9 +2800,10 @@ static PyMethodDef serviceappMethods[] = {
 	 " bufferSize - in kilobytes\n"
 	 " bufferDuration - in seconds\n"},
 	{"exteplayer3_set_setting", exteplayer3_set_setting, METH_VARARGS,
-	 "set exteplayer3 settings (setting_id, aacSwDecoding, dtsSwDecoding, wmaSwDecoding, lpcmInjection, downmix, ac3SwDecoding, eac3SwDecoding, mp3SwDecoding, rtmpProtocol)\n\n"
+	 "set exteplayer3 settings (setting_id, aacSwDecoding, dtsSwDecoding, wmaSwDecoding, lpcmInjection, downmix, ac3SwDecoding, eac3SwDecoding, mp3SwDecoding, rtmpProtocol"
+	 "[, dtsAc3, truehdAc3, heaacAacLc, dtsEac3, truehdEac3, hlsQuality, hlsDefaultAudio, coverPath, graphicSubDir])\n\n"
 	 " setting_id - (0 - servicemp3, 1 - servicegst, 2 - serviceextep3, 3 - user)\n"
-	 " aacSwDecoding - (True, False)\n"
+	 " aacSwDecoding - (0 off, 1 ADTS, 2 LATM)\n"
 	 " dtsSwDecoding - (True, False)\n"
 	 " wmaSwDecoding - (True, False)\n"
 	 " lpcmInjection - (True, False)\n"
@@ -2770,7 +2811,15 @@ static PyMethodDef serviceappMethods[] = {
 	 " ac3SwDecoding - (True, False)\n"
 	 " eac3SwDecoding - (True, False)\n"
 	 " mp3SwDecoding - (True, False)\n"
-	 " rtmpProtocol - (0|1|2)\n"},
+	 " rtmpProtocol - (0|1|2)\n"
+	 " optional, only for a player that knows them:\n"
+	 " dtsAc3, truehdAc3 - transcode DTS / TrueHD to AC3 (True, False; exteplayer3 187 \"xcode\" & 1)\n"
+	 " heaacAacLc - HE-AAC as AAC-LC (True, False; \"xcode\" & 2)\n"
+	 " dtsEac3, truehdEac3 - transcode DTS / TrueHD to E-AC3 (True, False; \"xcode\" & 4)\n"
+	 " hlsQuality - HLS variant (0 auto, 1 lowest, 2 highest; exteplayer3 185)\n"
+	 " hlsDefaultAudio - only the default HLS audio rendition (0|1; exteplayer3 185)\n"
+	 " coverPath - file for the embedded cover (None or \"\" off)\n"
+	 " graphicSubDir - graphic subtitles as PNG files below this /tmp directory (None or \"\" off; exteplayer3 63)\n"},
 	{"can_record", serviceapp_can_record, METH_NOARGS, "recording of 5001/5002 streams is available"},
 	{"version", serviceapp_version, METH_NOARGS, "version of serviceapp (AC_INIT of configure.ac)"},
 	{"serviceapp_set_setting", serviceapp_set_setting, METH_VARARGS,
