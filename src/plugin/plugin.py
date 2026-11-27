@@ -432,8 +432,8 @@ class ServiceAppDetectPlayers(Screen):
 			print("[ServiceApp] cannot detect gstplayer version(1)!")
 			return
 		try:
-			GSTPLAYER_VERSION = jsondata["GSTPLAYER_EXTENDED"]["version"]
-		except KeyError:
+			GSTPLAYER_VERSION = int(jsondata["GSTPLAYER_EXTENDED"]["version"])
+		except (KeyError, TypeError, ValueError):
 			print("[ServiceApp] cannot detect gstplayer version(2)!")
 		else:
 			print("[ServiceApp] found gstplayer - %d version" % GSTPLAYER_VERSION)
@@ -446,9 +446,13 @@ class ServiceAppDetectPlayers(Screen):
 			EXTEPLAYER3_CAPS = {}
 			print("[ServiceApp] cannot detect exteplayer3 version!")
 		else:
+			changed = caps != EXTEPLAYER3_CAPS
 			EXTEPLAYER3_VERSION = caps["version"]
 			EXTEPLAYER3_CAPS = caps
 			print("[ServiceApp] found exteplayer3 - %d version, %s" % (EXTEPLAYER3_VERSION, caps))
+			# the background detection sees no change afterwards and would not send them
+			if changed:
+				init_serviceapp_settings()
 
 
 def main(session, **kwargs):
