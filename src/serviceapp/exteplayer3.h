@@ -64,8 +64,9 @@ class ExtEplayer3: public PlayerApp, public BasePlayer
 	videoStream mVideo, mDecoderVideo;
 	// the player sent FF_ERROR
 	bool mErrorReported;
-	// "seekms" in EPLAYER3_EXTENDED: gf<s.ms>
-	bool mSeekMs;
+	// "seekms" in EPLAYER3_EXTENDED: gf<s.ms>; written by the backend
+	// thread, atomic as the other EPLAYER3_EXTENDED fields
+	std::atomic<bool> mSeekMs;
 	// a live stream: FFmpeg reconnects an HTTP stream without a length itself
 	bool mLiveStream;
 	// graphic subtitles: the PNG directory of this player (-G), empty: off

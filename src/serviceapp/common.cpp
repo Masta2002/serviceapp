@@ -93,24 +93,54 @@ void Url::parseUrl(std::string url)
     }
     m_proto = url.substr(0, delim_start);
 
-    std::string host, path;
-    size_t path_start = url.find("/", delim_start + 3);
+    // the authority ends at the path or, without a path, at the query:
+    // "http://host?u=http://x" must not take "host?u=http:" as host
+    size_t authority_start = delim_start + 3;
+    size_t path_start = url.find_first_of("/?", authority_start);
+    std::string authority, path;
     if (path_start != std::string::npos)
     {
+        authority = url.substr(authority_start, path_start - authority_start);
         path = url.substr(path_start);
-        host = url.substr(delim_start + 3, path_start - delim_start - 3);
     }
     else
     {
-        // no path: skip the "://", the host would keep it otherwise
-        host = url.substr(delim_start + 3);
+        authority = url.substr(authority_start);
     }
-    size_t port_start = host.find(":");
-    if (port_start != std::string::npos)
+    // user:password@host - the host is what follows the last '@'
+    size_t userinfo_end = authority.rfind('@');
+    if (userinfo_end != std::string::npos)
     {
-        m_port = atoi(host.substr(port_start + 1).c_str());
-        host = host.substr(0, port_start);
+        m_userinfo = authority.substr(0, userinfo_end);
+        authority = authority.substr(userinfo_end + 1);
     }
+    std::string host = authority, port;
+    if (!host.empty() && host[0] == '[')
+    {
+        // IPv6 literal "[2001:db8::1]:8080": its colons are not the port
+        size_t literal_end = host.find(']');
+        if (literal_end != std::string::npos)
+        {
+            if (host.compare(literal_end + 1, 1, ":") == 0)
+                port = host.substr(literal_end + 2);
+            host = host.substr(1, literal_end - 1);
+        }
+    }
+    else
+    {
+        size_t port_start = host.find(':');
+        if (port_start != std::string::npos)
+        {
+            port = host.substr(port_start + 1);
+            host = host.substr(0, port_start);
+        }
+    }
+    // "host:" or a port with garbage keeps the default port of the scheme
+    if (!port.empty() && port.size() <= 5 && port.find_first_not_of("0123456789") == std::string::npos)
+        m_port = atoi(port.c_str());
+    // no path is the root path: the HTTP request line needs one
+    if (path.empty() || path[0] == '?')
+        path = "/" + path;
     size_t query_start = path.find("?");
     if (query_start != std::string::npos)
     {
@@ -169,17 +199,36 @@ int listDir(const std::string &dirpath, std::vector<std::string> *files, std::ve
     struct stat statbuf;
     while ((entry = readdir(dp)) != NULL)
     {
-        if (*dirpath.rbegin() == '/')
-            filepath = dirpath + entry->d_name;
-        else
-            filepath = dirpath + "/" + entry->d_name;
-        stat(filepath.c_str(), &statbuf);
-        if (S_ISDIR(statbuf.st_mode))
+        if (!strcmp("..", entry->d_name) || !strcmp(".", entry->d_name))
         {
-            if (!strcmp("..", entry->d_name) || !strcmp(".", entry->d_name))
+            continue;
+        }
+        bool isDir;
+#ifdef _DIRENT_HAVE_D_TYPE
+        // the type from readdir() itself: a movie directory with thousands
+        // of files needs no stat() per entry. Only an unknown type (some
+        // file systems) and symlinks (the target decides) are looked up.
+        if (entry->d_type != DT_UNKNOWN && entry->d_type != DT_LNK)
+        {
+            isDir = entry->d_type == DT_DIR;
+        }
+        else
+#endif
+        {
+            if (*dirpath.rbegin() == '/')
+                filepath = dirpath + entry->d_name;
+            else
+                filepath = dirpath + "/" + entry->d_name;
+            // a failed stat (broken symlink, entry removed meanwhile) leaves
+            // statbuf undefined: skip the entry instead of guessing its type
+            if (stat(filepath.c_str(), &statbuf) != 0)
             {
                 continue;
             }
+            isDir = S_ISDIR(statbuf.st_mode);
+        }
+        if (isDir)
+        {
             if (directories != NULL)
             {
                 directories->push_back(entry->d_name);
@@ -206,10 +255,15 @@ static const uint8_t iso8859_2_unused_utf8[10][2] = {
 
 
 #ifndef NO_UCHARDET
+/* the start of a text is enough to tell its encoding; feeding uchardet the
+ * whole file (on the main thread) only costs time */
+#define DETECT_ENCODING_MAX_BYTES (64 * 1024)
+
 int detectEncoding(const std::string &content, std::string &encoding)
 {
     uchardet_t handle = uchardet_new();
-    int retval = uchardet_handle_data(handle, content.c_str(), content.length());
+    size_t length = std::min(content.length(), (size_t) DETECT_ENCODING_MAX_BYTES);
+    int retval = uchardet_handle_data(handle, content.c_str(), length);
     if (retval != 0)
     {
         fprintf(stderr, "uchardet error: handle data error.\n");
@@ -292,7 +346,53 @@ int convertToUTF8(const std::string &input_string, std::string &output_string)
 }
 #endif
 
-static int unquotePlus(char* out, const char* in);
+static int hexValue(char c)
+{
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    if (c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+    return -1;
+}
+
+bool urlUnquote(const std::string &in, std::string &out, bool plusAsSpace)
+{
+    // std::string, not a C string: a decoded %00 must stay visible to the
+    // caller, which rejects it, instead of silently cutting the value
+    std::string result;
+    result.reserve(in.size());
+    for (size_t i = 0; i < in.size(); i++)
+    {
+        char c = in[i];
+        if (c == '+' && plusAsSpace)
+            c = ' ';
+        else if (c == '%')
+        {
+            int high = i + 1 < in.size() ? hexValue(in[i + 1]) : -1;
+            int low = i + 2 < in.size() ? hexValue(in[i + 2]) : -1;
+            if (high < 0 || low < 0)
+                return false;
+            c = (char)((high << 4) | low);
+            i += 2;
+        }
+        result += c;
+    }
+    out = result;
+    return true;
+}
+
+// a name or value of the fragment as the user wrote it; a stray '%' (no
+// escape) keeps that one text as it is instead of failing all headers
+static std::string headerUnquote(const std::string &in)
+{
+    std::string out;
+    if (urlUnquote(in, out, true))
+        return out;
+    fprintf(stderr, "getHeaders - cannot unquote '%s', taking it as it is\n", in.c_str());
+    return in;
+}
 
 HeaderMap getHeaders(const std::string& url)
 {
@@ -301,37 +401,29 @@ HeaderMap getHeaders(const std::string& url)
     if (pos != std::string::npos && (url.compare(0, 4, "http") == 0 || url.compare(0, 4, "rtsp") == 0))
     {
         std::string headers_str = url.substr(pos + 1);
-        std::vector<char> headers_cstr(url.length() + 1);
-        if (!unquotePlus(headers_cstr.data(), headers_str.c_str()))
+        // split first, decode each name and value on its own: decoding the
+        // whole fragment first turned an encoded "%26" or "%3D" inside a
+        // value into a separator
+        size_t start = 0;
+        while (start <= headers_str.size())
         {
-            headers_str = headers_cstr.data();
-        }
-        else
-        {
-            fprintf(stderr, "getHeaders - cannot unquote headers string\n");
-        }
-
-        pos = 0;
-        while (pos != std::string::npos)
-        {
-            std::string name, value;
-            size_t start = pos;
-            size_t len = std::string::npos;
-            pos = headers_str.find('=', pos);
-            if (pos != std::string::npos)
+            size_t end = headers_str.find('&', start);
+            std::string pair = headers_str.substr(start, end == std::string::npos ? std::string::npos : end - start);
+            start = end == std::string::npos ? headers_str.size() + 1 : end + 1;
+            size_t eq = pair.find('=');
+            if (eq == std::string::npos)
+                continue;
+            std::string name = headerUnquote(pair.substr(0, eq));
+            std::string value = headerUnquote(pair.substr(eq + 1));
+            // CR/LF would start a header of its own in the HTTP request of
+            // the HLS explorer and in the player's header argument, NUL cuts
+            // it: such a header is dropped, not repaired
+            static const std::string forbidden("\r\n\0", 3);
+            if (name.find_first_of(forbidden) != std::string::npos
+                    || value.find_first_of(forbidden) != std::string::npos)
             {
-                len = pos - start;
-                pos++;
-                name = headers_str.substr(start, len);
-                start = pos;
-                len = std::string::npos;
-                pos = headers_str.find('&', pos);
-                if (pos != std::string::npos)
-                {
-                    len = pos - start;
-                    pos++;
-                }
-                value = headers_str.substr(start, len);
+                fprintf(stderr, "getHeaders - dropping header with CR/LF/NUL: '%s'\n", pair.c_str());
+                continue;
             }
             if (!name.empty() && !value.empty())
             {
@@ -340,54 +432,5 @@ HeaderMap getHeaders(const std::string& url)
         }
     }
     return headers;
-}
-
-// http://stackoverflow.com/questions/2673207/c-c-url-decode-library
-static int unquotePlus(char* out, const char* in)
-{
-    static const signed char tbl[256] = {
-        -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
-        -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
-        -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
-         0, 1, 2, 3, 4, 5, 6, 7,  8, 9,-1,-1,-1,-1,-1,-1,
-        -1,10,11,12,13,14,15,-1, -1,-1,-1,-1,-1,-1,-1,-1,
-        -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
-        -1,10,11,12,13,14,15,-1, -1,-1,-1,-1,-1,-1,-1,-1,
-        -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
-        -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
-        -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
-        -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
-        -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
-        -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
-        -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
-        -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
-        -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1
-    };
-    char c;
-    char *beg = out;
-    if(in != NULL) {
-        while((c=*in++) != '\0') {
-            if(c == '+')
-            {
-                *out++ = ' ';
-                continue;
-            }
-            if(c == '%') {
-                /* int, not char: char is unsigned on ARM, the -1 of the
-                 * table would become 255 and an invalid escape pass */
-                int high = in[0] ? tbl[(unsigned char)in[0]] : -1;
-                int low = (high >= 0 && in[1]) ? tbl[(unsigned char)in[1]] : -1;
-                if (high < 0 || low < 0) {
-                    *beg = '\0';
-                    return -1;
-                }
-                in += 2;
-                c = (char)((high << 4) | low);
-            }
-            *out++ = c;
-        }
-    }
-    *out = '\0';
-    return 0;
 }
 

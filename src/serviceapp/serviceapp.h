@@ -12,6 +12,7 @@
 
 #include "common.h"
 #include "extplayer.h"
+#include "hlsexplorer.h"
 #include "m3u8.h"
 #include "scriptrun.h"
 
@@ -49,7 +50,15 @@ class eServiceApp : public sigc::trackable,
 	std::vector<eServiceReference> m_subserviceref_vec;
 	std::vector<M3U8StreamInfo> m_subservice_vec;
 	bool m_subservices_checked;
-	void fillSubservices();
+	void fillSubservices(const std::vector<M3U8StreamInfo>& streams);
+	/* the master playlist is read off the main thread (HlsExplorer); start()
+	 * waits for it with m_hls_start_pending and goes on in startPlayer() */
+	std::unique_ptr<HlsExplorer> m_hls_explorer;
+	bool m_hls_start_pending = false;
+	bool exploreSubservices();
+	void subservicesExplored(const std::vector<M3U8StreamInfo>& streams);
+	void cancelSubservicesExplorer();
+	void startPlayer();
 
 	sigc::signal<void(iPlayableService*, int)> m_event;
 	/* the PlayerBackend uses the BasePlayer until it has been destroyed:
@@ -74,11 +83,17 @@ class eServiceApp : public sigc::trackable,
 
 	std::vector<SubtitleTrack> m_subtitle_tracks;
 	std::vector<subtitleStream> m_subtitle_streams;
+	/* the external .srt tracks (name, path), scanned once per start */
+	std::vector<std::pair<std::string, std::string>> m_external_subtitles;
+	bool m_external_subtitles_scanned = false;
+	void scanExternalSubtitles();
+	RESULT fillSubtitleList(std::vector<SubtitleTrack>& subtitlelist, int timeout);
 
 	subtitle_pages_map m_embedded_subtitle_pages;
 	subtitle_pages_map const* m_subtitle_pages;
 	std::unique_ptr<SubtitleTrack const> m_selected_subtitle_track;
 	subtitleMessage const* m_prev_subtitle_message;
+	std::string m_prev_subtitle_text; // the text shown with it (overlapping cues joined)
 	ePtr<eTimer> m_subtitle_sync_timer;
 	iSubtitleUser* m_subtitle_widget;
 	SubtitleManager m_subtitle_manager;
@@ -96,7 +111,10 @@ class eServiceApp : public sigc::trackable,
 	static bool isExternalTrack(const SubtitleTrack& track);
 	void pullSubtitles();
 	void addSubtitles(std::queue<subtitleMessage>& pulled);
+	void addTextSubtitle(const subtitleMessage& sub);
 	void pushSubtitles();
+	void stopEmbeddedSubtitles(bool tell_player);
+	void discardQueuedSubtitles();
 
 	/* graphic subtitles (PGS, DVB, XSUB of exteplayer3): the page on the
 	 * widget, shown again every few seconds (the widget hides an
@@ -106,7 +124,7 @@ class eServiceApp : public sigc::trackable,
 	uint32_t m_graphic_start_ms = 0, m_graphic_end_ms = 0;
 	int64_t m_graphic_shown_at = 0;
 	void addGraphicSubtitle(const subtitleMessage& sub);
-	void removePastGraphicSubtitles(int32_t decoder_ms);
+	void removePastSubtitles(int32_t decoder_ms);
 	void showGraphicSubtitle(const subtitleMessage& sub);
 	void hideGraphicSubtitle();
 	void updateGraphicSubtitle(int32_t decoder_ms, int32_t& next_timer);
@@ -135,7 +153,16 @@ class eServiceApp : public sigc::trackable,
 	bool m_stopping;
 	bool m_reconnected;
 	int m_reconnect_channel; // dual mono selection of the old player
-	int m_clean_ends; // ends without an error, never counted down
+	int m_clean_ends; // ends without an error, reset after a long run
+	/* checkLiveRestart() found a film without a length: no reconnect */
+	bool m_not_live = false;
+	/* the option set of this service (use_user_settings() at its creation):
+	 * g_useUserSettings is cleared by any ~eServiceApp, a later reconnect
+	 * built its player with another set */
+	bool m_user_settings = false;
+	/* sUser+12 of the service itself (the resolver failed), else the
+	 * player's error */
+	std::string m_error_message;
 	/* "Forced only" with a PGS track: only its forced pictures (so1) */
 	int m_forced_only_pid;
 	bool m_forced_only_active;

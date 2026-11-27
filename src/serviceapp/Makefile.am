@@ -22,6 +22,7 @@ serviceapp_la_SOURCES = \
 	myconsole.cpp \
 	wrappers.cpp \
 	m3u8.cpp \
+	hlsexplorer.cpp \
 	gstplayer.cpp \
 	exteplayer3.cpp \
 	common.cpp \
@@ -34,6 +35,7 @@ noinst_HEADERS = \
 	exteplayer3.h \
 	extplayer.h \
 	gstplayer.h \
+	hlsexplorer.h \
 	m3u8.h \
 	myconsole.h \
 	scriptrun.h \

@@ -18,7 +18,7 @@ struct event_info
 class SubripParser: public BaseSubtitleParser
 {
     int get_event_info(const char *line, event_info *ei);
-    int add_event(subtitleMap &submap, std::stringstream &buf, char *line_cache,
+    int add_event(subtitleMap &submap, std::stringstream &buf, std::string &line_cache,
                      const event_info *ei, int append_cache);
 public:
     SubripParser(){}

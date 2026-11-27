@@ -57,6 +57,7 @@ class Url
 {
     std::string m_url;
     std::string m_proto;
+    std::string m_userinfo;
     std::string m_host;
     unsigned int m_port;
     std::string m_path;
@@ -74,6 +75,9 @@ public:
     Url(const std::string &url);
     std::string url(){return m_url;}
     std::string proto(){return m_proto;}
+    // "user:password" of user:password@host, still percent-encoded
+    std::string userinfo(){return m_userinfo;}
+    // an IPv6 literal without its brackets, as getaddrinfo() wants it
     std::string host(){return m_host;}
     int port(){return m_port;}
     std::string path(){return m_path;}
@@ -83,7 +87,8 @@ public:
 
 void splitExtension(const std::string &path, std::string &basename, std::string &extension);
 void splitPath(const std::string &path, std::string &dirpath, std::string &filename);
-int listDir(const std::string &dirpath, std::vector<std::string> *directories, std::vector<std::string> *files);
+// names in the order of the definition (and of the callers): files first
+int listDir(const std::string &dirpath, std::vector<std::string> *files, std::vector<std::string> *directories);
 
 #ifndef NO_UCHARDET
 int detectEncoding(const std::string &content, std::string &encoding);
@@ -94,6 +99,10 @@ int convertToUTF8(const std::string &input_string, const std::string &input_enco
 int convertToUTF8(const std::string &input_string, std::string &output_string);
 #endif
 HeaderMap getHeaders(const std::string& url);
+/* percent-decoding, false on a broken escape ('%' without two hex digits);
+ * plusAsSpace for form encoding (the header fragment), not for URL parts
+ * such as the user info */
+bool urlUnquote(const std::string &in, std::string &out, bool plusAsSpace);
 
 inline void rtrim_i(std::string &s) {
     s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {

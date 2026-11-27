@@ -1,3 +1,4 @@
+#include <csignal>
 #include <cstdlib>
 #include <iostream>
 #include <vector>
@@ -12,6 +13,11 @@ int main(int argc, char *argv[])
     {
         fprintf(stderr, "usage: %s [url...]\n", argv[0]);
     }
+    // enigma2 runs with SIGPIPE ignored (its embedded Python sets SIG_IGN
+    // in Py_Initialize); without the same here, a server closing the
+    // connection while the request is written (SSL_write has no
+    // MSG_NOSIGNAL) would kill the test program instead of failing the fetch
+    signal(SIGPIPE, SIG_IGN);
     SSL_load_error_strings();
     SSL_library_init();
     while (--argc > 0)

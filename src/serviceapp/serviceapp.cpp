@@ -86,11 +86,11 @@ static void updatePlayerOptions(IOption& options, const HeaderMap& headers) {
 	}
 }
 
-static std::unique_ptr<BasePlayer> createPlayer(const eServiceReference& ref, const HeaderMap& headers) {
+static std::unique_ptr<BasePlayer> createPlayer(const eServiceReference& ref, const HeaderMap& headers, bool useUserSettings) {
 	std::unique_ptr<BasePlayer> player;
 	if (ref.type == eServiceFactoryApp::idServiceExtEplayer3 || (ref.type == eServiceFactoryApp::idServiceMP3 && g_playerServiceMP3 == EXTEPLAYER3)) {
 		ExtEplayer3Options options;
-		if (g_useUserSettings)
+		if (useUserSettings)
 			options = *g_ExtEplayer3OptionsUser;
 		else if (ref.type == eServiceFactoryApp::idServiceExtEplayer3)
 			options = *g_ExtEplayer3OptionsServiceExt3;
@@ -100,7 +100,7 @@ static std::unique_ptr<BasePlayer> createPlayer(const eServiceReference& ref, co
 		player = std::make_unique<ExtEplayer3>(options);
 	} else if (ref.type == eServiceFactoryApp::idServiceGstPlayer || (ref.type == eServiceFactoryApp::idServiceMP3 && g_playerServiceMP3 == GSTPLAYER)) {
 		GstPlayerOptions options;
-		if (g_useUserSettings)
+		if (useUserSettings)
 			options = *g_GstPlayerOptionsUser;
 		else if (ref.type == eServiceFactoryApp::idServiceGstPlayer)
 			options = *g_GstPlayerOptionsServiceGst;
@@ -112,7 +112,7 @@ static std::unique_ptr<BasePlayer> createPlayer(const eServiceReference& ref, co
 	return player;
 }
 
-static std::unique_ptr<eServiceAppOptions> createOptions(const eServiceReference& ref) {
+static std::unique_ptr<eServiceAppOptions> createOptions(const eServiceReference& ref, bool useUserSettings) {
 	eServiceAppOptions* options = NULL;
 	switch (ref.type) {
 		case eServiceFactoryApp::idServiceMP3:
@@ -127,7 +127,7 @@ static std::unique_ptr<eServiceAppOptions> createOptions(const eServiceReference
 		default:
 			break;
 	}
-	if (g_useUserSettings) {
+	if (useUserSettings) {
 		options = g_ServiceAppOptionsUser;
 	}
 	return std::make_unique<eServiceAppOptions>(*options);
@@ -243,7 +243,10 @@ eServiceApp::eServiceApp(eServiceReference ref)
 	  m_width(-1), m_height(-1), m_progressive(-1), m_gamma(-1), m_subtitle_pages(0), m_prev_subtitle_message(0), m_prev_subtitle_fps(1), m_prev_decoder_time(-1),
 	  m_decoder_time_valid_state(0), m_cuesheet_changed(0), m_cutlist_enabled(0), m_cuesheet_loaded(false), m_is_streaming(false), m_last_seek_pos(0),
 	  m_media_length(0), m_pending_seek(-1) {
-	options = createOptions(ref);
+	/* the decision of use_user_settings() at the creation is kept for the
+	 * player of a later reconnect */
+	m_user_settings = g_useUserSettings;
+	options = createOptions(ref, m_user_settings);
 	if (!ref.alternativeurl.empty())
 		m_ref.path = ref.alternativeurl;
 	m_is_streaming = (m_ref.path.find("://") != std::string::npos);
@@ -258,7 +261,7 @@ eServiceApp::eServiceApp(eServiceReference ref)
 		}
 	}
 
-	extplayer = createPlayer(ref, getHeaders(m_ref.path));
+	extplayer = createPlayer(ref, getHeaders(m_ref.path), m_user_settings);
 	player = std::make_unique<PlayerBackend>(extplayer.get());
 
 	m_subtitle_widget = 0;
@@ -289,6 +292,8 @@ eServiceApp::eServiceApp(eServiceReference ref)
 	m_start_path = m_ref.path;
 	m_live_reconnect_timer = eTimer::create(eApp);
 	CONNECT(m_live_reconnect_timer->timeout, eServiceApp::liveReconnect);
+	m_hls_explorer = std::make_unique<HlsExplorer>();
+	CONNECT(m_hls_explorer->finished, eServiceApp::subservicesExplored);
 
 #ifdef HAVE_EPG
 	m_nownext_timer = eTimer::create(eApp);
@@ -298,6 +303,9 @@ eServiceApp::eServiceApp(eServiceReference ref)
 };
 
 eServiceApp::~eServiceApp() {
+	/* returns at once: a fetch still running ends in the background and its
+	 * result is dropped (see HlsExplorer) */
+	m_hls_explorer.reset();
 	options.reset();
 	player.reset();
 	extplayer.reset();
@@ -334,75 +342,99 @@ void eServiceApp::passthroughFix() {
 	}
 }
 
-void eServiceApp::fillSubservices() {
+/* Starts reading the variants of m_ref.path in the background; false if
+ * there is nothing to read (not an HLS url) or no thread: the subservices are
+ * then known to be none. The result comes to subservicesExplored(). */
+bool eServiceApp::exploreSubservices() {
+	if (!isM3U8Url(m_ref.path)) {
+		eDebug("eServiceApp::fillSubservices - failed to retrieve subservices, not supported url");
+		return false;
+	}
+	return m_hls_explorer->start(m_ref.path, getHttpHeaders(m_ref.path));
+}
+
+void eServiceApp::cancelSubservicesExplorer() {
+	m_hls_explorer->cancel();
+	m_hls_start_pending = false;
+}
+
+void eServiceApp::subservicesExplored(const std::vector<M3U8StreamInfo>& streams) {
+	fillSubservices(streams);
+	/* checked before the event: the GUI asks getNumberOfSubservices() again */
+	m_subservices_checked = true;
+	m_event(this, evUpdatedEventInfo);
+	/* stop() and liveReconnect() cancel the explorer and clear the flag, a
+	 * stopped service never gets here with it set */
+	if (m_hls_start_pending) {
+		m_hls_start_pending = false;
+		startPlayer();
+	}
+}
+
+void eServiceApp::fillSubservices(const std::vector<M3U8StreamInfo>& streams) {
 	m_subservice_vec.clear();
 	m_subserviceref_vec.clear();
 
-	if (isM3U8Url(m_ref.path)) {
-		M3U8VariantsExplorer ve(m_ref.path, getHttpHeaders(m_ref.path));
-		m_subservice_vec = ve.getStreams();
-		if (m_subservice_vec.empty()) {
-			eDebug("eServiceApp::fillSubservices - failed to retrieve subservices");
-		} else {
-			// sort subservices from best quality to worst (internally sorted according to bitrate)
-			sort(m_subservice_vec.rbegin(), m_subservice_vec.rend());
-
-			std::vector<M3U8StreamInfo>::const_iterator it;
-			// find title from parent, if parent has already bitrate
-			// string set, we look for this bitrate and separate original
-			// name from it.
-			std::stringstream sstm;
-			std::string original_title(m_ref.name);
-			for (it = m_subservice_vec.begin(); it != m_subservice_vec.end(); it++) {
-				sstm.str(std::string());
-				sstm << it->bitrate;
-				std::string bitrate_str = sstm.str();
-				size_t bitrate_idx = m_ref.name.find(": " + bitrate_str);
-				if (bitrate_idx != std::string::npos) {
-					original_title = m_ref.name.substr(0, bitrate_idx);
-					break;
-				}
-			}
-
-			int i = 0;
-			for (it = m_subservice_vec.begin(); it != m_subservice_vec.end(); it++, i++) {
-				if (SUBSERVICES_INDEX_START + i > SUBSERVICES_INDEX_END) {
-					eWarning("eServiceApp::fillSubservices - cannot add more then %d subservices!", SUBSERVICES_INDEX_END);
-					break;
-				}
-				// we need to copy all flags from parent service, neccessary for EPG
-				eServiceReference ref(m_ref);
-				// set index so we know which service to select from master playlist
-				ref.setUnsignedData(7, SUBSERVICES_INDEX_START + i);
-				// set parentTransportStreamId, since InfoBarSubservicesSupport
-				// checks this flag when creating subservices menu. If it's available
-				// at least for one subservice then it will allow to add subservices
-				// to bouquet or favorites, see subserviceSelection.
-				//
-				// If it's not available it will only allow to quickzap subservices and it
-				// will also remove name for subservice service, see playSubservice.
-				eServiceReferenceDVB& dvb_ref = (eServiceReferenceDVB&)ref;
-				if (dvb_ref.getTransportStreamID().get()) {
-					// If user wants EPG, i.e. fills serviceId, transportStreamId then
-					// we have to set these as parentServiceId and parentTransportStreamID
-					// since epgcache uses those to create EPG query
-					dvb_ref.setParentServiceID(dvb_ref.getServiceID());
-					dvb_ref.setParentTransportStreamID(dvb_ref.getTransportStreamID());
-				} else {
-					dvb_ref.setParentTransportStreamID(1); // some random value
-				}
-				sstm.str(std::string());
-				sstm << original_title << ": " << it->bitrate << "b/s";
-				if (!it->resolution.empty())
-					sstm << " - " << it->resolution;
-				ref.name = sstm.str();
-				m_subserviceref_vec.push_back(ref);
-			}
-			eDebug("eServiceApp::fillSubservices - found %zd subservices", m_subservice_vec.size());
-		}
-	} else {
-		eDebug("eServiceApp::fillSubservices - failed to retrieve subservices, not supported url");
+	m_subservice_vec = streams;
+	if (m_subservice_vec.empty()) {
+		eDebug("eServiceApp::fillSubservices - failed to retrieve subservices");
+		return;
 	}
+	// sort subservices from best quality to worst (internally sorted according to bitrate)
+	sort(m_subservice_vec.rbegin(), m_subservice_vec.rend());
+
+	std::vector<M3U8StreamInfo>::const_iterator it;
+	// find title from parent, if parent has already bitrate
+	// string set, we look for this bitrate and separate original
+	// name from it.
+	std::stringstream sstm;
+	std::string original_title(m_ref.name);
+	for (it = m_subservice_vec.begin(); it != m_subservice_vec.end(); it++) {
+		sstm.str(std::string());
+		sstm << it->bitrate;
+		std::string bitrate_str = sstm.str();
+		size_t bitrate_idx = m_ref.name.find(": " + bitrate_str);
+		if (bitrate_idx != std::string::npos) {
+			original_title = m_ref.name.substr(0, bitrate_idx);
+			break;
+		}
+	}
+
+	int i = 0;
+	for (it = m_subservice_vec.begin(); it != m_subservice_vec.end(); it++, i++) {
+		if (SUBSERVICES_INDEX_START + i > SUBSERVICES_INDEX_END) {
+			eWarning("eServiceApp::fillSubservices - cannot add more then %d subservices!", SUBSERVICES_INDEX_END);
+			break;
+		}
+		// we need to copy all flags from parent service, neccessary for EPG
+		eServiceReference ref(m_ref);
+		// set index so we know which service to select from master playlist
+		ref.setUnsignedData(7, SUBSERVICES_INDEX_START + i);
+		// set parentTransportStreamId, since InfoBarSubservicesSupport
+		// checks this flag when creating subservices menu. If it's available
+		// at least for one subservice then it will allow to add subservices
+		// to bouquet or favorites, see subserviceSelection.
+		//
+		// If it's not available it will only allow to quickzap subservices and it
+		// will also remove name for subservice service, see playSubservice.
+		eServiceReferenceDVB& dvb_ref = (eServiceReferenceDVB&)ref;
+		if (dvb_ref.getTransportStreamID().get()) {
+			// If user wants EPG, i.e. fills serviceId, transportStreamId then
+			// we have to set these as parentServiceId and parentTransportStreamID
+			// since epgcache uses those to create EPG query
+			dvb_ref.setParentServiceID(dvb_ref.getServiceID());
+			dvb_ref.setParentTransportStreamID(dvb_ref.getTransportStreamID());
+		} else {
+			dvb_ref.setParentTransportStreamID(1); // some random value
+		}
+		sstm.str(std::string());
+		sstm << original_title << ": " << it->bitrate << "b/s";
+		if (!it->resolution.empty())
+			sstm << " - " << it->resolution;
+		ref.name = sstm.str();
+		m_subserviceref_vec.push_back(ref);
+	}
+	eDebug("eServiceApp::fillSubservices - found %zd subservices", m_subservice_vec.size());
 }
 
 #ifdef HAVE_EPG
@@ -518,8 +550,34 @@ void eServiceApp::addSubtitles(std::queue<subtitleMessage>& pulled) {
 		if (sub.graphic)
 			addGraphicSubtitle(sub);
 		else
-			m_embedded_subtitle_pages.insert(subtitle_pages_map_pair(sub.end_ms, sub));
+			addTextSubtitle(sub);
 		pulled.pop();
+	}
+}
+
+void eServiceApp::addTextSubtitle(const subtitleMessage& sub) {
+	/* The map is keyed by the end (the type is shared with the external
+	 * subtitle parsers): a second cue with the same end was dropped. Its text
+	 * joins the cue that is there; a graphic page there moves it by 1 ms. */
+	uint32_t key = sub.end_ms;
+	for (;;) {
+		std::pair<subtitle_pages_map::iterator, bool> r = m_embedded_subtitle_pages.insert(subtitle_pages_map_pair(key, sub));
+		if (r.second)
+			return;
+		subtitleMessage& m = r.first->second;
+		if (!m.graphic) {
+			if (m.text != sub.text && !sub.text.empty()) {
+				m.text += m.text.empty() ? sub.text : "\n" + sub.text;
+				if (sub.start_ms < m.start_ms) {
+					m.start_ms = sub.start_ms;
+					m.duration_ms = m.end_ms - m.start_ms;
+				}
+			}
+			return;
+		}
+		if (key == std::numeric_limits<uint32_t>::max())
+			return;
+		key++;
 	}
 }
 
@@ -605,17 +663,16 @@ void eServiceApp::addGraphicSubtitle(const subtitleMessage& sub) {
 	}
 }
 
-void eServiceApp::removePastGraphicSubtitles(int32_t decoder_ms) {
-	/* cues that are over (or were skipped): their files are not needed any more */
+void eServiceApp::removePastSubtitles(int32_t decoder_ms) {
+	/* cues that are over (or were skipped) go: the files of graphic ones are
+	 * not needed any more, and text cues piled up for the whole playback
+	 * (live closed captions, ~17 MB a day) and were walked on every tick */
 	if (decoder_ms <= 0)
 		return;
 	subtitle_pages_map::iterator end = m_embedded_subtitle_pages.lower_bound((uint32_t)decoder_ms);
 	for (subtitle_pages_map::iterator it = m_embedded_subtitle_pages.begin(); it != end;) {
-		if (!it->second.graphic) {
-			++it;
-			continue;
-		}
-		removeSubtitleFiles(it->second);
+		if (it->second.graphic)
+			removeSubtitleFiles(it->second);
 		if (m_prev_subtitle_message == &(it->second))
 			m_prev_subtitle_message = NULL;
 		m_embedded_subtitle_pages.erase(it++);
@@ -674,7 +731,10 @@ void eServiceApp::updateGraphicSubtitle(int32_t decoder_ms, int32_t& next_timer)
 		m_subtitle_widget->setPage(m_graphic_page);
 		m_graphic_shown_at = now;
 	}
-	int32_t wait = std::min((int32_t)m_graphic_end_ms - decoder_ms + 1, (int32_t)(m_graphic_shown_at + 5000 - now));
+	int32_t wait = (int32_t)(m_graphic_shown_at + 5000 - now);
+	/* paused, the position does not move towards the end: only the refresh */
+	if (!m_paused)
+		wait = std::min((int32_t)m_graphic_end_ms - decoder_ms + 1, wait);
 	if (wait < 10)
 		wait = 10;
 	if (next_timer == 0 || wait < next_timer)
@@ -697,6 +757,11 @@ void eServiceApp::pushSubtitles() {
 	int32_t next_timer = 0, decoder_ms = 0, start_ms, end_ms, diff_start_ms, diff_end_ms;
 	bool clock_ok = false;
 	subtitle_pages_map::const_iterator current;
+	/* the text cues on the screen now: the first of them, their text, the
+	 * time to the first end */
+	const subtitleMessage* active_text = NULL;
+	std::string text;
+	int32_t text_timeout = -1;
 
 	int delay = eSubtitleSettings::pango_subtitles_delay;
 	if (isExternalTrack(*m_selected_subtitle_track)) {
@@ -721,8 +786,9 @@ void eServiceApp::pushSubtitles() {
 		return;
 
 	if (getPlayPosition(running_pts) < 0) {
+		/* no position (yet): every 50 ms was a busy poll for nothing */
 		m_decoder_time_valid_state = 0;
-		next_timer = 50;
+		next_timer = 500;
 		goto exit;
 	}
 	if (m_decoder_time_valid_state < 3) {
@@ -749,7 +815,7 @@ void eServiceApp::pushSubtitles() {
 	decoder_ms = (running_pts - delay) / 90;
 	clock_ok = true;
 	if (m_subtitle_pages == &m_embedded_subtitle_pages)
-		removePastGraphicSubtitles(decoder_ms);
+		removePastSubtitles(decoder_ms);
 
 	for (current = m_subtitle_pages->lower_bound(decoder_ms); current != m_subtitle_pages->end(); current++) {
 		start_ms = current->second.start_ms;
@@ -766,31 +832,49 @@ void eServiceApp::pushSubtitles() {
 		}
 		if (diff_start_ms > 50) {
 			// eDebug("eServiceApp::pushSubtitles - current sub in the future, start timer, %d", diff_start_ms);
-			next_timer = diff_start_ms;
-			goto exit;
+			if (next_timer == 0 || diff_start_ms < next_timer)
+				next_timer = diff_start_ms;
+			break;
 		}
-		// don't show the same message twice
-		if (m_prev_subtitle_message && m_prev_subtitle_message == &(current->second)) {
-			next_timer = 30;
-			goto exit;
+		/* a cue on the screen: the next look at its end (or at the start of
+		 * the next cue), not every 30 ms */
+		if (next_timer == 0 || diff_end_ms + 1 < next_timer)
+			next_timer = diff_end_ms + 1;
+		if (current->second.graphic) {
+			// don't show the same page twice
+			if (m_prev_subtitle_message != &(current->second) && m_subtitle_widget && !m_paused) {
+				m_prev_subtitle_message = &(current->second);
+				showGraphicSubtitle(current->second);
+			}
+			continue;
 		}
-		if (m_subtitle_widget && !m_paused && current->second.graphic) {
-			m_prev_subtitle_message = &(current->second);
-			showGraphicSubtitle(current->second);
-		} else if (m_subtitle_widget && !m_paused) {
-			// eDebug("eServiceApp::pushSubtitles - current sub actual, show!");
-			m_prev_subtitle_message = &(current->second);
-			ePangoSubtitlePage pango_page;
-			gRGB rgbcol(0xD0, 0xD0, 0xD0);
-
-			pango_page.m_elements.push_back(ePangoSubtitlePageElement(rgbcol, current->second.text.c_str()));
-			pango_page.m_show_pts = start_ms * 90; // actually completely unused by widget!
-			pango_page.m_timeout = end_ms - decoder_ms; // take late start into account
-
-			m_subtitle_widget->setPage(pango_page);
-		}
-		// eDebug("eServiceApp::pushSubtitles - no next sub scheduled, check NEXT subtitle");
+		/* overlapping text cues are shown together */
+		if (!active_text)
+			active_text = &(current->second);
+		if (!text.empty())
+			text += "\n";
+		text += current->second.text;
+		if (text_timeout < 0 || diff_end_ms < text_timeout)
+			text_timeout = diff_end_ms;
 	}
+	// don't show the same text twice; a cue that ended or joined changes it
+	if (active_text && m_subtitle_widget && !m_paused && !(m_prev_subtitle_message == active_text && m_prev_subtitle_text == text)) {
+		// eDebug("eServiceApp::pushSubtitles - current sub actual, show!");
+		m_prev_subtitle_message = active_text;
+		m_prev_subtitle_text = text;
+		ePangoSubtitlePage pango_page;
+		gRGB rgbcol(0xD0, 0xD0, 0xD0);
+
+		pango_page.m_elements.push_back(ePangoSubtitlePageElement(rgbcol, text.c_str()));
+		pango_page.m_show_pts = active_text->start_ms * 90; // actually completely unused by widget!
+		pango_page.m_timeout = text_timeout; // take late start into account
+
+		m_subtitle_widget->setPage(pango_page);
+	}
+	/* paused: nothing moves; only the 5 s refresh of a graphic page (below)
+	 * or a look every second, not every 30 ms */
+	if (m_paused)
+		next_timer = 1000;
 exit:
 	if (clock_ok)
 		updateGraphicSubtitle(decoder_ms, next_timer);
@@ -895,12 +979,23 @@ void eServiceApp::urlResolved(int success) {
 	if (m_debug)
 		eDebug("eServiceApp::urlResolved: %s", success ? "success" : "error");
 	if (success) {
-		m_ref.path = m_resolver->getUrl();
-		if (m_debug)
-			eDebug("eServiceApp::urlResolved: %s", m_ref.path.c_str());
-		start();
-	} else
-		stop();
+		std::string url = m_resolver->getUrl();
+		if (url.compare(0, m_resolve_uri.size(), m_resolve_uri) != 0) {
+			m_ref.path = url;
+			if (m_debug)
+				eDebug("eServiceApp::urlResolved: %s", m_ref.path.c_str());
+			start();
+			return;
+		}
+		/* start() would replace m_resolver while this callback of it runs */
+		eWarning("eServiceApp::urlResolved - the resolver returned another resolve:// url, refused");
+	}
+	/* stop() only set m_stopping without an event: a black picture for good,
+	 * also after a re-resolve of a reconnect. The user gets the reason (sUser+12)
+	 * and the InfoBar the end. */
+	m_error_message = SAPP_TR("Resolving the stream address failed");
+	m_event(this, evUser + 12);
+	m_event(this, evEOF);
 }
 
 void eServiceApp::gotExtPlayerMessage(int message) {
@@ -955,13 +1050,27 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 			// This should be fixed on player's side so it doesn't end
 			// immediately but waits at the end for our input..
 			m_live_check_timer->stop();
+			if (m_not_live) {
+				/* checkLiveRestart() stopped a film without a length that
+				 * FFmpeg started again: its end, no reconnect (it counted as
+				 * another clean live end and the film played up to 4 times) */
+				m_event(this, evEOF);
+				break;
+			}
 			if (!m_stopping && isLiveStream() && !isPermanentPlayerError()) {
+				/* a 24/7 stream that played for a while starts both counts
+				 * again: they never decayed, after 3 clean ends in a session
+				 * the stream was given up */
+				if (m_player_started && ::time(0) - m_player_start_time >= 600) {
+					m_clean_ends = 0;
+					m_live_reconnects = 0;
+				}
 				errorMessage e;
 				if (player->getErrorMessage(e) != 0) {
 					/* an end without an error: a server that closed the stream,
 					 * or a film without a length that played to its end; FFmpeg
 					 * bridges closes of a live stream after the first reconnect,
-					 * so few of these, and never counted down again */
+					 * so few of these (reset after a run of 10 minutes) */
 					if (++m_clean_ends > 3) {
 						eDebug("[ServiceApp] stream ended without an error %d times, a film without a length: no reconnect", m_clean_ends);
 						m_event(this, evEOF);
@@ -992,6 +1101,9 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 				eDebug("eServiceApp::gotExtPlayerMessage - resume");
 			m_paused = false;
 			restoreAudioTrack();
+			/* paused, the subtitle timer looks only every second */
+			if (m_selected_subtitle_track && m_subtitle_pages)
+				m_subtitle_sync_timer->start(1, true);
 			break;
 		case PlayerMessage::error:
 			if (m_debug)
@@ -1057,6 +1169,10 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 				eDebug("eServiceApp::gotExtPlayerMessage - subtitleAvailable");
 			if (m_selected_subtitle_track && isEmbeddedTrack(*m_selected_subtitle_track))
 				pullSubtitles();
+			else
+				/* no embedded track is shown (gstplayer2 with -e, #sapp_subtitle_id):
+				 * the queue was never drained, its pictures stayed in /tmp */
+				discardQueuedSubtitles();
 			break;
 		case PlayerMessage::subtitleFlush:
 			/* seek or track switch: cues of the old position must not come back */
@@ -1129,6 +1245,10 @@ RESULT eServiceApp::start() {
 	   resume check of the GUI runs a second after evStart */
 	if (!m_is_streaming && !m_cuesheet_loaded)
 		loadCuesheet();
+	/* a "forced only" pick of getCachedSubtitle() is for one enableSubtitles() */
+	m_forced_only_pid = -1;
+	/* the .srt files are looked for again once per start */
+	m_external_subtitles_scanned = false;
 	std::string path_str(m_ref.path);
 
 	if (path_str.find(m_resolve_uri) == 0) {
@@ -1137,13 +1257,27 @@ RESULT eServiceApp::start() {
 		m_resolver->start();
 		return 0;
 	}
+	if (options->HLSExplorer && options->autoSelectStream && !m_subservices_checked) {
+		/* the variant is picked from the master playlist: the player starts
+		 * when it has been read (subservicesExplored), the GUI goes on */
+		if (exploreSubservices()) {
+			m_hls_start_pending = true;
+			return 0;
+		}
+		/* nothing to read: as a fetch that found no variants */
+		fillSubservices(std::vector<M3U8StreamInfo>());
+		m_subservices_checked = true;
+		m_event(this, evUpdatedEventInfo);
+	}
+	startPlayer();
+	return 0;
+}
+
+/* the second half of start(), after the master playlist has been read */
+void eServiceApp::startPlayer() {
+	std::string path_str(m_ref.path);
 	HeaderMap headers = getHttpHeaders(m_ref.path);
 	if (options->HLSExplorer && options->autoSelectStream) {
-		if (!m_subservices_checked) {
-			fillSubservices();
-			m_event(this, evUpdatedEventInfo);
-			m_subservices_checked = true;
-		}
 		size_t subservice_num = m_subservice_vec.size();
 		if (subservice_num) {
 			M3U8StreamInfo subservice = *(m_subservice_vec.begin());
@@ -1187,7 +1321,6 @@ RESULT eServiceApp::start() {
 
 	// don't pass fragment part to player
 	player->start(Url(path_str).url(), headers);
-	return 0;
 }
 
 RESULT eServiceApp::stop() {
@@ -1200,11 +1333,15 @@ RESULT eServiceApp::stop() {
 		saveCuesheet();
 	if (m_resolver)
 		m_resolver->stop();
+	/* a master playlist still being read must not start the player later */
+	cancelSubservicesExplorer();
 	m_decoder_video_timer->stop();
 	player->stop();
 	/* graphic subtitles: the files of the pages left (the player removes its
-	 * directory when it has ended) */
-	if (m_subtitle_pages == &m_embedded_subtitle_pages)
+	 * directory when it has ended); also pages of a track that was switched
+	 * off or replaced by an external one */
+	m_subtitle_sync_timer->stop();
+	if (!m_embedded_subtitle_pages.empty() || m_graphic_shown)
 		clearEmbeddedSubtitlePages(true);
 	return 0;
 }
@@ -1223,6 +1360,7 @@ void eServiceApp::checkLiveRestart() {
 		eDebug("[ServiceApp] position back from %lld to %lld s: a film without a length started again, ended", (long long)(m_max_position / 90000), (long long)(pos / 90000));
 		m_live_check_timer->stop();
 		m_ffmpeg_reconnect = false; /* the next start without the reconnect of FFmpeg */
+		m_not_live = true; /* the stop handler ends it with evEOF */
 		player->stop();
 	}
 }
@@ -1282,11 +1420,18 @@ void eServiceApp::liveReconnect() {
 	}
 	/* a resolved url may have expired, resolve it again */
 	m_ref.path = m_start_path;
+	/* so may the HLS variant urls of the master playlist (tokens): read it
+	 * again, the cached variant gave 403 and evEOF; a read still running
+	 * (getNumberOfSubservices) may have the old urls, start() begins anew */
+	cancelSubservicesExplorer();
+	m_subservices_checked = false;
+	m_subservice_vec.clear();
+	m_subserviceref_vec.clear();
 	player->stop();
 	/* the old players go before the new one is created */
 	player.reset();
 	extplayer.reset();
-	extplayer = createPlayer(m_ref, getHeaders(m_ref.path));
+	extplayer = createPlayer(m_ref, getHeaders(m_ref.path), m_user_settings);
 	if (extplayer && m_ffmpeg_reconnect) {
 		/* FFmpeg reconnects it itself from now on; watch for a film that
 		 * starts again at byte 0 */
@@ -1296,6 +1441,8 @@ void eServiceApp::liveReconnect() {
 	}
 	player = std::make_unique<PlayerBackend>(extplayer.get());
 	CONNECT(player->gotPlayerMessage, eServiceApp::gotExtPlayerMessage);
+	if (m_selected_subtitle_track)
+		player->setPositionInterval(100); // as enableSubtitles() set it for the old player
 	m_player_started = false;
 	m_paused = false;
 	m_reconnected = true;
@@ -1445,7 +1592,9 @@ void eServiceApp::saveAudioTrack(int track) {
 }
 
 int eServiceApp::getNumberOfTracks() {
-	eDebug("eServiceApp::getNumberOfTracks");
+	/* polled by the GUI: logged only in debug mode */
+	if (m_debug)
+		eDebug("eServiceApp::getNumberOfTracks");
 	return player->audioGetNumberOfTracks(500);
 }
 
@@ -1470,7 +1619,8 @@ RESULT eServiceApp::selectTrack(unsigned int i) {
 }
 
 RESULT eServiceApp::getTrackInfo(iAudioTrackInfo& trackInfo, unsigned int n) {
-	eDebug("eServiceApp::getTrackInfo = %d", n);
+	if (m_debug)
+		eDebug("eServiceApp::getTrackInfo = %d", n);
 	audioStream track;
 	if (player->audioGetTrackInfo(track, n) < 0) {
 		return -1;
@@ -1554,8 +1704,32 @@ RESULT eServiceApp::selectChannel(int i) {
 
 
 // __iSubtitleOutput
+/* the embedded track is no longer shown: the player stops decoding it, its
+ * queued and kept cues (and their pictures in /tmp) go, a graphic page on the
+ * screen is hidden. tell_player: an embedded track was selected. */
+void eServiceApp::stopEmbeddedSubtitles(bool tell_player) {
+	// an embedded track is decoded by the player until it is told to stop
+	if (tell_player)
+		player->subtitleSelectTrack(-1);
+	discardQueuedSubtitles();
+	clearEmbeddedSubtitlePages(true);
+	if (m_forced_only_active) {
+		player->subtitleForcedOnly(false);
+		m_forced_only_active = false;
+	}
+}
+
+/* cues the player queued that are not shown: their pictures can go */
+void eServiceApp::discardQueuedSubtitles() {
+	std::queue<subtitleMessage> pulled;
+	player->getSubtitles(pulled);
+	for (; !pulled.empty(); pulled.pop())
+		removeSubtitleFiles(pulled.front());
+}
+
 RESULT eServiceApp::enableSubtitles(iSubtitleUser* user, struct SubtitleTrack& track) {
 	m_subtitle_sync_timer->stop();
+	bool was_embedded = m_selected_subtitle_track && isEmbeddedTrack(*m_selected_subtitle_track);
 	m_prev_subtitle_message = NULL;
 	m_subtitle_pages = NULL;
 	m_selected_subtitle_track.reset();
@@ -1563,42 +1737,60 @@ RESULT eServiceApp::enableSubtitles(iSubtitleUser* user, struct SubtitleTrack& t
 	m_decoder_time_valid_state = 0;
 	m_prev_decoder_time = -1;
 
+	/* "forced only" belongs to the track getCachedSubtitle() just picked;
+	 * any other call (also a failing one) leaves no stale pid behind */
+	int forced_only_pid = m_forced_only_pid;
+	m_forced_only_pid = -1;
+
+	/* the page of the former track goes; hide it when the widget stays */
+	if (m_subtitle_widget != user)
+		m_graphic_shown = false;
+
+	/* an embedded track switched to an external one, or a failed selection:
+	 * the player went on sending the old track (queue and PNG files grew for
+	 * the whole film, its last graphic page came back every 5 s) */
+	auto fail = [&]() {
+		stopEmbeddedSubtitles(was_embedded);
+		player->setPositionInterval(500);
+		return -1;
+	};
+
 	ssize_t track_pos = getTrackPosition(track);
 	if (track_pos == -1) {
 		eWarning("eServiceApp::enableSubtitles - track is not in the map!");
-		return -1;
+		return fail();
 	}
 	if (isEmbeddedTrack(track)) {
 		eDebug("eServiceApp::enableSubtitles - track = %d (embedded)", track.pid);
-		/* the page of the former track goes; hide it when the widget stays */
-		if (m_subtitle_widget != user)
-			m_graphic_shown = false;
 		clearEmbeddedSubtitlePages(true);
 		m_subtitle_pages = &m_embedded_subtitle_pages;
 		player->subtitleSelectTrack(track.pid);
 	} else if (isExternalTrack(track)) {
 		eDebug("eServiceApp::enableSubtitles - track = %d (external)", track.pid);
+		stopEmbeddedSubtitles(was_embedded);
 		subtitleStream s = m_subtitle_streams[track_pos];
 		m_subtitle_pages = m_subtitle_manager.load(s.path);
 		if (m_subtitle_pages != NULL) {
 			m_subtitle_sync_timer->start(1, true);
 		} else {
 			eWarning("eServiceApp::enableSubtitles - cannot load external subtitles");
-			return -1;
+			return fail();
 		}
 	} else {
 		eWarning("eServiceApp::enableSubtitles - not supported track page_number %d", track.page_number);
-		return -1;
+		return fail();
 	}
 	// own a standalone copy: getSubtitleList() clears m_subtitle_tracks
 	// while playing (the UI calls it to repopulate), which would leave a
 	// pointer into freed vector storage dangling -> UAF in pushSubtitles.
 	m_selected_subtitle_track = std::make_unique<SubtitleTrack const>(m_subtitle_tracks[track_pos]);
 	m_subtitle_widget = user;
+	/* the cue timing needs the position every 100 ms, the rest of the time
+	 * 500 ms do (10 round trips to the player a second before) */
+	player->setPositionInterval(100);
 	/* forced only: the track the "Forced only" auto mode picked for its
 	 * forced pictures; any other selection shows the whole track again */
-	bool forced_only = isEmbeddedTrack(track) && track.pid == m_forced_only_pid;
-	m_forced_only_pid = -1;
+	bool forced_only = isEmbeddedTrack(track) && track.pid == forced_only_pid;
 	if (forced_only != m_forced_only_active) {
 		player->subtitleForcedOnly(forced_only);
 		m_forced_only_active = forced_only;
@@ -1610,26 +1802,15 @@ RESULT eServiceApp::disableSubtitles() {
 	eDebug("eServiceApp::disableSubtitles");
 	m_subtitle_sync_timer->stop();
 	m_prev_subtitle_message = NULL;
-	clearEmbeddedSubtitlePages(true);
-	{
-		/* queued cues are not shown any more: their pictures can go */
-		std::queue<subtitleMessage> pulled;
-		player->getSubtitles(pulled);
-		for (; !pulled.empty(); pulled.pop())
-			removeSubtitleFiles(pulled.front());
-	}
+	m_forced_only_pid = -1;
+	/* queued cues are not shown any more: their pictures can go */
+	stopEmbeddedSubtitles(true);
 	m_subtitle_pages = NULL;
 	m_selected_subtitle_track.reset();
 	if (m_subtitle_widget)
 		m_subtitle_widget->destroy();
 	m_subtitle_widget = 0;
-
-	// an embedded track is decoded by the player until it is told to stop
-	player->subtitleSelectTrack(-1);
-	if (m_forced_only_active) {
-		player->subtitleForcedOnly(false);
-		m_forced_only_active = false;
-	}
+	player->setPositionInterval(500);
 
 	m_decoder_time_valid_state = 0;
 	m_prev_decoder_time = -1;
@@ -1650,12 +1831,16 @@ static void appendLanguageCodes(std::vector<std::string>& langs, const std::stri
 }
 
 RESULT eServiceApp::getCachedSubtitle(struct SubtitleTrack& track) {
+	/* a pick of an earlier call that enableSubtitles() did not get */
+	m_forced_only_pid = -1;
 	if (options->autoTurnOnSubtitles == SUBTITLES_AUTO_OFF) {
 		eDebug("eServiceApp::getCachedSubtitle - auto-turning disabled in config");
 		return -1;
 	}
 	std::vector<struct SubtitleTrack> tracks;
-	if (getSubtitleList(tracks) < 0 || tracks.empty()) {
+	/* no blocking wait: the InfoBar asks on every evUpdatedInfo; an unknown
+	 * list is requested, an answer that changes it sends evUpdatedInfo */
+	if (fillSubtitleList(tracks, 0) < 0 || tracks.empty()) {
 		eDebug("eServiceApp::getCachedSubtitle - no subtitles available");
 		return -1;
 	}
@@ -1768,22 +1953,15 @@ RESULT eServiceApp::getCachedSubtitle(struct SubtitleTrack& track) {
 }
 
 RESULT eServiceApp::getSubtitleList(std::vector<struct SubtitleTrack>& subtitlelist) {
-	m_subtitle_tracks.clear();
-	m_subtitle_streams.clear();
-	int embedded_track_num = player->subtitleGetNumberOfTracks(500);
-	eDebug("eServiceApp::getSubtitleList - found embedded tracks (%d)", embedded_track_num);
-	int pid = 0;
-	for (; pid < embedded_track_num; pid++) {
-		subtitleStream s;
-		if (player->subtitleGetTrackInfo(s, pid) == 0) {
-			addEmbeddedTrack(subtitlelist, s, pid);
-		}
-	}
-	if (m_is_streaming) {
-		/* no .srt next to a url: listDir("http://...") only logs an error
-		 * with the stream url on every call */
-		return 0;
-	}
+	return fillSubtitleList(subtitlelist, 500);
+}
+
+/* the .srt files next to a local file and in its Subs directory: scanned once
+ * per start, the GUI asks for the list often (a stat() per directory entry,
+ * thousands in a movie directory, in the GUI thread every time) */
+void eServiceApp::scanExternalSubtitles() {
+	m_external_subtitles.clear();
+	m_external_subtitles_scanned = true;
 	std::string basename, extension;
 	splitExtension(m_ref.path, basename, extension);
 	std::string subtitle_path(basename + ".srt");
@@ -1798,7 +1976,7 @@ RESULT eServiceApp::getSubtitleList(std::vector<struct SubtitleTrack>& subtitlel
 	//
 	// - probably whole thing should be moved to manager
 	if (!access(subtitle_path.c_str(), F_OK)) {
-		addExternalTrack(subtitlelist, pid++, filename, subtitle_path);
+		m_external_subtitles.push_back(std::make_pair(filename, subtitle_path));
 	}
 	std::vector<std::string> directories, files;
 	if (listDir(dirname, &files, &directories) == 0) {
@@ -1809,7 +1987,7 @@ RESULT eServiceApp::getSubtitleList(std::vector<struct SubtitleTrack>& subtitlel
 				for (it = subsdir_files.begin(); it != subsdir_files.end(); it++) {
 					splitExtension(*it, basename, extension);
 					if (extension == ".srt") {
-						addExternalTrack(subtitlelist, pid++, basename, dirname + "/Subs/" + *it);
+						m_external_subtitles.push_back(std::make_pair(basename, dirname + "/Subs/" + *it));
 					}
 				}
 			}
@@ -1818,11 +1996,37 @@ RESULT eServiceApp::getSubtitleList(std::vector<struct SubtitleTrack>& subtitlel
 			splitExtension(*it, basename, extension);
 			std::string path = dirname + "/" + *it;
 			if (extension == ".srt" && subtitle_path != path) {
-				addExternalTrack(subtitlelist, pid++, basename, path);
+				m_external_subtitles.push_back(std::make_pair(basename, path));
 			}
 		}
 	}
-	eDebug("eServiceApp::getSubtitleList - found external tracks (%d)", pid - embedded_track_num);
+}
+
+/* timeout of PlayerBackend::subtitleGetNumberOfTracks: 0 never waits */
+RESULT eServiceApp::fillSubtitleList(std::vector<struct SubtitleTrack>& subtitlelist, int timeout) {
+	m_subtitle_tracks.clear();
+	m_subtitle_streams.clear();
+	int embedded_track_num = player->subtitleGetNumberOfTracks(timeout);
+	if (m_debug)
+		eDebug("eServiceApp::getSubtitleList - found embedded tracks (%d)", embedded_track_num);
+	int pid = 0;
+	for (; pid < embedded_track_num; pid++) {
+		subtitleStream s;
+		if (player->subtitleGetTrackInfo(s, pid) == 0) {
+			addEmbeddedTrack(subtitlelist, s, pid);
+		}
+	}
+	if (m_is_streaming) {
+		/* no .srt next to a url: listDir("http://...") only logs an error
+		 * with the stream url on every call */
+		return 0;
+	}
+	if (!m_external_subtitles_scanned)
+		scanExternalSubtitles();
+	for (size_t i = 0; i < m_external_subtitles.size(); i++)
+		addExternalTrack(subtitlelist, pid++, m_external_subtitles[i].first, m_external_subtitles[i].second);
+	if (m_debug)
+		eDebug("eServiceApp::getSubtitleList - found external tracks (%d)", pid - embedded_track_num);
 	return 0;
 }
 
@@ -1830,16 +2034,24 @@ RESULT eServiceApp::getSubtitleList(std::vector<struct SubtitleTrack>& subtitlel
 int eServiceApp::getNumberOfSubservices() {
 	std::string path_str(m_ref.path);
 	/* not for a resolve:// url, it is not resolved yet */
-	if (options->HLSExplorer && path_str.find(m_resolve_uri) != 0 && !m_subservices_checked) {
-		fillSubservices();
-		m_subservices_checked = true;
+	if (options->HLSExplorer && path_str.find(m_resolve_uri) != 0 && !m_subservices_checked && !m_hls_explorer->running()) {
+		/* never read on the GUI thread: 0 for now, evUpdatedEventInfo of
+		 * subservicesExplored() makes the GUI ask again */
+		if (!exploreSubservices()) {
+			fillSubservices(std::vector<M3U8StreamInfo>());
+			m_subservices_checked = true;
+		}
 	}
-	eDebug("eServiceApp::getNumberOfSubservices - %zu", m_subserviceref_vec.size());
+	if (m_debug)
+		eDebug("eServiceApp::getNumberOfSubservices - %zu", m_subserviceref_vec.size());
 	return m_subserviceref_vec.size();
 }
 
 RESULT eServiceApp::getSubservice(eServiceReference& subservice, unsigned int n) {
-	eDebug("eServiceApp::getSubservice - %u", n);
+	if (m_debug)
+		eDebug("eServiceApp::getSubservice - %u", n);
+	if (n >= m_subserviceref_vec.size())
+		return -1;
 	subservice = m_subserviceref_vec[n];
 	return 0;
 }
@@ -2077,7 +2289,7 @@ std::string eServiceApp::getInfoString(int w) {
 			errorMessage e;
 			if (!player->getErrorMessage(e))
 				return e.message;
-			return "";
+			return m_error_message;
 		}
 		default:
 			return "";
@@ -2210,24 +2422,34 @@ void eServiceApp::saveCuesheet() {
 	getPlayPosition(tmp);
 	getLength(tmp);
 
-	/* save old CUT_TYPE_LAST as CUT_TYPE_SAVEDLAST before replacing it */
-	pts_t old_last = 0;
-	for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end();) {
-		if (i->what == 3) { /* CUT_TYPE_LAST */
-			old_last = i->where;
-			i = m_cue_entries.erase(i);
-		} else if (i->what == 4) /* CUT_TYPE_SAVEDLAST */
-			i = m_cue_entries.erase(i);
-		else
-			++i;
-	}
-	if (old_last > 0)
-		m_cue_entries.insert(cueEntry(old_last, 4));
+	/* a resume seek the player has not applied yet is where the user is */
+	pts_t position = m_pending_seek >= 0 ? m_pending_seek : m_last_seek_pos;
+	bool started = m_player_started || m_pending_seek >= 0;
+	bool near_end = m_media_length > 0 && position >= m_media_length - RESUME_END_MARGIN;
+	/* the player never started, or the user left within the first 10 s:
+	 * the old resume point stays (it was erased and not written again) */
+	bool keep_last = (m_cutlist_enabled & 2) == 0 && (!started || position <= 900000) && !near_end;
 
-	/* no resume position near the end: the next start begins from 0 */
-	if ((m_cutlist_enabled & 2) == 0 && m_last_seek_pos > 900000 && (m_media_length <= 0 || m_last_seek_pos < m_media_length - RESUME_END_MARGIN)) {
-		m_cue_entries.insert(cueEntry(m_last_seek_pos, 3));
-		eDebug("eServiceApp::saveCuesheet - last play position saved: %lld", (long long)m_last_seek_pos);
+	if (!keep_last) {
+		/* save old CUT_TYPE_LAST as CUT_TYPE_SAVEDLAST before replacing it */
+		pts_t old_last = 0;
+		for (std::multiset<cueEntry>::iterator i(m_cue_entries.begin()); i != m_cue_entries.end();) {
+			if (i->what == 3) { /* CUT_TYPE_LAST */
+				old_last = i->where;
+				i = m_cue_entries.erase(i);
+			} else if (i->what == 4) /* CUT_TYPE_SAVEDLAST */
+				i = m_cue_entries.erase(i);
+			else
+				++i;
+		}
+		if (old_last > 0)
+			m_cue_entries.insert(cueEntry(old_last, 4));
+
+		/* no resume position near the end: the next start begins from 0 */
+		if ((m_cutlist_enabled & 2) == 0 && position > 900000 && !near_end) {
+			m_cue_entries.insert(cueEntry(position, 3));
+			eDebug("eServiceApp::saveCuesheet - last play position saved: %lld", (long long)position);
+		}
 	}
 
 	/* update CUT_TYPE_LENGTH with the media length */
@@ -2627,9 +2849,10 @@ static PyMethodDef serviceappMethods[] = {
 	 " bufferSize - in kilobytes\n"
 	 " bufferDuration - in seconds\n"},
 	{"exteplayer3_set_setting", exteplayer3_set_setting, METH_VARARGS,
-	 "set exteplayer3 settings (setting_id, aacSwDecoding, dtsSwDecoding, wmaSwDecoding, lpcmInjection, downmix, ac3SwDecoding, eac3SwDecoding, mp3SwDecoding, rtmpProtocol)\n\n"
+	 "set exteplayer3 settings (setting_id, aacSwDecoding, dtsSwDecoding, wmaSwDecoding, lpcmInjection, downmix, ac3SwDecoding, eac3SwDecoding, mp3SwDecoding, rtmpProtocol"
+	 "[, dtsAc3, truehdAc3, heaacAacLc, dtsEac3, truehdEac3, hlsQuality, hlsDefaultAudio, coverPath, graphicSubDir])\n\n"
 	 " setting_id - (0 - servicemp3, 1 - servicegst, 2 - serviceextep3, 3 - user)\n"
-	 " aacSwDecoding - (True, False)\n"
+	 " aacSwDecoding - (0 off, 1 ADTS, 2 LATM)\n"
 	 " dtsSwDecoding - (True, False)\n"
 	 " wmaSwDecoding - (True, False)\n"
 	 " lpcmInjection - (True, False)\n"
@@ -2637,7 +2860,15 @@ static PyMethodDef serviceappMethods[] = {
 	 " ac3SwDecoding - (True, False)\n"
 	 " eac3SwDecoding - (True, False)\n"
 	 " mp3SwDecoding - (True, False)\n"
-	 " rtmpProtocol - (0|1|2)\n"},
+	 " rtmpProtocol - (0|1|2)\n"
+	 " optional, only for a player that knows them:\n"
+	 " dtsAc3, truehdAc3 - transcode DTS / TrueHD to AC3 (True, False; exteplayer3 187 \"xcode\" & 1)\n"
+	 " heaacAacLc - HE-AAC as AAC-LC (True, False; \"xcode\" & 2)\n"
+	 " dtsEac3, truehdEac3 - transcode DTS / TrueHD to E-AC3 (True, False; \"xcode\" & 4)\n"
+	 " hlsQuality - HLS variant (0 auto, 1 lowest, 2 highest; exteplayer3 185)\n"
+	 " hlsDefaultAudio - only the default HLS audio rendition (0|1; exteplayer3 185)\n"
+	 " coverPath - file for the embedded cover (None or \"\" off)\n"
+	 " graphicSubDir - graphic subtitles as PNG files below this /tmp directory (None or \"\" off; exteplayer3 63)\n"},
 	{"can_record", serviceapp_can_record, METH_NOARGS, "recording of 5001/5002 streams is available"},
 	{"version", serviceapp_version, METH_NOARGS, "version of serviceapp (AC_INIT of configure.ac)"},
 	{"serviceapp_set_setting", serviceapp_set_setting, METH_VARARGS,

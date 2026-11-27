@@ -9,19 +9,50 @@
 #include <fcntl.h>
 #include "myconsole.h"
 
+static void closePipe(int p[2])
+{
+	for (int i = 0; i < 2; i++)
+	{
+		if (p[i] != -1)
+		{
+			close(p[i]);
+			p[i] = -1;
+		}
+	}
+}
+
+/* the max number of queued commands, see eConsoleContainer::write */
+static const size_t OUTBUF_MAX = 64;
+
 int bidirpipe(int pfd[], const char *cmd , const char * const argv[], const char *cwd )
 {
-	int pfddummy[2];  /* HiSilicon dummy */
-	int pfdin[2];  /* from child to parent */
-	int pfdout[2]; /* from parent to child */
-	int pfderr[2]; /* stderr from child to parent */
+	int pfddummy[2] = {-1, -1};  /* HiSilicon dummy */
+	int pfdin[2] = {-1, -1};  /* from child to parent */
+	int pfdout[2] = {-1, -1}; /* from parent to child */
+	int pfderr[2] = {-1, -1}; /* stderr from child to parent */
 	int pid;       /* child's pid */
 
-	if ( pipe(pfddummy) == -1 || pipe(pfdin) == -1 || pipe(pfdout) == -1 || pipe(pfderr) == -1 )
+	/* O_CLOEXEC: another thread of enigma2 that forks at the same moment
+	 * must not inherit the player's pipes; the child's dup() below gives
+	 * fds 0-2 without the flag. On a failure the pipes made so far are
+	 * closed, they leaked with every failed start. */
+	if ( pipe2(pfddummy, O_CLOEXEC) == -1 || pipe2(pfdin, O_CLOEXEC) == -1 || pipe2(pfdout, O_CLOEXEC) == -1 || pipe2(pfderr, O_CLOEXEC) == -1 )
+	{
+		closePipe(pfddummy);
+		closePipe(pfdin);
+		closePipe(pfdout);
+		closePipe(pfderr);
 		return(-1);
+	}
 
 	if ( ( pid = vfork() ) == -1 )
+	{
+		closePipe(pfddummy);
+		closePipe(pfdin);
+		closePipe(pfdout);
+		closePipe(pfderr);
 		return(-1);
+	}
 	else if (pid == 0) /* child process */
 	{
 		setsid();
@@ -58,6 +89,9 @@ int bidirpipe(int pfd[], const char *cmd , const char * const argv[], const char
 			/* the vfork will actually suspend the parent thread until execvp is called. thus it's ok to use the shared arg/cmdline pointers here. */
 		_exit(0);
 	}
+	/* the dummy pipe is not used after the fork: open in the parent it cost
+	 * two fds per player or script start (EMFILE after a few hundred zaps) */
+	closePipe(pfddummy);
 	if (close(pfdout[0]) == -1 || close(pfdin[1]) == -1 || close(pfderr[1]) == -1)
 			return(-1);
 
@@ -165,10 +199,7 @@ void eConsoleContainer::kill()
 		::kill(-pid, SIGKILL);
 		closePipes();
 	}
-	while( !outbuf.empty() ) // cleanup out buffer
-	{
-		outbuf.pop();
-	}
+	outbuf.clear(); // cleanup out buffer
 	in = 0;
 	out = 0;
 	err = 0;
@@ -237,10 +268,7 @@ void eConsoleContainer::closePipes()
 		::close(fd[2]);
 		fd[2]=-1;
 	}
-	while( outbuf.size() ) // cleanup out buffer
-	{
-		outbuf.pop();
-	}
+	outbuf.clear(); // cleanup out buffer
 	in = 0; out = 0; err = 0;
 	pid = -1;
 }
@@ -258,6 +286,7 @@ void eConsoleContainer::readyRead(int what)
 			buf[rd]=0;
 			/*emit*/ dataAvail(buf);
 			stdoutAvail(buf);
+			stdoutData(buf, rd);
 			if ( filefd[1] >= 0 )
 			{
 				ssize_t ret = ::write(filefd[1], buf, rd);
@@ -282,6 +311,12 @@ void eConsoleContainer::readyRead(int what)
 			{
 				retval = WEXITSTATUS(childstatus);
 			}
+			else if (WIFSIGNALED(childstatus))
+			{
+				/* as a shell reports it: a player killed by SIGSEGV or the
+				 * OOM killer reported 0 before, a normal end */
+				retval = 128 + WTERMSIG(childstatus);
+			}
 		}
 		closePipes();
 		/*emit*/ appClosed(retval);
@@ -302,13 +337,31 @@ void eConsoleContainer::readyErrRead(int what)
 			buf[rd]=0;
 			/*emit*/ dataAvail(buf);
 			stderrAvail(buf);
+			stderrData(buf, rd);
 		}
 	}
 }
 
-void eConsoleContainer::write( const char *data, int len )
+void eConsoleContainer::write( const char *data, int len, bool droppable )
 {
-	outbuf.push(queue_data(data,len));
+	/* an app that stopped reading its stdin (hung player) must not let the
+	 * queue grow with every position poll: the oldest poll goes first (not
+	 * one written in part); a command of the user ("q" above all) is never
+	 * dropped, those are few */
+	if (outbuf.size() >= OUTBUF_MAX)
+	{
+		std::deque<struct queue_data>::iterator it(outbuf.begin());
+		for (; it != outbuf.end(); ++it)
+		{
+			if (it->droppable && it->dataSent == 0)
+				break;
+		}
+		if (it != outbuf.end())
+			outbuf.erase(it);
+		else if (droppable)
+			return;
+	}
+	outbuf.push_back(queue_data(data, len, droppable));
 	if (out)
 		out->start();
 }
@@ -319,10 +372,16 @@ void eConsoleContainer::readyWrite(int what)
 	{
 		queue_data &d = outbuf.front();
 		int wr = ::write( fd[1], d.data.data()+d.dataSent, d.len-d.dataSent );
-		if (wr < 0)
+		if (wr < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR))
+		{
+			/* the pipe is full for now: the entry stays (a "q" was lost
+			 * here before), the notifier tries again */
+			return;
+		}
+		else if (wr < 0)
 		{
 /*			eDebug("[ServiceApp][eConsoleContainer]2 write on fd=%d failed: %m", fd[1]);  */
-			outbuf.pop();
+			outbuf.pop_front();
 			if ( filefd[0] == -1 )
 			/* emit */ dataSent(0);
 		}
@@ -331,7 +390,7 @@ void eConsoleContainer::readyWrite(int what)
 			d.dataSent += wr;
 			if (d.dataSent == d.len)
 			{
-				outbuf.pop();
+				outbuf.pop_front();
 				if ( filefd[0] == -1 )
 				/* emit */ dataSent(0);
 			}
