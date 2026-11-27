@@ -597,6 +597,8 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 		v.bit_depth = cJsonGetInt(value, "bd");
 		v.bitrate = cJsonGetInt(value, "br");
 		v.dolby_vision = cJsonGetInt(value, "dv");
+		v.sar_num = cJsonGetInt(value, "an");
+		v.sar_den = cJsonGetInt(value, "ad");
 		if (v.id >= 0 && (v.width <= 0 || v.height <= 0))
 		{
 			/* live TS, HLS: FFmpeg has not seen the picture, "w" and "h"

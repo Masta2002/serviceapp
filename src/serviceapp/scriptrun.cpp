@@ -91,8 +91,8 @@ ResolveUrl::ResolveUrl(const std::string &url):
     m_success(0),
     mThreadRunning(false),
     mStopped(false),
-    mMessageMain(eApp, 1),
-    mMessageThread(this, 1),
+    mMessageMain(eApp, 1, "scriptrun"),
+    mMessageThread(this, 1, "scriptrun"),
     mWaitForStop(false)
 {
     eDebug("ResolveUrl::ResolveUrl %s", url.c_str());

@@ -105,7 +105,7 @@ for key in list(config_serviceapp.exteplayer3.keys()):
 # what the installed exteplayer3 reports in EPLAYER3_EXTENDED: version and feature keys
 EXTEPLAYER3_CAPS = {}
 
-# where servicemp3 puts the cover of a file (evUser+13), exteplayer3 --cover
+# where servicemp3 puts the cover of a file (evUpdateIDv3Cover), exteplayer3 --cover
 COVER_FILE = "/tmp/.id3coverart"
 
 # graphic subtitles (PGS, DVB, XSUB): exteplayer3 -G writes the pictures as PNG

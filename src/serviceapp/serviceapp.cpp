@@ -1102,8 +1102,9 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 			break;
 		}
 		case PlayerMessage::coverAvailable:
-			/* the embedded cover is in /tmp/.id3coverart, as servicemp3 announces it */
-			m_event((iPlayableService*)this, evUser + 13);
+			/* the embedded cover is in /tmp/.id3coverart; evUpdateIDv3Cover is
+			 * what servicemp3 of openATV sends and the MediaPlayer shows */
+			m_event((iPlayableService*)this, evUpdateIDv3Cover);
 			break;
 		default:
 			if (m_debug)
@@ -1885,6 +1886,11 @@ int eServiceApp::getInfo(int w) {
 				return -1;
 			}
 			float aspect = m_width / float(m_height);
+			/* the sample aspect ratio of exteplayer3 (v_c "an"/"ad"): anamorphic
+			 * SD (720x576 shown as 16:9) is wide although its pixels are not */
+			videoStream v;
+			if (!player->videoGetTrackInfo(v, 0) && v.sar_num > 0 && v.sar_den > 0)
+				aspect = aspect * v.sar_num / float(v.sar_den);
 			// according to wikipedia, widescreen is when width to height is greater then 1.37:1
 			if (aspect > 1.37) {
 				// WIDESCREEN values from ServiceInfo.py: 3, 4, 7, 8, 0xB, 0xC, 0xF, 0x10
