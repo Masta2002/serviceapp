@@ -1,6 +1,6 @@
 # SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
+# Copyright (C) YEAR the ServiceApp authors
+# This file is distributed under the same license as ServiceApp (GPL-2.0).
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
 msgid ""
@@ -15,28 +15,29 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: Poedit 2.3.1\n"
 
 #, python-format
 msgid "%d millisecond"
 msgid_plural "%d milliseconds"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%d milliseconde"
+msgstr[1] "%d milliseconden"
 
 msgid "AAC software decoding"
 msgstr "AAC software decodering"
 
 msgid "AAC-LC"
-msgstr ""
+msgstr "AAC-LC"
 
 msgid "AC3 software decoding"
 msgstr "AC3 software decodering"
 
 msgid "AC3+ Passthrough fix delay"
-msgstr ""
+msgstr "Vertraging van de AC3+ passthrough-fix"
 
 msgid "Auto"
-msgstr ""
+msgstr "Auto"
 
 msgid "Auto select stream"
 msgstr "Select de stream automatisch"
@@ -54,25 +55,25 @@ msgid "Buffer size"
 msgstr "Buffergrootte"
 
 msgid "Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
-msgstr ""
+msgstr "Kies of DTS / DTS-HD-geluidssporen worden omgezet naar Dolby Digital of Dolby Digital +."
 
 msgid "Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
-msgstr ""
+msgstr "Kies of Dolby TrueHD-geluidssporen worden omgezet naar Dolby Digital of Dolby Digital +."
 
 msgid "Choose whether HE-AAC sound tracks should be transcoded to AAC-LC."
-msgstr ""
+msgstr "Kies of HE-AAC-geluidssporen worden omgezet naar AAC-LC."
 
 msgid "Connection speed"
 msgstr "Verbindingssnelheid"
 
 msgid "DTS / DTS-HD transcoding"
-msgstr ""
+msgstr "DTS / DTS-HD omzetten"
 
 msgid "DTS software decoding"
 msgstr "DTS software decodering"
 
 msgid "Debug"
-msgstr ""
+msgstr "Debug"
 
 msgid "Detecting exteplayer3 player ..."
 msgstr "Detecteert de exteplayer3 speler ..."
@@ -81,13 +82,13 @@ msgid "Detecting gstreamer player ..."
 msgstr "Detecteert de gstreamer speler ..."
 
 msgid "Dolby Digital"
-msgstr ""
+msgstr "Dolby Digital"
 
 msgid "Dolby Digital +"
-msgstr ""
+msgstr "Dolby Digital +"
 
 msgid "Dolby TrueHD transcoding"
-msgstr ""
+msgstr "Dolby TrueHD omzetten"
 
 msgid "EAC3 software decoding"
 msgstr "EAC3 software decodering"
@@ -96,10 +97,10 @@ msgid "Embedded subtitles"
 msgstr "Ingebakken ondertitels"
 
 msgid "Enable AC3+ passthrough fix"
-msgstr ""
+msgstr "AC3+ passthrough-fix inschakelen"
 
 msgid "Enables AC3+ passthrough fix for Vu+ Ultimo4K / Duo4KSE."
-msgstr ""
+msgstr "Schakelt de AC3+ passthrough-fix in voor Vu+ Ultimo4K / Duo4KSE."
 
 msgid "Enigma2 playback system"
 msgstr "Enigma2 afspeel-systeem"
@@ -117,48 +118,48 @@ msgid "ExtEplayer3"
 msgstr "Exteplayer3"
 
 msgid "Forced only"
-msgstr ""
+msgstr "Alleen geforceerde"
 
 msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
-msgstr ""
+msgstr "Alleen geforceerde: een ingebed geforceerd spoor (anderstalige delen) in de taal van het geluidsspoor of van de voorkeurstalen voor geluid."
 
 #. TRANSLATORS: %s is the name of the missing GStreamer plugin
 #, c-format
 msgid "GStreamer plugin %s is not available!"
-msgstr ""
+msgstr "GStreamer-plug-in %s is niet beschikbaar!"
 
 msgid "GstPlayer"
 msgstr "GstPlayer"
 
 msgid "HE-AAC transcoding"
-msgstr ""
+msgstr "HE-AAC omzetten"
 
 msgid "HLS Explorer"
 msgstr "HSL Explorer"
 
 msgid "HLS default audio only"
-msgstr ""
+msgstr "HLS: alleen standaard geluidsspoor"
 
 msgid "HLS quality"
-msgstr ""
+msgstr "HLS-kwaliteit"
 
 msgid "Highest"
-msgstr ""
+msgstr "Hoogste"
 
 msgid "LPCM injection"
 msgstr "LPCM injectie"
 
 msgid "Lowest"
-msgstr ""
+msgstr "Laagste"
 
 msgid "MP3 software decoding"
 msgstr "MP3 software decodering"
 
 msgid "No"
-msgstr ""
+msgstr "Nee"
 
 msgid "Offer only the default audio track of a HLS stream instead of all of its languages."
-msgstr ""
+msgstr "Alleen het standaard geluidsspoor van een HLS-stream aanbieden in plaats van al zijn talen."
 
 msgid "Play with ServiceExtEplayer3"
 msgstr "Speel af met de ServiceExtEplayer3"
@@ -176,7 +177,7 @@ msgid "Select sink which you want to use."
 msgstr "Met deze optie kiest u de sink die u wilt gebruiken."
 
 msgid "Select the delay that will be used for AC3+ Passthrough fix."
-msgstr ""
+msgstr "Kies de vertraging voor de AC3+ passthrough-fix."
 
 msgid "Select the player which will be used for Enigma2 playback."
 msgstr "Indien geactiveerd, dan kiest u de speler die zal worden gebruikt voor het afspelen binnen Enigma2."
@@ -188,7 +189,7 @@ msgid "ServiceApp"
 msgstr "ServiceApp"
 
 msgid "ServiceApp - player check"
-msgstr ""
+msgstr "ServiceApp - spelercontrole"
 
 #, python-format
 msgid "ServiceExtEplayer3 (%s)"
@@ -260,7 +261,7 @@ msgid "Turn on auto-selection of streams according to set Connection speed."
 msgstr "Indien geactiveerd, dan schakelt u de auto-selectie van streams in volgens de ingestelde verbindingssnelheid."
 
 msgid "Turn on debug messages"
-msgstr ""
+msgstr "Debugmeldingen inschakelen"
 
 msgid "Turn on downmix to stereo, when software decoding is in use"
 msgstr "Indien geactiveerd, dan schakelt u de stereo downmix in wanneer software-decodering in gebruik is"
@@ -272,13 +273,13 @@ msgid "Turn on the embedded subtitles support."
 msgstr "Indien geactiveerd, dan activeert u de ondersteuning van ingebakken ondertitels."
 
 msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
-msgstr ""
+msgstr "Variant van een HLS- of DASH-stream die de speler kiest: Auto en Hoogste spelen de beste, Laagste de kleinste."
 
 msgid "WMA software decoding"
 msgstr "WMA software decodering"
 
 msgid "Yes"
-msgstr ""
+msgstr "Ja"
 
 msgid "experimental"
 msgstr "experimenteel"
@@ -287,11 +288,11 @@ msgid "exteplayer3"
 msgstr "Exteplayer3"
 
 msgid "exteplayer3 did not accept its options (exit code 1)"
-msgstr ""
+msgstr "exteplayer3 heeft zijn opties niet geaccepteerd (afsluitcode 1)"
 
 #. TRANSLATORS: a forced subtitle track (only the foreign language parts)
 msgid "forced"
-msgstr ""
+msgstr "geforceerd"
 
 msgid "gstplayer"
 msgstr "Gstplayer"
@@ -310,4 +311,4 @@ msgstr "Zet het players framework op"
 
 #, python-format
 msgid "version %s"
-msgstr ""
+msgstr "versie %s"

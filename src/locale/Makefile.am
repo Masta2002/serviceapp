@@ -1,4 +1,4 @@
-LANGS = ar bs cs de en es fi fr hr hu it lv nl pl pt ru sk tr uk zh_CN
+LANGS = ar bg bs cs da de el en es fa fi fr hr hu it lv nb nl pl pt pt_BR ro ru sk sr sv tr uk zh_CN
 LANGMO = $(LANGS:=.mo)
 LANGPO = $(LANGS:=.po)
 

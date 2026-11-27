@@ -17,22 +17,22 @@ msgstr ""
 #, python-format
 msgid "%d millisecond"
 msgid_plural "%d milliseconds"
-msgstr[0] ""
+msgstr[0] "%d 毫秒"
 
 msgid "AAC software decoding"
 msgstr "AAC软件解码"
 
 msgid "AAC-LC"
-msgstr ""
+msgstr "AAC-LC"
 
 msgid "AC3 software decoding"
 msgstr "AC3软件解码"
 
 msgid "AC3+ Passthrough fix delay"
-msgstr ""
+msgstr "AC3+ 直通修复延迟"
 
 msgid "Auto"
-msgstr ""
+msgstr "自动"
 
 msgid "Auto select stream"
 msgstr "自动选择流"
@@ -50,25 +50,25 @@ msgid "Buffer size"
 msgstr "缓冲区大小"
 
 msgid "Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
-msgstr ""
+msgstr "选择是否将 DTS / DTS-HD 音轨转码为 Dolby Digital 或 Dolby Digital +。"
 
 msgid "Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
-msgstr ""
+msgstr "选择是否将 Dolby TrueHD 音轨转码为 Dolby Digital 或 Dolby Digital +。"
 
 msgid "Choose whether HE-AAC sound tracks should be transcoded to AAC-LC."
-msgstr ""
+msgstr "选择是否将 HE-AAC 音轨转码为 AAC-LC。"
 
 msgid "Connection speed"
 msgstr "连接速度"
 
 msgid "DTS / DTS-HD transcoding"
-msgstr ""
+msgstr "DTS / DTS-HD 转码"
 
 msgid "DTS software decoding"
 msgstr "DTS软件解码"
 
 msgid "Debug"
-msgstr ""
+msgstr "调试"
 
 msgid "Detecting exteplayer3 player ..."
 msgstr "检测exteplayer3播放器 ..."
@@ -77,13 +77,13 @@ msgid "Detecting gstreamer player ..."
 msgstr "检测gstreamer播放器 ..."
 
 msgid "Dolby Digital"
-msgstr ""
+msgstr "Dolby Digital"
 
 msgid "Dolby Digital +"
-msgstr ""
+msgstr "Dolby Digital +"
 
 msgid "Dolby TrueHD transcoding"
-msgstr ""
+msgstr "Dolby TrueHD 转码"
 
 msgid "EAC3 software decoding"
 msgstr "EAC3软件解码"
@@ -92,10 +92,10 @@ msgid "Embedded subtitles"
 msgstr "嵌入字幕"
 
 msgid "Enable AC3+ passthrough fix"
-msgstr ""
+msgstr "启用 AC3+ 直通修复"
 
 msgid "Enables AC3+ passthrough fix for Vu+ Ultimo4K / Duo4KSE."
-msgstr ""
+msgstr "为 Vu+ Ultimo4K / Duo4KSE 启用 AC3+ 直通修复。"
 
 msgid "Enigma2 playback system"
 msgstr "Enigma2播放系统"
@@ -113,48 +113,48 @@ msgid "ExtEplayer3"
 msgstr "ExtEplayer3"
 
 msgid "Forced only"
-msgstr ""
+msgstr "仅强制字幕"
 
 msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
-msgstr ""
+msgstr "仅强制字幕：音轨语言或首选音频语言的内嵌强制字幕轨（外语部分）。"
 
 #. TRANSLATORS: %s is the name of the missing GStreamer plugin
 #, c-format
 msgid "GStreamer plugin %s is not available!"
-msgstr ""
+msgstr "GStreamer 插件 %s 不可用！"
 
 msgid "GstPlayer"
 msgstr "GstPlayer"
 
 msgid "HE-AAC transcoding"
-msgstr ""
+msgstr "HE-AAC 转码"
 
 msgid "HLS Explorer"
 msgstr "HLS Explorer"
 
 msgid "HLS default audio only"
-msgstr ""
+msgstr "HLS：仅默认音轨"
 
 msgid "HLS quality"
-msgstr ""
+msgstr "HLS 画质"
 
 msgid "Highest"
-msgstr ""
+msgstr "最高"
 
 msgid "LPCM injection"
 msgstr "LPCM injection"
 
 msgid "Lowest"
-msgstr ""
+msgstr "最低"
 
 msgid "MP3 software decoding"
 msgstr "Mp3软件解码"
 
 msgid "No"
-msgstr ""
+msgstr "否"
 
 msgid "Offer only the default audio track of a HLS stream instead of all of its languages."
-msgstr ""
+msgstr "仅提供 HLS 流的默认音轨，而不是其所有语言。"
 
 msgid "Play with ServiceExtEplayer3"
 msgstr "使用ServiceExtEplayer3"
@@ -172,7 +172,7 @@ msgid "Select sink which you want to use."
 msgstr "选择要使用的sink."
 
 msgid "Select the delay that will be used for AC3+ Passthrough fix."
-msgstr ""
+msgstr "选择 AC3+ 直通修复使用的延迟。"
 
 msgid "Select the player which will be used for Enigma2 playback."
 msgstr "选择用于Enigma2播放的播放器"
@@ -184,7 +184,7 @@ msgid "ServiceApp"
 msgstr "ServiceApp"
 
 msgid "ServiceApp - player check"
-msgstr ""
+msgstr "ServiceApp - 播放器检测"
 
 #, python-format
 msgid "ServiceExtEplayer3 (%s)"
@@ -223,10 +223,10 @@ msgid "Stop playing this movie?"
 msgstr "停止播放这部电影?"
 
 msgid "To AAC ADTS"
-msgstr ""
+msgstr "转为 AAC ADTS"
 
 msgid "To AAC LATM"
-msgstr ""
+msgstr "转为 AAC LATM"
 
 msgid "Turn on AAC software decoding."
 msgstr "打开AAC软件解码"
@@ -250,7 +250,7 @@ msgid "Turn on auto-selection of streams according to set Connection speed."
 msgstr "根据设置的连接速度启用流的自动选择"
 
 msgid "Turn on debug messages"
-msgstr ""
+msgstr "启用调试信息"
 
 msgid "Turn on downmix to stereo, when software decoding is in use"
 msgstr "当使用软件解码时，打开立体声缩混"
@@ -262,13 +262,13 @@ msgid "Turn on the embedded subtitles support."
 msgstr "打开嵌入式字幕支持"
 
 msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
-msgstr ""
+msgstr "播放器选择的 HLS 或 DASH 流变体：自动和最高播放最佳的，最低播放最小的。"
 
 msgid "WMA software decoding"
 msgstr "WMA软件解码"
 
 msgid "Yes"
-msgstr ""
+msgstr "是"
 
 msgid "experimental"
 msgstr "实验的"
@@ -277,11 +277,11 @@ msgid "exteplayer3"
 msgstr "exteplayer3"
 
 msgid "exteplayer3 did not accept its options (exit code 1)"
-msgstr ""
+msgstr "exteplayer3 不接受其选项（退出代码 1）"
 
 #. TRANSLATORS: a forced subtitle track (only the foreign language parts)
 msgid "forced"
-msgstr ""
+msgstr "强制"
 
 msgid "gstplayer"
 msgstr "gstplayer"
@@ -290,7 +290,7 @@ msgid "not installed"
 msgstr "未安装的"
 
 msgid "original"
-msgstr ""
+msgstr "原始"
 
 msgid "serviceapp"
 msgstr "serviceapp"
@@ -300,4 +300,4 @@ msgstr "设置播放器框架"
 
 #, python-format
 msgid "version %s"
-msgstr ""
+msgstr "版本 %s"

@@ -16,8 +16,8 @@ msgstr ""
 #, python-format
 msgid "%d millisecond"
 msgid_plural "%d milliseconds"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%d millisekunti"
+msgstr[1] "%d millisekuntia"
 
 msgid "AAC software decoding"
 msgstr "AAC:n ohjelmistodekoodaus"
@@ -32,7 +32,7 @@ msgid "AC3+ Passthrough fix delay"
 msgstr "AC3+ -äänen läpivientikorjauksen viive"
 
 msgid "Auto"
-msgstr ""
+msgstr "Automaattinen"
 
 msgid "Auto select stream"
 msgstr "Valitse striimi automaattisesti"
@@ -112,15 +112,15 @@ msgid "ExtEplayer3"
 msgstr "ExtEplayer3"
 
 msgid "Forced only"
-msgstr ""
+msgstr "Vain pakotetut"
 
 msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
-msgstr ""
+msgstr "Vain pakotetut: upotettu pakotettu raita (vieraskieliset osat) ääniraidan kielellä tai ensisijaisilla äänikielillä."
 
 #. TRANSLATORS: %s is the name of the missing GStreamer plugin
 #, c-format
 msgid "GStreamer plugin %s is not available!"
-msgstr ""
+msgstr "GStreamer-laajennus %s ei ole käytettävissä!"
 
 msgid "GstPlayer"
 msgstr "GstPlayer"
@@ -132,19 +132,19 @@ msgid "HLS Explorer"
 msgstr "HLS Explorer"
 
 msgid "HLS default audio only"
-msgstr ""
+msgstr "HLS: vain oletusääniraita"
 
 msgid "HLS quality"
-msgstr ""
+msgstr "HLS-laatu"
 
 msgid "Highest"
-msgstr ""
+msgstr "Korkein"
 
 msgid "LPCM injection"
 msgstr "LPCM-injektio"
 
 msgid "Lowest"
-msgstr ""
+msgstr "Matalin"
 
 msgid "MP3 software decoding"
 msgstr "MP3:n ohjelmistodekoodaus"
@@ -153,7 +153,7 @@ msgid "No"
 msgstr "Ei"
 
 msgid "Offer only the default audio track of a HLS stream instead of all of its languages."
-msgstr ""
+msgstr "Tarjoa HLS-lähetyksestä vain oletusääniraita kaikkien kielten sijaan."
 
 msgid "Play with ServiceExtEplayer3"
 msgstr "Toista ServiceExtEplayer3:lla"
@@ -183,7 +183,7 @@ msgid "ServiceApp"
 msgstr "ServiceApp"
 
 msgid "ServiceApp - player check"
-msgstr ""
+msgstr "ServiceApp - soitintarkistus"
 
 #, python-format
 msgid "ServiceExtEplayer3 (%s)"
@@ -261,13 +261,13 @@ msgid "Turn on the embedded subtitles support."
 msgstr "Ota sulautettujen tekstitysten tuki käyttöön."
 
 msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
-msgstr ""
+msgstr "Soittimen valitsema HLS- tai DASH-lähetyksen versio: Automaattinen ja Korkein toistavat parhaan, Matalin pienimmän."
 
 msgid "WMA software decoding"
 msgstr "WMA:n ohjelmistodekoodaus"
 
 msgid "Yes"
-msgstr ""
+msgstr "Kyllä"
 
 msgid "experimental"
 msgstr "kokeellinen"
@@ -276,11 +276,11 @@ msgid "exteplayer3"
 msgstr "exteplayer3"
 
 msgid "exteplayer3 did not accept its options (exit code 1)"
-msgstr ""
+msgstr "exteplayer3 ei hyväksynyt asetuksiaan (paluukoodi 1)"
 
 #. TRANSLATORS: a forced subtitle track (only the foreign language parts)
 msgid "forced"
-msgstr ""
+msgstr "pakotettu"
 
 msgid "gstplayer"
 msgstr "gstplayer"

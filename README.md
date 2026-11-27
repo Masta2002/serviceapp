@@ -224,7 +224,7 @@ recorder of the image.
 
 ## 🌍 Translations
 
-Languages: ar, bs, cs, de, en, es, fi, fr, hr, hu, it, lv, nl, pl, pt, ru, sk, tr, uk, zh_CN
+Languages (all complete): ar, bg, bs, cs, da, de, el, en, es, fa, fi, fr, hr, hu, it, lv, nb, nl, pl, pt, pt_BR, ro, ru, sk, sr, sv, tr, uk, zh_CN
 (`LANGS` in `src/locale/Makefile.am`). After a change of the texts, run in
 `src/locale`:
 
@@ -288,7 +288,7 @@ The full list of commits of a version is in its [GitHub release](https://github.
 - **live streams** that end by themselves are reconnected (no endless loop for films without a length), player errors shown as messages, CENC keys per KID from the url (`#sapp_key=`)
 - recording of 5001/5002 streams, resume and cut list for local files, picture size from the decoder, many crash fixes from the other ServiceApp forks
 - security: `sapp_args` can no longer start any program, a stack overflow in the HLS master fetch fixed
-- **translations:** new ar, bs, cs, es, hr, sk, zh_CN; nl installed; de, es, fr, it, ru, uk complete; every visible text translatable, also those of the C++ part
+- **translations:** 29 languages, all complete: new ar, bg, bs, cs, da, el, es, fa, hr, nb, pt_BR, ro, sk, sr, sv, zh_CN; nl installed; every visible text translatable, also those of the C++ part
 - CI: compile check, autotools build, static analysis, ruff, translations, hygiene, SonarCloud, release on a version change
 
 ## 🙏 Credits

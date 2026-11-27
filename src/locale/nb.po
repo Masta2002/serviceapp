@@ -1,0 +1,307 @@
+# Norwegian Bokmal translation of ServiceApp.
+# Copyright (C) 2026 the ServiceApp authors
+# This file is distributed under the same license as ServiceApp (GPL-2.0).
+# Translated for ServiceApp, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ServiceApp\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-27 00:12+0100\n"
+"PO-Revision-Date: 2026-11-27 00:12+0100\n"
+"Last-Translator: \n"
+"Language-Team: none\n"
+"Language: nb\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#, python-format
+msgid "%d millisecond"
+msgid_plural "%d milliseconds"
+msgstr[0] "%d millisekund"
+msgstr[1] "%d millisekunder"
+
+msgid "AAC software decoding"
+msgstr "Programvaredekoding av AAC"
+
+msgid "AAC-LC"
+msgstr "AAC-LC"
+
+msgid "AC3 software decoding"
+msgstr "Programvaredekoding av AC3"
+
+msgid "AC3+ Passthrough fix delay"
+msgstr "Forsinkelse for AC3+ passthrough-retting"
+
+msgid "Auto"
+msgstr "Auto"
+
+msgid "Auto select stream"
+msgstr "Velg strøm automatisk"
+
+msgid "Auto turn on subtitles"
+msgstr "Slå på undertekster automatisk"
+
+msgid "Automatically turn on subtitles if available."
+msgstr "Slå på undertekster automatisk hvis de finnes."
+
+msgid "Buffer duration"
+msgstr "Bufferlengde"
+
+msgid "Buffer size"
+msgstr "Bufferstørrelse"
+
+msgid "Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr "Velg om DTS / DTS-HD-lydspor skal omkodes til Dolby Digital eller Dolby Digital +."
+
+msgid "Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
+msgstr "Velg om Dolby TrueHD-lydspor skal omkodes til Dolby Digital eller Dolby Digital +."
+
+msgid "Choose whether HE-AAC sound tracks should be transcoded to AAC-LC."
+msgstr "Velg om HE-AAC-lydspor skal omkodes til AAC-LC."
+
+msgid "Connection speed"
+msgstr "Tilkoblingshastighet"
+
+msgid "DTS / DTS-HD transcoding"
+msgstr "Omkoding av DTS / DTS-HD"
+
+msgid "DTS software decoding"
+msgstr "Programvaredekoding av DTS"
+
+msgid "Debug"
+msgstr "Feilsøking"
+
+msgid "Detecting exteplayer3 player ..."
+msgstr "Søker etter spilleren exteplayer3 ..."
+
+msgid "Detecting gstreamer player ..."
+msgstr "Søker etter spilleren gstreamer ..."
+
+msgid "Dolby Digital"
+msgstr "Dolby Digital"
+
+msgid "Dolby Digital +"
+msgstr "Dolby Digital +"
+
+msgid "Dolby TrueHD transcoding"
+msgstr "Omkoding av Dolby TrueHD"
+
+msgid "EAC3 software decoding"
+msgstr "Programvaredekoding av EAC3"
+
+msgid "Embedded subtitles"
+msgstr "Innebygde undertekster"
+
+msgid "Enable AC3+ passthrough fix"
+msgstr "Slå på AC3+ passthrough-retting"
+
+msgid "Enables AC3+ passthrough fix for Vu+ Ultimo4K / Duo4KSE."
+msgstr "Slår på AC3+ passthrough-retting for Vu+ Ultimo4K / Duo4KSE."
+
+msgid "Enigma2 playback system"
+msgstr "Avspillingssystem for Enigma2"
+
+msgid ""
+"Enigma2 playback system was changed and Enigma2 should be restarted\n"
+"\n"
+"Do you want to restart it now?"
+msgstr ""
+"Avspillingssystemet for Enigma2 er endret, og Enigma2 bør startes på nytt.\n"
+"\n"
+"Vil du starte på nytt nå?"
+
+msgid "ExtEplayer3"
+msgstr "ExtEplayer3"
+
+msgid "Forced only"
+msgstr "Bare tvungne"
+
+msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
+msgstr "Bare tvungne: et innebygd tvunget spor (deler på fremmedspråk) på lydsporets språk eller de foretrukne lydspråkene."
+
+#. TRANSLATORS: %s is the name of the missing GStreamer plugin
+#, c-format
+msgid "GStreamer plugin %s is not available!"
+msgstr "GStreamer-tillegget %s er ikke tilgjengelig!"
+
+msgid "GstPlayer"
+msgstr "GstPlayer"
+
+msgid "HE-AAC transcoding"
+msgstr "Omkoding av HE-AAC"
+
+msgid "HLS Explorer"
+msgstr "HLS Explorer"
+
+msgid "HLS default audio only"
+msgstr "HLS: bare standardlydsporet"
+
+msgid "HLS quality"
+msgstr "HLS-kvalitet"
+
+msgid "Highest"
+msgstr "Høyeste"
+
+msgid "LPCM injection"
+msgstr "LPCM-injeksjon"
+
+msgid "Lowest"
+msgstr "Laveste"
+
+msgid "MP3 software decoding"
+msgstr "Programvaredekoding av MP3"
+
+msgid "No"
+msgstr "Nei"
+
+msgid "Offer only the default audio track of a HLS stream instead of all of its languages."
+msgstr "Tilby bare standardlydsporet i en HLS-strøm i stedet for alle språkene."
+
+msgid "Play with ServiceExtEplayer3"
+msgstr "Spill av med ServiceExtEplayer3"
+
+msgid "Play with ServiceGstPlayer"
+msgstr "Spill av med ServiceGstPlayer"
+
+msgid "Player"
+msgstr "Spiller"
+
+msgid "RTMP protocol implementation"
+msgstr "Implementering av RTMP-protokollen"
+
+msgid "Select sink which you want to use."
+msgstr "Velg hvilken sink som skal brukes."
+
+msgid "Select the delay that will be used for AC3+ Passthrough fix."
+msgstr "Velg forsinkelsen for AC3+ passthrough-rettingen."
+
+msgid "Select the player which will be used for Enigma2 playback."
+msgstr "Velg spilleren for avspilling i Enigma2."
+
+msgid "Select the player which will be used in serviceapp for Enigma2 playback."
+msgstr "Velg spilleren som serviceapp bruker for avspilling i Enigma2."
+
+msgid "ServiceApp"
+msgstr "ServiceApp"
+
+msgid "ServiceApp - player check"
+msgstr "ServiceApp - kontroll av spillere"
+
+#, python-format
+msgid "ServiceExtEplayer3 (%s)"
+msgstr "ServiceExtEplayer3 (%s)"
+
+#, python-format
+msgid "ServiceGstPlayer (%s)"
+msgstr "ServiceGstPlayer (%s)"
+
+#, python-format
+msgid "ServiceMp3 (%s)"
+msgstr "ServiceMp3 (%s)"
+
+msgid "Set buffer duration in seconds."
+msgstr "Still inn bufferlengden i sekunder."
+
+msgid "Set buffer size in kilobytes."
+msgstr "Still inn bufferstørrelsen i kilobyte."
+
+msgid "Set connection speed in kb/s, according to which you want to have streams auto-selected"
+msgstr "Still inn tilkoblingshastigheten i kb/s som strømmer velges automatisk etter"
+
+msgid "Set which RTMP protocol implementation will be used for playback of RTMP streams"
+msgstr "Still inn hvilken implementering av RTMP-protokollen som brukes for RTMP-strømmer"
+
+msgid "Sink"
+msgstr "Sink"
+
+msgid "Software decoder use LPCM for injection (otherwise wav PCM will be used)"
+msgstr "Programvaredekoderen bruker LPCM for injeksjon (ellers WAV-PCM)"
+
+msgid "Stereo downmix"
+msgstr "Stereo-nedmiksing"
+
+msgid "Stop playing this movie?"
+msgstr "Avslutte avspillingen av denne filmen?"
+
+msgid "To AAC ADTS"
+msgstr "Til AAC ADTS"
+
+msgid "To AAC LATM"
+msgstr "Til AAC LATM"
+
+msgid "Turn on AAC software decoding."
+msgstr "Slå på programvaredekoding av AAC."
+
+msgid "Turn on AC3 software decoding."
+msgstr "Slå på programvaredekoding av AC3."
+
+msgid "Turn on DTS software decoding."
+msgstr "Slå på programvaredekoding av DTS."
+
+msgid "Turn on EAC3 software decoding."
+msgstr "Slå på programvaredekoding av EAC3."
+
+msgid "Turn on MP3 software decoding."
+msgstr "Slå på programvaredekoding av MP3."
+
+msgid "Turn on WMA1, WMA2, WMA/PRO software decoding."
+msgstr "Slå på programvaredekoding av WMA1, WMA2, WMA/PRO."
+
+msgid "Turn on auto-selection of streams according to set Connection speed."
+msgstr "Slå på automatisk valg av strømmer etter innstilt tilkoblingshastighet."
+
+msgid "Turn on debug messages"
+msgstr "Slå på feilsøkingsmeldinger"
+
+msgid "Turn on downmix to stereo, when software decoding is in use"
+msgstr "Slå på stereo-nedmiksing ved programvaredekoding"
+
+msgid "Turn on explorer to retrieve different quality streams from HLS variant playlist and select them via subservices."
+msgstr "Slå på utforskeren som henter strømmer i ulik kvalitet fra HLS-variantlisten og tilbyr dem som undertjenester."
+
+msgid "Turn on the embedded subtitles support."
+msgstr "Slå på støtte for innebygde undertekster."
+
+msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
+msgstr "Variant av en HLS- eller DASH-strøm som spilleren velger: Auto og Høyeste spiller den beste, Laveste den minste."
+
+msgid "WMA software decoding"
+msgstr "Programvaredekoding av WMA"
+
+msgid "Yes"
+msgstr "Ja"
+
+msgid "experimental"
+msgstr "eksperimentell"
+
+msgid "exteplayer3"
+msgstr "exteplayer3"
+
+msgid "exteplayer3 did not accept its options (exit code 1)"
+msgstr "exteplayer3 godtok ikke alternativene sine (avslutningskode 1)"
+
+#. TRANSLATORS: a forced subtitle track (only the foreign language parts)
+msgid "forced"
+msgstr "tvungen"
+
+msgid "gstplayer"
+msgstr "gstplayer"
+
+msgid "not installed"
+msgstr "ikke installert"
+
+msgid "original"
+msgstr "original"
+
+msgid "serviceapp"
+msgstr "serviceapp"
+
+msgid "setup player framework"
+msgstr "still inn spillerne"
+
+#, python-format
+msgid "version %s"
+msgstr "versjon %s"

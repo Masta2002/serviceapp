@@ -1,6 +1,6 @@
 # SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
+# Copyright (C) YEAR the ServiceApp authors
+# This file is distributed under the same license as ServiceApp (GPL-2.0).
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
 msgid ""
@@ -21,23 +21,23 @@ msgstr ""
 #, python-format
 msgid "%d millisecond"
 msgid_plural "%d milliseconds"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%d ezredmásodperc"
+msgstr[1] "%d ezredmásodperc"
 
 msgid "AAC software decoding"
 msgstr "AAC szoftver dekódolás"
 
 msgid "AAC-LC"
-msgstr ""
+msgstr "AAC-LC"
 
 msgid "AC3 software decoding"
 msgstr "AC3 szoftver dekódolás"
 
 msgid "AC3+ Passthrough fix delay"
-msgstr ""
+msgstr "Az AC3+ passthrough javítás késleltetése"
 
 msgid "Auto"
-msgstr ""
+msgstr "Automatikus"
 
 msgid "Auto select stream"
 msgstr "Automatikus adatfolyam kiválasztása"
@@ -55,25 +55,25 @@ msgid "Buffer size"
 msgstr "Puffer mérete"
 
 msgid "Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
-msgstr ""
+msgstr "Válassza ki, hogy a DTS / DTS-HD hangsávok Dolby Digital vagy Dolby Digital + formátumba legyenek-e átkódolva."
 
 msgid "Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +."
-msgstr ""
+msgstr "Válassza ki, hogy a Dolby TrueHD hangsávok Dolby Digital vagy Dolby Digital + formátumba legyenek-e átkódolva."
 
 msgid "Choose whether HE-AAC sound tracks should be transcoded to AAC-LC."
-msgstr ""
+msgstr "Válassza ki, hogy a HE-AAC hangsávok AAC-LC formátumba legyenek-e átkódolva."
 
 msgid "Connection speed"
 msgstr "Kapcsolat sebessége"
 
 msgid "DTS / DTS-HD transcoding"
-msgstr ""
+msgstr "DTS / DTS-HD átkódolás"
 
 msgid "DTS software decoding"
 msgstr "DTS szoftver dekódolás"
 
 msgid "Debug"
-msgstr ""
+msgstr "Hibakeresés"
 
 msgid "Detecting exteplayer3 player ..."
 msgstr "Exteplayer3 lejátszó észlelése..."
@@ -82,13 +82,13 @@ msgid "Detecting gstreamer player ..."
 msgstr "Gstreamer lejátszó észlelése..."
 
 msgid "Dolby Digital"
-msgstr ""
+msgstr "Dolby Digital"
 
 msgid "Dolby Digital +"
-msgstr ""
+msgstr "Dolby Digital +"
 
 msgid "Dolby TrueHD transcoding"
-msgstr ""
+msgstr "Dolby TrueHD átkódolás"
 
 msgid "EAC3 software decoding"
 msgstr "EAC3 szoftver dekódolás"
@@ -97,10 +97,10 @@ msgid "Embedded subtitles"
 msgstr "Beágyazott feliratok"
 
 msgid "Enable AC3+ passthrough fix"
-msgstr ""
+msgstr "AC3+ passthrough javítás bekapcsolása"
 
 msgid "Enables AC3+ passthrough fix for Vu+ Ultimo4K / Duo4KSE."
-msgstr ""
+msgstr "Bekapcsolja az AC3+ passthrough javítást a Vu+ Ultimo4K / Duo4KSE készülékekhez."
 
 msgid "Enigma2 playback system"
 msgstr "Enigma2 lejátszási rendszere"
@@ -118,48 +118,48 @@ msgid "ExtEplayer3"
 msgstr "ExtEplayer3"
 
 msgid "Forced only"
-msgstr ""
+msgstr "Csak kényszerített"
 
 msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
-msgstr ""
+msgstr "Csak kényszerített: beágyazott kényszerített sáv (idegen nyelvű részek) a hangsáv vagy az előnyben részesített hangnyelvek nyelvén."
 
 #. TRANSLATORS: %s is the name of the missing GStreamer plugin
 #, c-format
 msgid "GStreamer plugin %s is not available!"
-msgstr ""
+msgstr "A(z) %s GStreamer bővítmény nem érhető el!"
 
 msgid "GstPlayer"
 msgstr "GstPlayer"
 
 msgid "HE-AAC transcoding"
-msgstr ""
+msgstr "HE-AAC átkódolás"
 
 msgid "HLS Explorer"
 msgstr "HLS Explorer"
 
 msgid "HLS default audio only"
-msgstr ""
+msgstr "HLS: csak az alapértelmezett hangsáv"
 
 msgid "HLS quality"
-msgstr ""
+msgstr "HLS minőség"
 
 msgid "Highest"
-msgstr ""
+msgstr "Legmagasabb"
 
 msgid "LPCM injection"
 msgstr "LPCM injection"
 
 msgid "Lowest"
-msgstr ""
+msgstr "Legalacsonyabb"
 
 msgid "MP3 software decoding"
 msgstr "MP3 szoftver dekódolás"
 
 msgid "No"
-msgstr ""
+msgstr "Nem"
 
 msgid "Offer only the default audio track of a HLS stream instead of all of its languages."
-msgstr ""
+msgstr "Egy HLS adásnak csak az alapértelmezett hangsávját kínálja az összes nyelve helyett."
 
 msgid "Play with ServiceExtEplayer3"
 msgstr "Lejátszás ExtEplayer3 lejátszóval"
@@ -176,9 +176,8 @@ msgstr "RTMP protokoll implementációja"
 msgid "Select sink which you want to use."
 msgstr "Jelölje ki a használni kívánt fogadót."
 
-#, fuzzy
 msgid "Select the delay that will be used for AC3+ Passthrough fix."
-msgstr "Válassza ki azt a lejátszót, amelyet az Enigma2 a lejátszáshoz fog használni."
+msgstr "Válassza ki az AC3+ passthrough javítás késleltetését."
 
 msgid "Select the player which will be used for Enigma2 playback."
 msgstr "Válassza ki azt a lejátszót, amelyet az Enigma2 a lejátszáshoz fog használni."
@@ -190,7 +189,7 @@ msgid "ServiceApp"
 msgstr "ServiceApp"
 
 msgid "ServiceApp - player check"
-msgstr ""
+msgstr "ServiceApp - lejátszók ellenőrzése"
 
 #, python-format
 msgid "ServiceExtEplayer3 (%s)"
@@ -256,7 +255,7 @@ msgid "Turn on auto-selection of streams according to set Connection speed."
 msgstr "A kapcsolat sebességének beállítása szerint automatikusan történik az adatfolyam (stream) kiválasztása."
 
 msgid "Turn on debug messages"
-msgstr ""
+msgstr "Hibakeresési üzenetek bekapcsolása"
 
 msgid "Turn on downmix to stereo, when software decoding is in use"
 msgstr "Sztereó lekeverés bekapcsolása, ha valamilyen szoftverdekódolás van használatban"
@@ -268,13 +267,13 @@ msgid "Turn on the embedded subtitles support."
 msgstr "Itt kapcsolhatja be a beágyazott feliratok támogatását."
 
 msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
-msgstr ""
+msgstr "A lejátszó által választott HLS vagy DASH változat: Automatikus és Legmagasabb a legjobbat, Legalacsonyabb a legkisebbet játssza."
 
 msgid "WMA software decoding"
 msgstr "WMA szoftver dekódolás"
 
 msgid "Yes"
-msgstr ""
+msgstr "Igen"
 
 msgid "experimental"
 msgstr "kísérleti"
@@ -283,11 +282,11 @@ msgid "exteplayer3"
 msgstr "exteplayer3"
 
 msgid "exteplayer3 did not accept its options (exit code 1)"
-msgstr ""
+msgstr "Az exteplayer3 nem fogadta el a beállításait (kilépési kód 1)"
 
 #. TRANSLATORS: a forced subtitle track (only the foreign language parts)
 msgid "forced"
-msgstr ""
+msgstr "kényszerített"
 
 msgid "gstplayer"
 msgstr "gstplayer"
@@ -306,4 +305,4 @@ msgstr "lejátszó keretrendszerének beállítása"
 
 #, python-format
 msgid "version %s"
-msgstr ""
+msgstr "%s verzió"
