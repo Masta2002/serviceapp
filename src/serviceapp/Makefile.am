@@ -1,5 +1,9 @@
+# ENABLE_LOCALES: cJSON parses numbers with strtod(), which follows the
+# decimal point of the locale (',' on a German box); with it cJSON writes the
+# locale's decimal point into the number first (its CMake build sets it too)
 AM_CFLAGS = \
-	-Wall
+	-Wall \
+	-DENABLE_LOCALES
 
 AM_CPPFLAGS = \
 	@PYTHON_CPPFLAGS@ \
