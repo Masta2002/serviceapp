@@ -288,10 +288,15 @@ class ServiceAppSettings(Setup):
 			choices = [("no", _("No")), ("ac3", _("Dolby Digital"))]
 			if xcode & XCODE_EAC3:
 				choices.append(("eac3", _("Dolby Digital +")))
+			offered = [c[0] for c in choices]
 			for cfg in (exteplayer3_options_cfg.dts_transcoding, exteplayer3_options_cfg.truehd_transcoding):
 				value = cfg.value
-				cfg.setChoices(choices, default="no")
-				if value in [c[0] for c in choices]:
+				# setChoices would reset a saved value the player does not offer
+				# (Dolby Digital + without the EAC3 bit) and the next save would
+				# store that: keep the full list then, init_serviceapp_settings
+				# sends only what the xcode bits allow
+				if value in offered:
+					cfg.setChoices(choices, default="no")
 					cfg.value = value
 			config_list.append((self.indent + _("DTS / DTS-HD transcoding"), exteplayer3_options_cfg.dts_transcoding, _("Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +.")))
 			config_list.append((self.indent + _("Dolby TrueHD transcoding"), exteplayer3_options_cfg.truehd_transcoding, _("Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +.")))
@@ -331,7 +336,6 @@ class ServiceAppSettings(Setup):
 		config_list = [(_("Enigma2 playback system") + "*", config_serviceapp.servicemp3.replace, _("Select the player which will be used for Enigma2 playback."))]
 		if config_serviceapp.servicemp3.replace.value:
 			config_list.append((_("Player"), config_serviceapp.servicemp3.player, _("Select the player which will be used in serviceapp for Enigma2 playback.")))
-			self.serviceapp_passthrough_options(config_list)
 			config_list.append(self.spacer)
 			config_list.append((_("ServiceMp3 (%s)") % str(serviceapp_client.ID_SERVICEMP3),))
 			if config_serviceapp.servicemp3.player.value == "gstplayer":
@@ -426,8 +430,8 @@ class ServiceAppDetectPlayers(Screen):
 			print("[ServiceApp] cannot detect gstplayer version(1)!")
 			return
 		try:
-			GSTPLAYER_VERSION = jsondata["GSTPLAYER_EXTENDED"]["version"]
-		except KeyError:
+			GSTPLAYER_VERSION = int(jsondata["GSTPLAYER_EXTENDED"]["version"])
+		except (KeyError, TypeError, ValueError):
 			print("[ServiceApp] cannot detect gstplayer version(2)!")
 		else:
 			print("[ServiceApp] found gstplayer - %d version" % GSTPLAYER_VERSION)
@@ -440,9 +444,13 @@ class ServiceAppDetectPlayers(Screen):
 			EXTEPLAYER3_CAPS = {}
 			print("[ServiceApp] cannot detect exteplayer3 version!")
 		else:
+			changed = caps != EXTEPLAYER3_CAPS
 			EXTEPLAYER3_VERSION = caps["version"]
 			EXTEPLAYER3_CAPS = caps
 			print("[ServiceApp] found exteplayer3 - %d version, %s" % (EXTEPLAYER3_VERSION, caps))
+			# the background detection sees no change afterwards and would not send them
+			if changed:
+				init_serviceapp_settings()
 
 
 def main(session, **kwargs):
