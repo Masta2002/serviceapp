@@ -4,7 +4,8 @@
 #      .po file is in LANGS (otherwise it is neither updated nor installed)
 #   2. msgfmt -c on every .po (syntax, format strings, header)
 #   3. ServiceApp.pot is up to date with the _() strings of the Python files
-#      (xgettext as in updateallpo.sh, POT-Creation-Date ignored)
+#      and the SAPP_TR() strings of the C++ part (xgettext as in
+#      updateallpo.sh, POT-Creation-Date ignored)
 #   4. every .po has exactly the msgids of the .pot (msgmerge was run)
 #   5. no compiled .mo files are committed (make builds them)
 # Fuzzy entries are reported as warnings only: msgfmt drops them at build

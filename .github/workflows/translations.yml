@@ -5,7 +5,8 @@ name: Translations
 # repository root with the gettext tools in PATH):
 #   - LANGS of src/locale/Makefile.am and the .po files match
 #   - msgfmt -c on every .po
-#   - ServiceApp.pot up to date with the _() strings (updateallpo.sh run)
+#   - ServiceApp.pot up to date with the _() and SAPP_TR() strings
+#     (updateallpo.sh run)
 #   - every .po has the msgids of the .pot
 #   - no committed .mo
 # Fuzzy entries are warnings only.
@@ -14,12 +15,14 @@ on:
   push:
     paths:
       - 'src/plugin/**.py'
+      - 'src/serviceapp/**'
       - 'src/locale/**'
       - '.github/scripts/check-translations.sh'
       - '.github/workflows/translations.yml'
   pull_request:
     paths:
       - 'src/plugin/**.py'
+      - 'src/serviceapp/**'
       - 'src/locale/**'
       - '.github/scripts/check-translations.sh'
       - '.github/workflows/translations.yml'
