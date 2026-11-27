@@ -190,7 +190,7 @@ void ExtEplayer3Options::print() const
 	}
 }
 
-ExtEplayer3::ExtEplayer3(ExtEplayer3Options& options): PlayerApp(STD_ERROR), mErrorReported(false), mSeekMs(false), mLiveStream(false)
+ExtEplayer3::ExtEplayer3(ExtEplayer3Options& options): PlayerApp(STD_ERROR), mErrorReported(false), mSeekMs(false), mLiveStream(false), mCanBitrate(false), mBitrateProbes(0)
 {
 	mPlayerOptions = options;
 	eDebug("ExtEplayer3::ExtEplayer3 initializing with options:");
@@ -493,6 +493,22 @@ int ExtEplayer3::sendAudioChannel(int channel)
 	std::stringstream sstm;
 	sstm << "am" << channel << std::endl;
 	return processSend(sstm.str());
+}
+
+/* byte counters of the selected tracks, answered with {"BR":{"v":<bytes>,
+ * "a":<bytes>}}. Players that announce "br" get it all the time; the others
+ * get three requests and keep it only when they answer one of them (no
+ * player announces it yet). Players without it ignore "BR" (no 'B'
+ * command; lowercase 'b' would wind backwards). */
+int ExtEplayer3::sendUpdateBitrate()
+{
+	if (!mCanBitrate)
+	{
+		if (mBitrateProbes >= 3)
+			return -1;
+		mBitrateProbes++;
+	}
+	return processSend(std::string("BR\n"));
 }
 
 int ExtEplayer3::sendSeekTo(int seconds)
@@ -841,6 +857,14 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 		mCanSelectChannel = cJsonGetInt(value, "achannel") != 0;
 		mSeekMs = cJsonGetInt(value, "seekms") != 0;
 		mCanForcedOnly = cJsonGetInt(value, "forcedonly") != 0;
+		if (cJsonGetInt(value, "br") != 0)
+			mCanBitrate = true;
+	}
+	else if (!strcmp(key, "BR"))
+	{
+		/* byte counters: {"BR":{"v":<bytes>,"a":<bytes>}}, -1 without the track */
+		mCanBitrate = true;
+		recvBitrate((int64_t)cJsonGetDouble(value, "v", -1), (int64_t)cJsonGetDouble(value, "a", -1));
 	}
 	else if (!strcmp(key, "c_l"))
 	{

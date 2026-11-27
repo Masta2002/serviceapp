@@ -2140,6 +2140,14 @@ int eServiceApp::getInfo(int w) {
 			return m_progressive;
 		case sGamma:
 			return m_gamma;
+#ifdef HAVE_SERVICE_BITRATE
+		/* live bit rate in kbit/s as servicemp3 of OpenViX / BlackHole
+		 * (BitrateInfo), -1 when the player has no byte counters */
+		case sVideoBitrate:
+			return player ? player->getVideoBitrate() : -1;
+		case sAudioBitrate:
+			return player ? player->getAudioBitrate() : -1;
+#endif
 		case sAspect: {
 			if (m_height <= 0 || m_width <= 0) {
 				return -1;
