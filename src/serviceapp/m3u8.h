@@ -25,8 +25,8 @@ struct M3U8StreamInfo
     }
 };
 
-/* getStreams() runs on the enigma2 main thread (eServiceApp::start and
- * getNumberOfSubservices), so the whole fetch of a master playlist -
+/* getStreams() runs in the thread of HlsExplorer; the service waits for it
+ * before the player starts, so the whole fetch of a master playlist -
  * DNS aside, connect, TLS handshake, request, every redirect and the
  * response - shares this one time budget, and the response is size capped */
 #define M3U8_FETCH_TIMEOUT_MS 10000

@@ -12,6 +12,7 @@
 
 #include "common.h"
 #include "extplayer.h"
+#include "hlsexplorer.h"
 #include "m3u8.h"
 #include "scriptrun.h"
 
@@ -49,7 +50,15 @@ class eServiceApp : public sigc::trackable,
 	std::vector<eServiceReference> m_subserviceref_vec;
 	std::vector<M3U8StreamInfo> m_subservice_vec;
 	bool m_subservices_checked;
-	void fillSubservices();
+	void fillSubservices(const std::vector<M3U8StreamInfo>& streams);
+	/* the master playlist is read off the main thread (HlsExplorer); start()
+	 * waits for it with m_hls_start_pending and goes on in startPlayer() */
+	std::unique_ptr<HlsExplorer> m_hls_explorer;
+	bool m_hls_start_pending = false;
+	bool exploreSubservices();
+	void subservicesExplored(const std::vector<M3U8StreamInfo>& streams);
+	void cancelSubservicesExplorer();
+	void startPlayer();
 
 	sigc::signal<void(iPlayableService*, int)> m_event;
 	/* the PlayerBackend uses the BasePlayer until it has been destroyed:

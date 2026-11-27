@@ -292,6 +292,8 @@ eServiceApp::eServiceApp(eServiceReference ref)
 	m_start_path = m_ref.path;
 	m_live_reconnect_timer = eTimer::create(eApp);
 	CONNECT(m_live_reconnect_timer->timeout, eServiceApp::liveReconnect);
+	m_hls_explorer = std::make_unique<HlsExplorer>();
+	CONNECT(m_hls_explorer->finished, eServiceApp::subservicesExplored);
 
 #ifdef HAVE_EPG
 	m_nownext_timer = eTimer::create(eApp);
@@ -301,6 +303,9 @@ eServiceApp::eServiceApp(eServiceReference ref)
 };
 
 eServiceApp::~eServiceApp() {
+	/* returns at once: a fetch still running ends in the background and its
+	 * result is dropped (see HlsExplorer) */
+	m_hls_explorer.reset();
 	options.reset();
 	player.reset();
 	extplayer.reset();
@@ -337,75 +342,99 @@ void eServiceApp::passthroughFix() {
 	}
 }
 
-void eServiceApp::fillSubservices() {
+/* Starts reading the variants of m_ref.path in the background; false if
+ * there is nothing to read (not an HLS url) or no thread: the subservices are
+ * then known to be none. The result comes to subservicesExplored(). */
+bool eServiceApp::exploreSubservices() {
+	if (!isM3U8Url(m_ref.path)) {
+		eDebug("eServiceApp::fillSubservices - failed to retrieve subservices, not supported url");
+		return false;
+	}
+	return m_hls_explorer->start(m_ref.path, getHttpHeaders(m_ref.path));
+}
+
+void eServiceApp::cancelSubservicesExplorer() {
+	m_hls_explorer->cancel();
+	m_hls_start_pending = false;
+}
+
+void eServiceApp::subservicesExplored(const std::vector<M3U8StreamInfo>& streams) {
+	fillSubservices(streams);
+	/* checked before the event: the GUI asks getNumberOfSubservices() again */
+	m_subservices_checked = true;
+	m_event(this, evUpdatedEventInfo);
+	/* stop() and liveReconnect() cancel the explorer and clear the flag, a
+	 * stopped service never gets here with it set */
+	if (m_hls_start_pending) {
+		m_hls_start_pending = false;
+		startPlayer();
+	}
+}
+
+void eServiceApp::fillSubservices(const std::vector<M3U8StreamInfo>& streams) {
 	m_subservice_vec.clear();
 	m_subserviceref_vec.clear();
 
-	if (isM3U8Url(m_ref.path)) {
-		M3U8VariantsExplorer ve(m_ref.path, getHttpHeaders(m_ref.path));
-		m_subservice_vec = ve.getStreams();
-		if (m_subservice_vec.empty()) {
-			eDebug("eServiceApp::fillSubservices - failed to retrieve subservices");
-		} else {
-			// sort subservices from best quality to worst (internally sorted according to bitrate)
-			sort(m_subservice_vec.rbegin(), m_subservice_vec.rend());
-
-			std::vector<M3U8StreamInfo>::const_iterator it;
-			// find title from parent, if parent has already bitrate
-			// string set, we look for this bitrate and separate original
-			// name from it.
-			std::stringstream sstm;
-			std::string original_title(m_ref.name);
-			for (it = m_subservice_vec.begin(); it != m_subservice_vec.end(); it++) {
-				sstm.str(std::string());
-				sstm << it->bitrate;
-				std::string bitrate_str = sstm.str();
-				size_t bitrate_idx = m_ref.name.find(": " + bitrate_str);
-				if (bitrate_idx != std::string::npos) {
-					original_title = m_ref.name.substr(0, bitrate_idx);
-					break;
-				}
-			}
-
-			int i = 0;
-			for (it = m_subservice_vec.begin(); it != m_subservice_vec.end(); it++, i++) {
-				if (SUBSERVICES_INDEX_START + i > SUBSERVICES_INDEX_END) {
-					eWarning("eServiceApp::fillSubservices - cannot add more then %d subservices!", SUBSERVICES_INDEX_END);
-					break;
-				}
-				// we need to copy all flags from parent service, neccessary for EPG
-				eServiceReference ref(m_ref);
-				// set index so we know which service to select from master playlist
-				ref.setUnsignedData(7, SUBSERVICES_INDEX_START + i);
-				// set parentTransportStreamId, since InfoBarSubservicesSupport
-				// checks this flag when creating subservices menu. If it's available
-				// at least for one subservice then it will allow to add subservices
-				// to bouquet or favorites, see subserviceSelection.
-				//
-				// If it's not available it will only allow to quickzap subservices and it
-				// will also remove name for subservice service, see playSubservice.
-				eServiceReferenceDVB& dvb_ref = (eServiceReferenceDVB&)ref;
-				if (dvb_ref.getTransportStreamID().get()) {
-					// If user wants EPG, i.e. fills serviceId, transportStreamId then
-					// we have to set these as parentServiceId and parentTransportStreamID
-					// since epgcache uses those to create EPG query
-					dvb_ref.setParentServiceID(dvb_ref.getServiceID());
-					dvb_ref.setParentTransportStreamID(dvb_ref.getTransportStreamID());
-				} else {
-					dvb_ref.setParentTransportStreamID(1); // some random value
-				}
-				sstm.str(std::string());
-				sstm << original_title << ": " << it->bitrate << "b/s";
-				if (!it->resolution.empty())
-					sstm << " - " << it->resolution;
-				ref.name = sstm.str();
-				m_subserviceref_vec.push_back(ref);
-			}
-			eDebug("eServiceApp::fillSubservices - found %zd subservices", m_subservice_vec.size());
-		}
-	} else {
-		eDebug("eServiceApp::fillSubservices - failed to retrieve subservices, not supported url");
+	m_subservice_vec = streams;
+	if (m_subservice_vec.empty()) {
+		eDebug("eServiceApp::fillSubservices - failed to retrieve subservices");
+		return;
 	}
+	// sort subservices from best quality to worst (internally sorted according to bitrate)
+	sort(m_subservice_vec.rbegin(), m_subservice_vec.rend());
+
+	std::vector<M3U8StreamInfo>::const_iterator it;
+	// find title from parent, if parent has already bitrate
+	// string set, we look for this bitrate and separate original
+	// name from it.
+	std::stringstream sstm;
+	std::string original_title(m_ref.name);
+	for (it = m_subservice_vec.begin(); it != m_subservice_vec.end(); it++) {
+		sstm.str(std::string());
+		sstm << it->bitrate;
+		std::string bitrate_str = sstm.str();
+		size_t bitrate_idx = m_ref.name.find(": " + bitrate_str);
+		if (bitrate_idx != std::string::npos) {
+			original_title = m_ref.name.substr(0, bitrate_idx);
+			break;
+		}
+	}
+
+	int i = 0;
+	for (it = m_subservice_vec.begin(); it != m_subservice_vec.end(); it++, i++) {
+		if (SUBSERVICES_INDEX_START + i > SUBSERVICES_INDEX_END) {
+			eWarning("eServiceApp::fillSubservices - cannot add more then %d subservices!", SUBSERVICES_INDEX_END);
+			break;
+		}
+		// we need to copy all flags from parent service, neccessary for EPG
+		eServiceReference ref(m_ref);
+		// set index so we know which service to select from master playlist
+		ref.setUnsignedData(7, SUBSERVICES_INDEX_START + i);
+		// set parentTransportStreamId, since InfoBarSubservicesSupport
+		// checks this flag when creating subservices menu. If it's available
+		// at least for one subservice then it will allow to add subservices
+		// to bouquet or favorites, see subserviceSelection.
+		//
+		// If it's not available it will only allow to quickzap subservices and it
+		// will also remove name for subservice service, see playSubservice.
+		eServiceReferenceDVB& dvb_ref = (eServiceReferenceDVB&)ref;
+		if (dvb_ref.getTransportStreamID().get()) {
+			// If user wants EPG, i.e. fills serviceId, transportStreamId then
+			// we have to set these as parentServiceId and parentTransportStreamID
+			// since epgcache uses those to create EPG query
+			dvb_ref.setParentServiceID(dvb_ref.getServiceID());
+			dvb_ref.setParentTransportStreamID(dvb_ref.getTransportStreamID());
+		} else {
+			dvb_ref.setParentTransportStreamID(1); // some random value
+		}
+		sstm.str(std::string());
+		sstm << original_title << ": " << it->bitrate << "b/s";
+		if (!it->resolution.empty())
+			sstm << " - " << it->resolution;
+		ref.name = sstm.str();
+		m_subserviceref_vec.push_back(ref);
+	}
+	eDebug("eServiceApp::fillSubservices - found %zd subservices", m_subservice_vec.size());
 }
 
 #ifdef HAVE_EPG
@@ -1229,13 +1258,27 @@ RESULT eServiceApp::start() {
 		m_resolver->start();
 		return 0;
 	}
+	if (options->HLSExplorer && options->autoSelectStream && !m_subservices_checked) {
+		/* the variant is picked from the master playlist: the player starts
+		 * when it has been read (subservicesExplored), the GUI goes on */
+		if (exploreSubservices()) {
+			m_hls_start_pending = true;
+			return 0;
+		}
+		/* nothing to read: as a fetch that found no variants */
+		fillSubservices(std::vector<M3U8StreamInfo>());
+		m_subservices_checked = true;
+		m_event(this, evUpdatedEventInfo);
+	}
+	startPlayer();
+	return 0;
+}
+
+/* the second half of start(), after the master playlist has been read */
+void eServiceApp::startPlayer() {
+	std::string path_str(m_ref.path);
 	HeaderMap headers = getHttpHeaders(m_ref.path);
 	if (options->HLSExplorer && options->autoSelectStream) {
-		if (!m_subservices_checked) {
-			fillSubservices();
-			m_event(this, evUpdatedEventInfo);
-			m_subservices_checked = true;
-		}
 		size_t subservice_num = m_subservice_vec.size();
 		if (subservice_num) {
 			M3U8StreamInfo subservice = *(m_subservice_vec.begin());
@@ -1279,7 +1322,6 @@ RESULT eServiceApp::start() {
 
 	// don't pass fragment part to player
 	player->start(Url(path_str).url(), headers);
-	return 0;
 }
 
 RESULT eServiceApp::stop() {
@@ -1292,6 +1334,8 @@ RESULT eServiceApp::stop() {
 		saveCuesheet();
 	if (m_resolver)
 		m_resolver->stop();
+	/* a master playlist still being read must not start the player later */
+	cancelSubservicesExplorer();
 	m_decoder_video_timer->stop();
 	player->stop();
 	/* graphic subtitles: the files of the pages left (the player removes its
@@ -1378,7 +1422,9 @@ void eServiceApp::liveReconnect() {
 	/* a resolved url may have expired, resolve it again */
 	m_ref.path = m_start_path;
 	/* so may the HLS variant urls of the master playlist (tokens): read it
-	 * again, the cached variant gave 403 and evEOF */
+	 * again, the cached variant gave 403 and evEOF; a read still running
+	 * (getNumberOfSubservices) may have the old urls, start() begins anew */
+	cancelSubservicesExplorer();
 	m_subservices_checked = false;
 	m_subservice_vec.clear();
 	m_subserviceref_vec.clear();
@@ -1989,9 +2035,13 @@ RESULT eServiceApp::fillSubtitleList(std::vector<struct SubtitleTrack>& subtitle
 int eServiceApp::getNumberOfSubservices() {
 	std::string path_str(m_ref.path);
 	/* not for a resolve:// url, it is not resolved yet */
-	if (options->HLSExplorer && path_str.find(m_resolve_uri) != 0 && !m_subservices_checked) {
-		fillSubservices();
-		m_subservices_checked = true;
+	if (options->HLSExplorer && path_str.find(m_resolve_uri) != 0 && !m_subservices_checked && !m_hls_explorer->running()) {
+		/* never read on the GUI thread: 0 for now, evUpdatedEventInfo of
+		 * subservicesExplored() makes the GUI ask again */
+		if (!exploreSubservices()) {
+			fillSubservices(std::vector<M3U8StreamInfo>());
+			m_subservices_checked = true;
+		}
 	}
 	if (m_debug)
 		eDebug("eServiceApp::getNumberOfSubservices - %zu", m_subserviceref_vec.size());
