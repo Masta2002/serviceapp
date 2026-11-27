@@ -52,11 +52,13 @@ class eServiceApp : public sigc::trackable,
 	void fillSubservices();
 
 	sigc::signal<void(iPlayableService*, int)> m_event;
-	/* the destructor and liveReconnect() reset them in this order: the
-	 * PlayerBackend uses the BasePlayer until it has been destroyed */
+	/* the PlayerBackend uses the BasePlayer until it has been destroyed:
+	 * extplayer is declared before player, so even the implicit member
+	 * destruction (reverse order) ends player first; the destructor and
+	 * liveReconnect() also reset them explicitly in that order */
 	std::unique_ptr<eServiceAppOptions> options;
-	std::unique_ptr<PlayerBackend> player;
 	std::unique_ptr<BasePlayer> extplayer;
+	std::unique_ptr<PlayerBackend> player;
 	std::unique_ptr<ResolveUrl> m_resolver;
 	std::string cmd;
 	std::string m_resolve_uri;
