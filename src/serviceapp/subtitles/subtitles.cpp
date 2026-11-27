@@ -36,14 +36,13 @@ unsigned int BaseSubtitleParser::probe(std::istream &is)
 
 void SubtitleParser::initParserList()
 {
-    m_parser_vec.push_back(new SubripParser);
+    m_parser_vec.push_back(std::make_unique<SubripParser>());
 };
 
 void SubtitleParser::cleanParserList()
 {
-    for (std::vector<BaseSubtitleParser*>::iterator it(m_parser_vec.begin()); it != m_parser_vec.end();)
+    for (std::vector<std::unique_ptr<BaseSubtitleParser> >::iterator it(m_parser_vec.begin()); it != m_parser_vec.end();)
     {
-        delete *it;
         it = m_parser_vec.erase(it);
     }
 };
@@ -51,11 +50,11 @@ void SubtitleParser::cleanParserList()
 bool SubtitleParser::parse(std::istream &is, int fps, subtitleMap& submap)
 {
     std::multimap<int, BaseSubtitleParser*> map;
-    for (std::vector<BaseSubtitleParser*>::const_iterator it(m_parser_vec.begin()); it != m_parser_vec.end(); it++)
+    for (std::vector<std::unique_ptr<BaseSubtitleParser> >::const_iterator it(m_parser_vec.begin()); it != m_parser_vec.end(); it++)
     {
         int score = (*it)->probe(is);
         if (score > PROB_SCORE_MIN)
-            map.insert(std::pair<int, BaseSubtitleParser*>(score, *it));
+            map.insert(std::pair<int, BaseSubtitleParser*>(score, it->get()));
     }
     for (std::multimap<int, BaseSubtitleParser*>::reverse_iterator it(map.rbegin()); it!=map.rend(); it++)
     {

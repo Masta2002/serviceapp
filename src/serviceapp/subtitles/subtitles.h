@@ -2,6 +2,7 @@
 #define __serviceapp_subtitles_h
 
 #include <map>
+#include <memory>
 #include <vector>
 #include <iostream>
 #include <stdint.h>
@@ -60,7 +61,7 @@ public:
 
 class SubtitleParser
 {
-    std::vector<BaseSubtitleParser*> m_parser_vec;
+    std::vector<std::unique_ptr<BaseSubtitleParser> > m_parser_vec;
     void initParserList();
     void cleanParserList();
 public:
