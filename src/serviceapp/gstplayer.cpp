@@ -323,8 +323,7 @@ void GstPlayer::handleJsonOutput(cJSON *json)
 	{
 		if (!cJsonGetInt(value, "sts"))
 		{
-			float l = cJsonGetDouble(value, "length");
-			recvLength(0, l * 1000);
+			recvLength(0, lengthToMs(cJsonGetDouble(value, "length")));
 		}
 	}
 	else if (!strcmp(key, "J"))

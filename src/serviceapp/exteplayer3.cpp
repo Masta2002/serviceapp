@@ -360,7 +360,10 @@ std::vector<std::string> ExtEplayer3::buildCommand()
                         {
                                 if (!item.empty())
                                 {
-                                        if (item.find("exteplayer3") != std::string::npos)
+                                        size_t eq = item.find('=');
+                                        /* only a bare item names the player: a value (an url,
+                                         * a path) that contains "exteplayer3" is an argument */
+                                        if (eq == std::string::npos && item.find("exteplayer3") != std::string::npos)
                                         {
                                                 /* the args come with the url (#sapp_args=): only another
                                                  * installed exteplayer3 build, never any program */
@@ -372,11 +375,18 @@ std::vector<std::string> ExtEplayer3::buildCommand()
                                         else
                                         {
                                                 // split arg=value
-                                                size_t eq = item.find('=');
                                                 if (eq != std::string::npos)
                                                 {
                                                         std::string key = item.substr(0, eq);
                                                         std::string value = item.substr(eq + 1);
+                                                        /* -G/-W/-H (graphic subtitle directory and window)
+                                                         * come only from the plugin: with a url the root
+                                                         * player would write its PNG files anywhere */
+                                                        if (key == "G" || key == "W" || key == "H")
+                                                        {
+                                                                eWarning("ExtEplayer3::buildCommand - sapp_args: option -%s refused", key.c_str());
+                                                                continue;
+                                                        }
                                                         args.push_back("-" + key);
                                                         args.push_back(value);
                                                 }
@@ -762,8 +772,7 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	{
 		if (!cJsonGetInt(value, "sts"))
 		{
-			float l = cJsonGetDouble(value, "length");
-			recvLength(0, l * 1000);
+			recvLength(0, lengthToMs(cJsonGetDouble(value, "length")));
 		}
 	}
 	else if (!strcmp(key, "J"))

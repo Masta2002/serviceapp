@@ -7,6 +7,7 @@
 #include <lib/python/connections.h>
 
 #include <atomic>
+#include <climits>
 #include <map>
 #include <optional>
 #include <pthread.h>
@@ -28,6 +29,17 @@ static inline double cJsonGetDouble(cJSON *obj, const char *key, double def = 0.
 {
 	cJSON *n = obj ? cJSON_GetObjectItem(obj, key) : NULL;
 	return (n && n->type == cJSON_Number) ? n->valuedouble : def;
+}
+/* a length in seconds (PLAYBACK_LENGTH) as ms: float * 1000 to int overflowed
+ * (undefined) for garbage values; NaN and negative are "no length" */
+static inline int lengthToMs(double seconds)
+{
+	double ms = seconds * 1000.0;
+	if (!(ms > 0.0))
+		return 0;
+	if (ms >= (double)INT_MAX)
+		return INT_MAX;
+	return (int)ms;
 }
 static inline std::string cJsonGetStr(cJSON *obj, const char *key)
 {
