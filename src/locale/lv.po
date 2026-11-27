@@ -231,13 +231,13 @@ msgid "To AAC LATM"
 msgstr "uz AAC LATM"
 
 msgid "Turn on AAC software decoding."
-msgstr "Izslēgt AAC dekodēšanu."
+msgstr "Ieslēgt AAC dekodēšanu."
 
 msgid "Turn on AC3 software decoding."
 msgstr "Lietot AC3 dekodēšanu."
 
 msgid "Turn on DTS software decoding."
-msgstr "Izslēgt DTS dekodēšanu."
+msgstr "Ieslēgt DTS dekodēšanu."
 
 msgid "Turn on EAC3 software decoding."
 msgstr "Lietot EAC3 dekodēšanu."
@@ -246,22 +246,22 @@ msgid "Turn on MP3 software decoding."
 msgstr "Lietot MP3 dekodēšanu."
 
 msgid "Turn on WMA1, WMA2, WMA/PRO software decoding."
-msgstr "Izslēgt WMA1, WMA2, WMA/PRO dekodēšanu."
+msgstr "Ieslēgt WMA1, WMA2, WMA/PRO dekodēšanu."
 
 msgid "Turn on auto-selection of streams according to set Connection speed."
-msgstr "Izslēgt straumju automātisku izvēlni pēc pieslēguma ātruma."
+msgstr "Ieslēgt straumju automātisku izvēli pēc iestatītā pieslēguma ātruma."
 
 msgid "Turn on debug messages"
 msgstr "Ieslēgt atkļūdošanas ziņojumus"
 
 msgid "Turn on downmix to stereo, when software decoding is in use"
-msgstr "Izslēgt dekodēšanu uz stereo, kad tiek izmantota programmatūras dekodēšana."
+msgstr "Ieslēgt stereo lejupmiksēšanu, kad tiek izmantota programmatūras dekodēšana."
 
 msgid "Turn on explorer to retrieve different quality streams from HLS variant playlist and select them via subservices."
-msgstr "Izslēgt dažādas kvalitātes straumju atlasīšanu no HLS atskaņošanas sarakstiem lai piedāvātu tos kā subservisus."
+msgstr "Ieslēgt dažādas kvalitātes straumju atlasīšanu no HLS atskaņošanas sarakstiem, lai piedāvātu tās kā subservisus."
 
 msgid "Turn on the embedded subtitles support."
-msgstr "Izslēgt iebūvētos subtitrus."
+msgstr "Ieslēgt iebūvēto subtitru atbalstu."
 
 msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
 msgstr "HLS vai DASH straumes variants, ko izvēlas atskaņotājs: Automātiski un Augstākā atskaņo labāko, Zemākā mazāko."
@@ -286,7 +286,7 @@ msgid "forced"
 msgstr "piespiedu"
 
 msgid "gstplayer"
-msgstr "gstplayerr"
+msgstr "gstplayer"
 
 msgid "not installed"
 msgstr "nav uzstādīts"

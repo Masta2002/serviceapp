@@ -228,7 +228,7 @@ msgid "Stop playing this movie?"
 msgstr "Megállítsam ezt a lejátszást?"
 
 msgid "To AAC ADTS"
-msgstr "AAC az ADTS-hez"
+msgstr "AAC ADTS-re"
 
 msgid "To AAC LATM"
 msgstr "AAC a LATM-hez"

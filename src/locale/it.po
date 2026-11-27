@@ -149,7 +149,7 @@ msgid "Highest"
 msgstr "Massima"
 
 msgid "LPCM injection"
-msgstr "Usa LPCM (6 Canali Surround)"
+msgstr "Iniezione LPCM"
 
 msgid "Lowest"
 msgstr "Minima"
@@ -188,7 +188,7 @@ msgid "Select the player which will be used in serviceapp for Enigma2 playback."
 msgstr "Seleziona il player che verrà utilizzato in ServiceApp per la riproduzione."
 
 msgid "ServiceApp"
-msgstr "ServiceApp: gestione dei player"
+msgstr "ServiceApp"
 
 msgid "ServiceApp - player check"
 msgstr "ServiceApp - verifica dei player"
@@ -297,7 +297,7 @@ msgid "not installed"
 msgstr "non installato"
 
 msgid "original"
-msgstr "predefinita"
+msgstr "originale"
 
 msgid "serviceapp"
 msgstr "ServiceApp"

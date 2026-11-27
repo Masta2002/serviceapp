@@ -106,6 +106,7 @@ msgid ""
 "Do you want to restart it now?"
 msgstr ""
 "Enigma2-toistojärjestelmää muutettiin ja Enigma2 pitäisi käynnistää uudelleen\n"
+"\n"
 "Haluatko käynnistää sen uudelleen nyt?"
 
 msgid "ExtEplayer3"

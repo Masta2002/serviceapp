@@ -225,7 +225,7 @@ msgid "Stereo downmix"
 msgstr "Stereo downmix"
 
 msgid "Stop playing this movie?"
-msgstr "Film Wiedergabe stoppen?"
+msgstr "Filmwiedergabe stoppen?"
 
 msgid "To AAC ADTS"
 msgstr "Zu AAC ADTS"

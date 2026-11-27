@@ -115,10 +115,10 @@ msgid "ExtEplayer3"
 msgstr "ExtEplayer3"
 
 msgid "Forced only"
-msgstr "Только вынужденные"
+msgstr "Только принудительные"
 
 msgid "Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages."
-msgstr "Только вынужденные: встроенная вынужденная дорожка (фрагменты на иностранном языке) на языке звуковой дорожки или предпочитаемых языков звука."
+msgstr "Только принудительные: встроенная принудительная дорожка (фрагменты на иностранном языке) на языке звуковой дорожки или предпочитаемых языков звука."
 
 #. TRANSLATORS: %s is the name of the missing GStreamer plugin
 #, c-format
@@ -283,7 +283,7 @@ msgstr "exteplayer3 не принял свои параметры (код вых
 
 #. TRANSLATORS: a forced subtitle track (only the foreign language parts)
 msgid "forced"
-msgstr "вынужденные"
+msgstr "принудительные"
 
 msgid "gstplayer"
 msgstr "gstplayer"

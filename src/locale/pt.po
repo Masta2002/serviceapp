@@ -26,7 +26,7 @@ msgstr[0] "%d milissegundo"
 msgstr[1] "%d milissegundos"
 
 msgid "AAC software decoding"
-msgstr "Descodificação AAC"
+msgstr "Descodificação por software AAC"
 
 msgid "AAC-LC"
 msgstr "AAC-LC"
@@ -47,7 +47,7 @@ msgid "Auto turn on subtitles"
 msgstr "Ativar automaticamente as legendas"
 
 msgid "Automatically turn on subtitles if available."
-msgstr "Reproduzir automaticamente as legendas se disponvíveis"
+msgstr "Ativar automaticamente as legendas, se disponíveis."
 
 msgid "Buffer duration"
 msgstr "Duração do Buffer"
@@ -71,16 +71,16 @@ msgid "DTS / DTS-HD transcoding"
 msgstr "Transcodificação DTS / DTS-HD"
 
 msgid "DTS software decoding"
-msgstr "Descodificação do software DTS"
+msgstr "Descodificação por software DTS"
 
 msgid "Debug"
 msgstr "Depuração"
 
 msgid "Detecting exteplayer3 player ..."
-msgstr "A detectar Leitor exteplayer3 ..."
+msgstr "A detetar o leitor exteplayer3 ..."
 
 msgid "Detecting gstreamer player ..."
-msgstr "A detetar Leitor gstreamer ..."
+msgstr "A detetar o leitor gstreamer ..."
 
 msgid "Dolby Digital"
 msgstr "Dolby Digital"
@@ -110,7 +110,10 @@ msgid ""
 "Enigma2 playback system was changed and Enigma2 should be restarted\n"
 "\n"
 "Do you want to restart it now?"
-msgstr "O sistema de reprodução Enigma2 foi alterado e Enigma2 deve ser reiniciado Você deseja reiniciá-lo agora?"
+msgstr ""
+"O sistema de reprodução Enigma2 foi alterado e o Enigma2 deve ser reiniciado\n"
+"\n"
+"Deseja reiniciá-lo agora?"
 
 msgid "ExtEplayer3"
 msgstr "ExtEplayer3"
@@ -208,10 +211,10 @@ msgid "Set buffer size in kilobytes."
 msgstr "Defina o tamanho do buffer em kilobytes."
 
 msgid "Set connection speed in kb/s, according to which you want to have streams auto-selected"
-msgstr "Defina a velocidade de conexão em kb/s, de acordo como deseja que os fluxos sejam selecionados automaticamente"
+msgstr "Defina a velocidade de ligação em kb/s, de acordo com a qual as transmissões são selecionadas automaticamente"
 
 msgid "Set which RTMP protocol implementation will be used for playback of RTMP streams"
-msgstr "Defina qual implementação do protocolo RTMP será usada para a reprodução de fluxos RTMP"
+msgstr "Defina qual implementação do protocolo RTMP será usada para a reprodução de transmissões RTMP"
 
 msgid "Sink"
 msgstr "Recipiente"
@@ -232,13 +235,13 @@ msgid "To AAC LATM"
 msgstr "Para AAC LATM"
 
 msgid "Turn on AAC software decoding."
-msgstr "Ative a decodificação do software AAC."
+msgstr "Ativar a descodificação por software AAC."
 
 msgid "Turn on AC3 software decoding."
 msgstr "Ativar a descodificação por software AC3."
 
 msgid "Turn on DTS software decoding."
-msgstr "Ative a decodificação do software DTS."
+msgstr "Ativar a descodificação por software DTS."
 
 msgid "Turn on EAC3 software decoding."
 msgstr "Ativar a descodificação por software EAC3."
@@ -247,28 +250,28 @@ msgid "Turn on MP3 software decoding."
 msgstr "Ativar a descodificação por software MP3."
 
 msgid "Turn on WMA1, WMA2, WMA/PRO software decoding."
-msgstr "Ativar decodificação de software WMA1, WMA2, WMA / PRO."
+msgstr "Ativar a descodificação por software WMA1, WMA2, WMA/PRO."
 
 msgid "Turn on auto-selection of streams according to set Connection speed."
-msgstr "Ative a seleção automática de córregos de acordo com o ajuste da Velocidade de conexão."
+msgstr "Ativar a seleção automática de transmissões de acordo com a velocidade de ligação definida."
 
 msgid "Turn on debug messages"
 msgstr "Ativar as mensagens de depuração"
 
 msgid "Turn on downmix to stereo, when software decoding is in use"
-msgstr "Ligar downmix para estéreo, quando a decodificação do software estiver em uso"
+msgstr "Ativar o downmix para estéreo quando a descodificação por software estiver em uso"
 
 msgid "Turn on explorer to retrieve different quality streams from HLS variant playlist and select them via subservices."
-msgstr "Ativar o explorador para recuperar diferentes fluxos de qualidade da lista de reprodução variável HLS e selecione-os por meio de subconjuntos."
+msgstr "Ativar o explorador para obter transmissões de diferentes qualidades da lista de reprodução de variantes HLS e selecioná-las através de subserviços."
 
 msgid "Turn on the embedded subtitles support."
-msgstr "Ative o suporte de legendas embutidas."
+msgstr "Ativar o suporte de legendas embutidas."
 
 msgid "Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest."
 msgstr "Variante de uma transmissão HLS ou DASH escolhida pelo leitor: Automático e Máxima reproduzem a melhor, Mínima a mais pequena."
 
 msgid "WMA software decoding"
-msgstr "Decodificação do software WMA"
+msgstr "Descodificação por software WMA"
 
 msgid "Yes"
 msgstr "Sim"

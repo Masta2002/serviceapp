@@ -228,7 +228,7 @@ msgid "Stop playing this movie?"
 msgstr "Arrêter la lecture du film?"
 
 msgid "To AAC ADTS"
-msgstr "À AAC ADTA"
+msgstr "Vers AAC ADTS"
 
 msgid "To AAC LATM"
 msgstr "À LATM AAC"
