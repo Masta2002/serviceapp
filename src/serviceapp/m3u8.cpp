@@ -1,5 +1,7 @@
 #include "m3u8.h"
 #include <cstring>
+#include <memory>
+#include <string>
 
 #define M3U8_HEADER "#EXTM3U"
 #define M3U8_HEADER_MAX_LINE 5
@@ -110,8 +112,8 @@ int parse_attribute(char **ptr, char **key, char **value)
 //https://tools.ietf.org/html/draft-pantos-http-live-streaming-13#section-3.4.10
 int M3U8VariantsExplorer::parseStreamInfoAttributes(const char *attributes, M3U8StreamInfo& info)
 {
-    char *myline = strdup(attributes);
-    char *ptr = myline;
+    std::string myline(attributes);
+    char *ptr = &myline[0];
     char *key = NULL;
     char *value = NULL;
     while (!parse_attribute(&ptr, &key, &value))
@@ -123,7 +125,6 @@ int M3U8VariantsExplorer::parseStreamInfoAttributes(const char *attributes, M3U8
         if (!strcasecmp(key, "codecs"))
             info.codecs = value;
     }
-    free(myline);
     return 0;
 }
 
@@ -238,6 +239,9 @@ int M3U8VariantsExplorer::getVariantsFromMasterUrl(const std::string& url, Heade
 
     size_t bufferSize = 1024;
     char *lineBuffer = (char *) malloc(bufferSize);
+    // readLine() may realloc the buffer: free whatever it points to on
+    // every way out of this function
+    std::unique_ptr<char *, void (*)(char **)> lineBufferGuard(&lineBuffer, [](char **buf) { free(*buf); });
 
     int statusCode;
     char protocol[64], statusMessage[64];
@@ -248,7 +252,6 @@ int M3U8VariantsExplorer::getVariantsFromMasterUrl(const std::string& url, Heade
     if (result != 3 || (statusCode != 200 && statusCode != 301 && statusCode != 302))
     {
             fprintf(stderr, "[%s] - wrong http response code: %d\n", __func__, statusCode);
-            free(lineBuffer);
             if (ssl)
             {
                 SSL_free(ssl);
@@ -399,7 +402,6 @@ int M3U8VariantsExplorer::getVariantsFromMasterUrl(const std::string& url, Heade
     }
     if (!streams.empty())
         ret = 0;
-    free(lineBuffer);
     ::close(sd);
     if (ssl)
     {
