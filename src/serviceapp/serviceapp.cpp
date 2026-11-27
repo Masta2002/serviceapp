@@ -1749,6 +1749,12 @@ void eServiceApp::discardQueuedSubtitles() {
 RESULT eServiceApp::enableSubtitles(iSubtitleUser* user, struct SubtitleTrack& track) {
 	m_subtitle_sync_timer->stop();
 	bool was_embedded = m_selected_subtitle_track && isEmbeddedTrack(*m_selected_subtitle_track);
+	/* the InfoBar selects the current track again (restartSubtitle() on
+	 * evSeekableStatusChanged): it keeps "forced only" (box test: so1, then
+	 * so0 0.9 s later). The subtitle menu calls only for another track. */
+	const SubtitleTrack* prev = m_selected_subtitle_track.get();
+	bool same_track = prev && prev->type == track.type && prev->pid == track.pid && prev->page_number == track.page_number
+		&& prev->magazine_number == track.magazine_number && prev->language_code == track.language_code;
 	m_prev_subtitle_message = NULL;
 	m_subtitle_pages = NULL;
 	m_selected_subtitle_track.reset();
@@ -1827,7 +1833,7 @@ RESULT eServiceApp::enableSubtitles(iSubtitleUser* user, struct SubtitleTrack& t
 	player->setPositionInterval(100);
 	/* forced only: the track the "Forced only" auto mode picked for its
 	 * forced pictures; any other selection shows the whole track again */
-	bool forced_only = isEmbeddedTrack(track) && track.pid == forced_only_pid;
+	bool forced_only = isEmbeddedTrack(track) && (track.pid == forced_only_pid || (same_track && m_forced_only_active));
 	if (forced_only != m_forced_only_active) {
 		player->subtitleForcedOnly(forced_only);
 		m_forced_only_active = forced_only;
