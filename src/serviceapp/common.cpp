@@ -255,10 +255,15 @@ static const uint8_t iso8859_2_unused_utf8[10][2] = {
 
 
 #ifndef NO_UCHARDET
+/* the start of a text is enough to tell its encoding; feeding uchardet the
+ * whole file (on the main thread) only costs time */
+#define DETECT_ENCODING_MAX_BYTES (64 * 1024)
+
 int detectEncoding(const std::string &content, std::string &encoding)
 {
     uchardet_t handle = uchardet_new();
-    int retval = uchardet_handle_data(handle, content.c_str(), content.length());
+    size_t length = std::min(content.length(), (size_t) DETECT_ENCODING_MAX_BYTES);
+    int retval = uchardet_handle_data(handle, content.c_str(), length);
     if (retval != 0)
     {
         fprintf(stderr, "uchardet error: handle data error.\n");
