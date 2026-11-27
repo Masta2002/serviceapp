@@ -1500,6 +1500,11 @@ RESULT eServiceApp::setFastForward(int ratio) {
 // __iSeekableService
 RESULT eServiceApp::getLength(pts_t& pts) {
 	// eDebug("eServiceApp::getLength");
+	/* the GUI reads the value also when -1 comes back (SWIG returns [ret,
+	 * value]): the resume check of the MoviePlayer runs before the player
+	 * started and compared the last position with an uninitialised length,
+	 * the resume question never came (box test) */
+	pts = 0;
 	int length;
 	if (player->getLength(length) < 0) {
 		return -1;
@@ -1549,6 +1554,7 @@ RESULT eServiceApp::seekRelative(int direction, pts_t to) {
 
 RESULT eServiceApp::getPlayPosition(pts_t& pts) {
 	// eDebug("eServiceApp::getPlayPosition");
+	pts = 0; /* as getLength(): never an uninitialised value for the GUI */
 	int position;
 	if (player->getPlayPosition(position) < 0) {
 		return -1;
