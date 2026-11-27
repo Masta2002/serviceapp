@@ -94,7 +94,8 @@ public:
 
 void splitExtension(const std::string &path, std::string &basename, std::string &extension);
 void splitPath(const std::string &path, std::string &dirpath, std::string &filename);
-int listDir(const std::string &dirpath, std::vector<std::string> *directories, std::vector<std::string> *files);
+// names in the order of the definition (and of the callers): files first
+int listDir(const std::string &dirpath, std::vector<std::string> *files, std::vector<std::string> *directories);
 
 #ifndef NO_UCHARDET
 int detectEncoding(const std::string &content, std::string &encoding);

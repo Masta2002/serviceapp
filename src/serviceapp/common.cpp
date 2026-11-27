@@ -199,17 +199,36 @@ int listDir(const std::string &dirpath, std::vector<std::string> *files, std::ve
     struct stat statbuf;
     while ((entry = readdir(dp)) != NULL)
     {
-        if (*dirpath.rbegin() == '/')
-            filepath = dirpath + entry->d_name;
-        else
-            filepath = dirpath + "/" + entry->d_name;
-        stat(filepath.c_str(), &statbuf);
-        if (S_ISDIR(statbuf.st_mode))
+        if (!strcmp("..", entry->d_name) || !strcmp(".", entry->d_name))
         {
-            if (!strcmp("..", entry->d_name) || !strcmp(".", entry->d_name))
+            continue;
+        }
+        bool isDir;
+#ifdef _DIRENT_HAVE_D_TYPE
+        // the type from readdir() itself: a movie directory with thousands
+        // of files needs no stat() per entry. Only an unknown type (some
+        // file systems) and symlinks (the target decides) are looked up.
+        if (entry->d_type != DT_UNKNOWN && entry->d_type != DT_LNK)
+        {
+            isDir = entry->d_type == DT_DIR;
+        }
+        else
+#endif
+        {
+            if (*dirpath.rbegin() == '/')
+                filepath = dirpath + entry->d_name;
+            else
+                filepath = dirpath + "/" + entry->d_name;
+            // a failed stat (broken symlink, entry removed meanwhile) leaves
+            // statbuf undefined: skip the entry instead of guessing its type
+            if (stat(filepath.c_str(), &statbuf) != 0)
             {
                 continue;
             }
+            isDir = S_ISDIR(statbuf.st_mode);
+        }
+        if (isDir)
+        {
             if (directories != NULL)
             {
                 directories->push_back(entry->d_name);
