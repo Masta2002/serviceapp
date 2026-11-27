@@ -1210,6 +1210,11 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 			break;
 		case PlayerMessage::subtitleTracksChanged:
 			/* closed captions (CC1) showed up: the subtitle list is new */
+			if (m_pending_subtitle_track && m_pending_subtitle_user) {
+				SubtitleTrack track = *m_pending_subtitle_track;
+				eDebug("eServiceApp::gotExtPlayerMessage - subtitle list arrived, selecting the pending track %d", track.pid);
+				enableSubtitles(m_pending_subtitle_user, track);
+			}
 			m_event(this, evUpdatedInfo);
 			break;
 		case PlayerMessage::metadataChanged:
@@ -1771,9 +1776,27 @@ RESULT eServiceApp::enableSubtitles(iSubtitleUser* user, struct SubtitleTrack& t
 
 	ssize_t track_pos = getTrackPosition(track);
 	if (track_pos == -1) {
-		eWarning("eServiceApp::enableSubtitles - track is not in the map!");
-		return fail();
+		/* the map is filled by getSubtitleList()/getCachedSubtitle(); the
+		 * InfoBar can come first: restartSubtitle() on evSeekableStatusChanged
+		 * with the track it had selected (box test: subtitles of a stream
+		 * stayed off). Read the list now, without waiting. */
+		std::vector<struct SubtitleTrack> tracks;
+		if (fillSubtitleList(tracks, 0) == 0)
+			track_pos = getTrackPosition(track);
 	}
+	if (track_pos == -1) {
+		eWarning("eServiceApp::enableSubtitles - track is not in the map (type %d, pid %d, page %d, magazine %d, language '%s'; %zu tracks known)",
+			track.type, track.pid, track.page_number, track.magazine_number, track.language_code.c_str(), m_subtitle_tracks.size());
+		int ret = fail();
+		/* no list yet: an embedded track is selected when the list arrives */
+		if (m_subtitle_tracks.empty() && track.type == 2) {
+			m_pending_subtitle_track = std::make_unique<SubtitleTrack const>(track);
+			m_pending_subtitle_user = user;
+		}
+		return ret;
+	}
+	m_pending_subtitle_track.reset();
+	m_pending_subtitle_user = nullptr;
 	if (isEmbeddedTrack(track)) {
 		eDebug("eServiceApp::enableSubtitles - track = %d (embedded)", track.pid);
 		clearEmbeddedSubtitlePages(true);
@@ -1814,6 +1837,8 @@ RESULT eServiceApp::enableSubtitles(iSubtitleUser* user, struct SubtitleTrack& t
 
 RESULT eServiceApp::disableSubtitles() {
 	eDebug("eServiceApp::disableSubtitles");
+	m_pending_subtitle_track.reset();
+	m_pending_subtitle_user = nullptr;
 	m_subtitle_sync_timer->stop();
 	m_prev_subtitle_message = NULL;
 	m_forced_only_pid = -1;

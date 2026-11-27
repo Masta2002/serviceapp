@@ -92,6 +92,10 @@ class eServiceApp : public sigc::trackable,
 	subtitle_pages_map m_embedded_subtitle_pages;
 	subtitle_pages_map const* m_subtitle_pages;
 	std::unique_ptr<SubtitleTrack const> m_selected_subtitle_track;
+	/* enableSubtitles() before the player listed any subtitle track (the
+	 * InfoBar never asks again): selected when the list arrives */
+	std::unique_ptr<SubtitleTrack const> m_pending_subtitle_track;
+	iSubtitleUser* m_pending_subtitle_user = nullptr;
 	subtitleMessage const* m_prev_subtitle_message;
 	std::string m_prev_subtitle_text; // the text shown with it (overlapping cues joined)
 	ePtr<eTimer> m_subtitle_sync_timer;
