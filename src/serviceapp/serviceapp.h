@@ -79,6 +79,7 @@ class eServiceApp : public sigc::trackable,
 	subtitle_pages_map const* m_subtitle_pages;
 	std::unique_ptr<SubtitleTrack const> m_selected_subtitle_track;
 	subtitleMessage const* m_prev_subtitle_message;
+	std::string m_prev_subtitle_text; // the text shown with it (overlapping cues joined)
 	ePtr<eTimer> m_subtitle_sync_timer;
 	iSubtitleUser* m_subtitle_widget;
 	SubtitleManager m_subtitle_manager;
@@ -96,7 +97,10 @@ class eServiceApp : public sigc::trackable,
 	static bool isExternalTrack(const SubtitleTrack& track);
 	void pullSubtitles();
 	void addSubtitles(std::queue<subtitleMessage>& pulled);
+	void addTextSubtitle(const subtitleMessage& sub);
 	void pushSubtitles();
+	void stopEmbeddedSubtitles(bool tell_player);
+	void discardQueuedSubtitles();
 
 	/* graphic subtitles (PGS, DVB, XSUB of exteplayer3): the page on the
 	 * widget, shown again every few seconds (the widget hides an
@@ -106,7 +110,7 @@ class eServiceApp : public sigc::trackable,
 	uint32_t m_graphic_start_ms = 0, m_graphic_end_ms = 0;
 	int64_t m_graphic_shown_at = 0;
 	void addGraphicSubtitle(const subtitleMessage& sub);
-	void removePastGraphicSubtitles(int32_t decoder_ms);
+	void removePastSubtitles(int32_t decoder_ms);
 	void showGraphicSubtitle(const subtitleMessage& sub);
 	void hideGraphicSubtitle();
 	void updateGraphicSubtitle(int32_t decoder_ms, int32_t& next_timer);

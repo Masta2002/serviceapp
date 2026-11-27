@@ -522,8 +522,34 @@ void eServiceApp::addSubtitles(std::queue<subtitleMessage>& pulled) {
 		if (sub.graphic)
 			addGraphicSubtitle(sub);
 		else
-			m_embedded_subtitle_pages.insert(subtitle_pages_map_pair(sub.end_ms, sub));
+			addTextSubtitle(sub);
 		pulled.pop();
+	}
+}
+
+void eServiceApp::addTextSubtitle(const subtitleMessage& sub) {
+	/* The map is keyed by the end (the type is shared with the external
+	 * subtitle parsers): a second cue with the same end was dropped. Its text
+	 * joins the cue that is there; a graphic page there moves it by 1 ms. */
+	uint32_t key = sub.end_ms;
+	for (;;) {
+		std::pair<subtitle_pages_map::iterator, bool> r = m_embedded_subtitle_pages.insert(subtitle_pages_map_pair(key, sub));
+		if (r.second)
+			return;
+		subtitleMessage& m = r.first->second;
+		if (!m.graphic) {
+			if (m.text != sub.text && !sub.text.empty()) {
+				m.text += m.text.empty() ? sub.text : "\n" + sub.text;
+				if (sub.start_ms < m.start_ms) {
+					m.start_ms = sub.start_ms;
+					m.duration_ms = m.end_ms - m.start_ms;
+				}
+			}
+			return;
+		}
+		if (key == std::numeric_limits<uint32_t>::max())
+			return;
+		key++;
 	}
 }
 
@@ -609,17 +635,16 @@ void eServiceApp::addGraphicSubtitle(const subtitleMessage& sub) {
 	}
 }
 
-void eServiceApp::removePastGraphicSubtitles(int32_t decoder_ms) {
-	/* cues that are over (or were skipped): their files are not needed any more */
+void eServiceApp::removePastSubtitles(int32_t decoder_ms) {
+	/* cues that are over (or were skipped) go: the files of graphic ones are
+	 * not needed any more, and text cues piled up for the whole playback
+	 * (live closed captions, ~17 MB a day) and were walked on every tick */
 	if (decoder_ms <= 0)
 		return;
 	subtitle_pages_map::iterator end = m_embedded_subtitle_pages.lower_bound((uint32_t)decoder_ms);
 	for (subtitle_pages_map::iterator it = m_embedded_subtitle_pages.begin(); it != end;) {
-		if (!it->second.graphic) {
-			++it;
-			continue;
-		}
-		removeSubtitleFiles(it->second);
+		if (it->second.graphic)
+			removeSubtitleFiles(it->second);
 		if (m_prev_subtitle_message == &(it->second))
 			m_prev_subtitle_message = NULL;
 		m_embedded_subtitle_pages.erase(it++);
@@ -678,7 +703,10 @@ void eServiceApp::updateGraphicSubtitle(int32_t decoder_ms, int32_t& next_timer)
 		m_subtitle_widget->setPage(m_graphic_page);
 		m_graphic_shown_at = now;
 	}
-	int32_t wait = std::min((int32_t)m_graphic_end_ms - decoder_ms + 1, (int32_t)(m_graphic_shown_at + 5000 - now));
+	int32_t wait = (int32_t)(m_graphic_shown_at + 5000 - now);
+	/* paused, the position does not move towards the end: only the refresh */
+	if (!m_paused)
+		wait = std::min((int32_t)m_graphic_end_ms - decoder_ms + 1, wait);
 	if (wait < 10)
 		wait = 10;
 	if (next_timer == 0 || wait < next_timer)
@@ -701,6 +729,11 @@ void eServiceApp::pushSubtitles() {
 	int32_t next_timer = 0, decoder_ms = 0, start_ms, end_ms, diff_start_ms, diff_end_ms;
 	bool clock_ok = false;
 	subtitle_pages_map::const_iterator current;
+	/* the text cues on the screen now: the first of them, their text, the
+	 * time to the first end */
+	const subtitleMessage* active_text = NULL;
+	std::string text;
+	int32_t text_timeout = -1;
 
 	int delay = eSubtitleSettings::pango_subtitles_delay;
 	if (isExternalTrack(*m_selected_subtitle_track)) {
@@ -725,8 +758,9 @@ void eServiceApp::pushSubtitles() {
 		return;
 
 	if (getPlayPosition(running_pts) < 0) {
+		/* no position (yet): every 50 ms was a busy poll for nothing */
 		m_decoder_time_valid_state = 0;
-		next_timer = 50;
+		next_timer = 500;
 		goto exit;
 	}
 	if (m_decoder_time_valid_state < 3) {
@@ -753,7 +787,7 @@ void eServiceApp::pushSubtitles() {
 	decoder_ms = (running_pts - delay) / 90;
 	clock_ok = true;
 	if (m_subtitle_pages == &m_embedded_subtitle_pages)
-		removePastGraphicSubtitles(decoder_ms);
+		removePastSubtitles(decoder_ms);
 
 	for (current = m_subtitle_pages->lower_bound(decoder_ms); current != m_subtitle_pages->end(); current++) {
 		start_ms = current->second.start_ms;
@@ -770,31 +804,49 @@ void eServiceApp::pushSubtitles() {
 		}
 		if (diff_start_ms > 50) {
 			// eDebug("eServiceApp::pushSubtitles - current sub in the future, start timer, %d", diff_start_ms);
-			next_timer = diff_start_ms;
-			goto exit;
+			if (next_timer == 0 || diff_start_ms < next_timer)
+				next_timer = diff_start_ms;
+			break;
 		}
-		// don't show the same message twice
-		if (m_prev_subtitle_message && m_prev_subtitle_message == &(current->second)) {
-			next_timer = 30;
-			goto exit;
+		/* a cue on the screen: the next look at its end (or at the start of
+		 * the next cue), not every 30 ms */
+		if (next_timer == 0 || diff_end_ms + 1 < next_timer)
+			next_timer = diff_end_ms + 1;
+		if (current->second.graphic) {
+			// don't show the same page twice
+			if (m_prev_subtitle_message != &(current->second) && m_subtitle_widget && !m_paused) {
+				m_prev_subtitle_message = &(current->second);
+				showGraphicSubtitle(current->second);
+			}
+			continue;
 		}
-		if (m_subtitle_widget && !m_paused && current->second.graphic) {
-			m_prev_subtitle_message = &(current->second);
-			showGraphicSubtitle(current->second);
-		} else if (m_subtitle_widget && !m_paused) {
-			// eDebug("eServiceApp::pushSubtitles - current sub actual, show!");
-			m_prev_subtitle_message = &(current->second);
-			ePangoSubtitlePage pango_page;
-			gRGB rgbcol(0xD0, 0xD0, 0xD0);
-
-			pango_page.m_elements.push_back(ePangoSubtitlePageElement(rgbcol, current->second.text.c_str()));
-			pango_page.m_show_pts = start_ms * 90; // actually completely unused by widget!
-			pango_page.m_timeout = end_ms - decoder_ms; // take late start into account
-
-			m_subtitle_widget->setPage(pango_page);
-		}
-		// eDebug("eServiceApp::pushSubtitles - no next sub scheduled, check NEXT subtitle");
+		/* overlapping text cues are shown together */
+		if (!active_text)
+			active_text = &(current->second);
+		if (!text.empty())
+			text += "\n";
+		text += current->second.text;
+		if (text_timeout < 0 || diff_end_ms < text_timeout)
+			text_timeout = diff_end_ms;
 	}
+	// don't show the same text twice; a cue that ended or joined changes it
+	if (active_text && m_subtitle_widget && !m_paused && !(m_prev_subtitle_message == active_text && m_prev_subtitle_text == text)) {
+		// eDebug("eServiceApp::pushSubtitles - current sub actual, show!");
+		m_prev_subtitle_message = active_text;
+		m_prev_subtitle_text = text;
+		ePangoSubtitlePage pango_page;
+		gRGB rgbcol(0xD0, 0xD0, 0xD0);
+
+		pango_page.m_elements.push_back(ePangoSubtitlePageElement(rgbcol, text.c_str()));
+		pango_page.m_show_pts = active_text->start_ms * 90; // actually completely unused by widget!
+		pango_page.m_timeout = text_timeout; // take late start into account
+
+		m_subtitle_widget->setPage(pango_page);
+	}
+	/* paused: nothing moves; only the 5 s refresh of a graphic page (below)
+	 * or a look every second, not every 30 ms */
+	if (m_paused)
+		next_timer = 1000;
 exit:
 	if (clock_ok)
 		updateGraphicSubtitle(decoder_ms, next_timer);
@@ -1021,6 +1073,9 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 				eDebug("eServiceApp::gotExtPlayerMessage - resume");
 			m_paused = false;
 			restoreAudioTrack();
+			/* paused, the subtitle timer looks only every second */
+			if (m_selected_subtitle_track && m_subtitle_pages)
+				m_subtitle_sync_timer->start(1, true);
 			break;
 		case PlayerMessage::error:
 			if (m_debug)
@@ -1086,6 +1141,10 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 				eDebug("eServiceApp::gotExtPlayerMessage - subtitleAvailable");
 			if (m_selected_subtitle_track && isEmbeddedTrack(*m_selected_subtitle_track))
 				pullSubtitles();
+			else
+				/* no embedded track is shown (gstplayer2 with -e, #sapp_subtitle_id):
+				 * the queue was never drained, its pictures stayed in /tmp */
+				discardQueuedSubtitles();
 			break;
 		case PlayerMessage::subtitleFlush:
 			/* seek or track switch: cues of the old position must not come back */
@@ -1158,6 +1217,8 @@ RESULT eServiceApp::start() {
 	   resume check of the GUI runs a second after evStart */
 	if (!m_is_streaming && !m_cuesheet_loaded)
 		loadCuesheet();
+	/* a "forced only" pick of getCachedSubtitle() is for one enableSubtitles() */
+	m_forced_only_pid = -1;
 	std::string path_str(m_ref.path);
 
 	if (path_str.find(m_resolve_uri) == 0) {
@@ -1232,8 +1293,10 @@ RESULT eServiceApp::stop() {
 	m_decoder_video_timer->stop();
 	player->stop();
 	/* graphic subtitles: the files of the pages left (the player removes its
-	 * directory when it has ended) */
-	if (m_subtitle_pages == &m_embedded_subtitle_pages)
+	 * directory when it has ended); also pages of a track that was switched
+	 * off or replaced by an external one */
+	m_subtitle_sync_timer->stop();
+	if (!m_embedded_subtitle_pages.empty() || m_graphic_shown)
 		clearEmbeddedSubtitlePages(true);
 	return 0;
 }
@@ -1591,8 +1654,32 @@ RESULT eServiceApp::selectChannel(int i) {
 
 
 // __iSubtitleOutput
+/* the embedded track is no longer shown: the player stops decoding it, its
+ * queued and kept cues (and their pictures in /tmp) go, a graphic page on the
+ * screen is hidden. tell_player: an embedded track was selected. */
+void eServiceApp::stopEmbeddedSubtitles(bool tell_player) {
+	// an embedded track is decoded by the player until it is told to stop
+	if (tell_player)
+		player->subtitleSelectTrack(-1);
+	discardQueuedSubtitles();
+	clearEmbeddedSubtitlePages(true);
+	if (m_forced_only_active) {
+		player->subtitleForcedOnly(false);
+		m_forced_only_active = false;
+	}
+}
+
+/* cues the player queued that are not shown: their pictures can go */
+void eServiceApp::discardQueuedSubtitles() {
+	std::queue<subtitleMessage> pulled;
+	player->getSubtitles(pulled);
+	for (; !pulled.empty(); pulled.pop())
+		removeSubtitleFiles(pulled.front());
+}
+
 RESULT eServiceApp::enableSubtitles(iSubtitleUser* user, struct SubtitleTrack& track) {
 	m_subtitle_sync_timer->stop();
+	bool was_embedded = m_selected_subtitle_track && isEmbeddedTrack(*m_selected_subtitle_track);
 	m_prev_subtitle_message = NULL;
 	m_subtitle_pages = NULL;
 	m_selected_subtitle_track.reset();
@@ -1600,32 +1687,48 @@ RESULT eServiceApp::enableSubtitles(iSubtitleUser* user, struct SubtitleTrack& t
 	m_decoder_time_valid_state = 0;
 	m_prev_decoder_time = -1;
 
+	/* "forced only" belongs to the track getCachedSubtitle() just picked;
+	 * any other call (also a failing one) leaves no stale pid behind */
+	int forced_only_pid = m_forced_only_pid;
+	m_forced_only_pid = -1;
+
+	/* the page of the former track goes; hide it when the widget stays */
+	if (m_subtitle_widget != user)
+		m_graphic_shown = false;
+
+	/* an embedded track switched to an external one, or a failed selection:
+	 * the player went on sending the old track (queue and PNG files grew for
+	 * the whole film, its last graphic page came back every 5 s) */
+	auto fail = [&]() {
+		stopEmbeddedSubtitles(was_embedded);
+		player->setPositionInterval(500);
+		return -1;
+	};
+
 	ssize_t track_pos = getTrackPosition(track);
 	if (track_pos == -1) {
 		eWarning("eServiceApp::enableSubtitles - track is not in the map!");
-		return -1;
+		return fail();
 	}
 	if (isEmbeddedTrack(track)) {
 		eDebug("eServiceApp::enableSubtitles - track = %d (embedded)", track.pid);
-		/* the page of the former track goes; hide it when the widget stays */
-		if (m_subtitle_widget != user)
-			m_graphic_shown = false;
 		clearEmbeddedSubtitlePages(true);
 		m_subtitle_pages = &m_embedded_subtitle_pages;
 		player->subtitleSelectTrack(track.pid);
 	} else if (isExternalTrack(track)) {
 		eDebug("eServiceApp::enableSubtitles - track = %d (external)", track.pid);
+		stopEmbeddedSubtitles(was_embedded);
 		subtitleStream s = m_subtitle_streams[track_pos];
 		m_subtitle_pages = m_subtitle_manager.load(s.path);
 		if (m_subtitle_pages != NULL) {
 			m_subtitle_sync_timer->start(1, true);
 		} else {
 			eWarning("eServiceApp::enableSubtitles - cannot load external subtitles");
-			return -1;
+			return fail();
 		}
 	} else {
 		eWarning("eServiceApp::enableSubtitles - not supported track page_number %d", track.page_number);
-		return -1;
+		return fail();
 	}
 	// own a standalone copy: getSubtitleList() clears m_subtitle_tracks
 	// while playing (the UI calls it to repopulate), which would leave a
@@ -1637,8 +1740,7 @@ RESULT eServiceApp::enableSubtitles(iSubtitleUser* user, struct SubtitleTrack& t
 	player->setPositionInterval(100);
 	/* forced only: the track the "Forced only" auto mode picked for its
 	 * forced pictures; any other selection shows the whole track again */
-	bool forced_only = isEmbeddedTrack(track) && track.pid == m_forced_only_pid;
-	m_forced_only_pid = -1;
+	bool forced_only = isEmbeddedTrack(track) && track.pid == forced_only_pid;
 	if (forced_only != m_forced_only_active) {
 		player->subtitleForcedOnly(forced_only);
 		m_forced_only_active = forced_only;
@@ -1650,27 +1752,15 @@ RESULT eServiceApp::disableSubtitles() {
 	eDebug("eServiceApp::disableSubtitles");
 	m_subtitle_sync_timer->stop();
 	m_prev_subtitle_message = NULL;
-	clearEmbeddedSubtitlePages(true);
-	{
-		/* queued cues are not shown any more: their pictures can go */
-		std::queue<subtitleMessage> pulled;
-		player->getSubtitles(pulled);
-		for (; !pulled.empty(); pulled.pop())
-			removeSubtitleFiles(pulled.front());
-	}
+	m_forced_only_pid = -1;
+	/* queued cues are not shown any more: their pictures can go */
+	stopEmbeddedSubtitles(true);
 	m_subtitle_pages = NULL;
 	m_selected_subtitle_track.reset();
 	if (m_subtitle_widget)
 		m_subtitle_widget->destroy();
 	m_subtitle_widget = 0;
-
-	// an embedded track is decoded by the player until it is told to stop
-	player->subtitleSelectTrack(-1);
 	player->setPositionInterval(500);
-	if (m_forced_only_active) {
-		player->subtitleForcedOnly(false);
-		m_forced_only_active = false;
-	}
 
 	m_decoder_time_valid_state = 0;
 	m_prev_decoder_time = -1;
@@ -1691,6 +1781,8 @@ static void appendLanguageCodes(std::vector<std::string>& langs, const std::stri
 }
 
 RESULT eServiceApp::getCachedSubtitle(struct SubtitleTrack& track) {
+	/* a pick of an earlier call that enableSubtitles() did not get */
+	m_forced_only_pid = -1;
 	if (options->autoTurnOnSubtitles == SUBTITLES_AUTO_OFF) {
 		eDebug("eServiceApp::getCachedSubtitle - auto-turning disabled in config");
 		return -1;
