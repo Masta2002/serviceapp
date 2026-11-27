@@ -6,6 +6,8 @@
 #include <lib/python/connections.h>
 #include <lib/base/thread.h>
 
+#include <memory>
+
 #include "extplayer.h"
 #include "myconsole.h"
 
@@ -50,7 +52,7 @@ class ResolveUrl: public sigc::trackable, public eThread, public eMainloop
         Message(int type)
             :type(type) {}
     };
-    scriptrun *m_scriptrun;
+    std::unique_ptr<scriptrun> m_scriptrun;
     std::string m_url;
     int m_success;
 
