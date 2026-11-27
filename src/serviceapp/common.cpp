@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <string>
 #include <sys/stat.h>
+#include <vector>
 
 #include "common.h"
 #ifndef NO_PYTHON
@@ -300,16 +301,15 @@ HeaderMap getHeaders(const std::string& url)
     if (pos != std::string::npos && (url.compare(0, 4, "http") == 0 || url.compare(0, 4, "rtsp") == 0))
     {
         std::string headers_str = url.substr(pos + 1);
-        char *headers_cstr = (char*) malloc ((url.length() + 1) * sizeof(char));
-        if (!unquotePlus(headers_cstr, headers_str.c_str()))
+        std::vector<char> headers_cstr(url.length() + 1);
+        if (!unquotePlus(headers_cstr.data(), headers_str.c_str()))
         {
-            headers_str = headers_cstr;
+            headers_str = headers_cstr.data();
         }
         else
         {
             fprintf(stderr, "getHeaders - cannot unquote headers string\n");
         }
-        free(headers_cstr);
 
         pos = 0;
         while (pos != std::string::npos)
