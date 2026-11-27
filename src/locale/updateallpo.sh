@@ -15,6 +15,8 @@
 #                the language, not the file name; skip the po rewrite when
 #                only the POT-Creation-Date header changed (no empty git diffs)
 #          1.2 - msgmerge --no-fuzzy-matching: no guessed (fuzzy) translations
+#          1.3 - only the pot rewrite is skipped on a pure POT-Creation-Date
+#                change, new languages and out-of-sync po files are still done
 #
 # The languages are the LANGS of Makefile.am: a new language needs its entry
 # there, or it is neither updated nor installed.
@@ -73,16 +75,14 @@ $localgsed --in-place $PluginName.pot --expression=s/CHARSET/UTF-8/
 rm -f $PluginName-py.pot $PluginName-cpp.pot $PluginName-all.pot
 
 # if nothing but the auto-generated POT-Creation-Date line differs from the
-# previous pot, restore it and stop - no merge needed, po files (and git) stay clean
+# previous pot, keep the previous one (no empty git diff); the languages are
+# still processed: a new LANGS entry gets its .po, an out-of-sync .po is merged
 if [[ -f $PluginName.pot.bak ]]; then
 	grep -v '^"POT-Creation-Date:' $PluginName.pot     > $PluginName.pot.new
 	grep -v '^"POT-Creation-Date:' $PluginName.pot.bak > $PluginName.pot.old
 	if diff -q $PluginName.pot.old $PluginName.pot.new > /dev/null; then
-		printf "No string changes (only POT-Creation-Date) - leaving all files as they are.\n"
+		printf "No string changes (only POT-Creation-Date) - keeping the pot as it is.\n"
 		mv $PluginName.pot.bak $PluginName.pot
-		rm -f $PluginName.pot.old $PluginName.pot.new
-		printf "Po files update/creation from script finished!\n"
-		exit 0
 	fi
 	rm -f $PluginName.pot.bak $PluginName.pot.old $PluginName.pot.new
 fi
