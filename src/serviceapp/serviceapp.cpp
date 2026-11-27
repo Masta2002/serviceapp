@@ -1297,6 +1297,8 @@ void eServiceApp::liveReconnect() {
 	}
 	player = std::make_unique<PlayerBackend>(extplayer.get());
 	CONNECT(player->gotPlayerMessage, eServiceApp::gotExtPlayerMessage);
+	if (m_selected_subtitle_track)
+		player->setPositionInterval(100); // as enableSubtitles() set it for the old player
 	m_player_started = false;
 	m_paused = false;
 	m_reconnected = true;
@@ -1596,6 +1598,9 @@ RESULT eServiceApp::enableSubtitles(iSubtitleUser* user, struct SubtitleTrack& t
 	// pointer into freed vector storage dangling -> UAF in pushSubtitles.
 	m_selected_subtitle_track = std::make_unique<SubtitleTrack const>(m_subtitle_tracks[track_pos]);
 	m_subtitle_widget = user;
+	/* the cue timing needs the position every 100 ms, the rest of the time
+	 * 500 ms do (10 round trips to the player a second before) */
+	player->setPositionInterval(100);
 	/* forced only: the track the "Forced only" auto mode picked for its
 	 * forced pictures; any other selection shows the whole track again */
 	bool forced_only = isEmbeddedTrack(track) && track.pid == m_forced_only_pid;
@@ -1627,6 +1632,7 @@ RESULT eServiceApp::disableSubtitles() {
 
 	// an embedded track is decoded by the player until it is told to stop
 	player->subtitleSelectTrack(-1);
+	player->setPositionInterval(500);
 	if (m_forced_only_active) {
 		player->subtitleForcedOnly(false);
 		m_forced_only_active = false;

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -231,48 +232,64 @@ bool PlayerBackend::postToPlayer(const Message& m)
 	return true;
 }
 
-void PlayerBackend::sendMessage(const Message& m, int timeout)
+void PlayerBackend::sendListRequest(const Message& m, bool& waitFlag, int timeout)
 {
 	if (!canPost())
 		return;
 	if (timeout > 0)
 	{
 		pthread_mutex_lock(&mWaitMutex);
-		mWaitForUpdate = true;
+		waitFlag = true;
 		pthread_mutex_unlock(&mWaitMutex);
 		mMessageThread.send(m);
-		bool inTime = waitForClear(mWaitMutex, mWaitCond, mWaitForUpdate, timeout);
+		bool inTime = waitForClear(mWaitMutex, mWaitCond, waitFlag, timeout);
 		if (mDebug)
-			eDebug("PlayerBackend::sendMessage - answer %s", inTime ? "in time" : "timed out");
+			eDebug("PlayerBackend::sendListRequest - answer %s", inTime ? "in time" : "timed out");
 	}
 	else
 	{
-		pthread_mutex_lock(&mWaitMutex);
-		mWaitForUpdate = false;
-		pthread_mutex_unlock(&mWaitMutex);
 		mMessageThread.send(m);
 	}
 }
 
-void PlayerBackend::recvMessage()
+bool PlayerBackend::recvListAnswer(bool& waitFlag)
 {
 	pthread_mutex_lock(&mWaitMutex);
-	if (mWaitForUpdate)
+	bool waiting = waitFlag;
+	if (waiting)
 	{
-		mWaitForUpdate = false;
+		waitFlag = false;
 		pthread_cond_broadcast(&mWaitCond);
 	}
 	pthread_mutex_unlock(&mWaitMutex);
+	return waiting;
+}
+
+void PlayerBackend::startPositionTimer()
+{
+	mTimer->start(mTimerDelay, false);
+	mTimerActive = true;
+}
+
+void PlayerBackend::setPositionInterval(int ms)
+{
+	if (ms < 20)
+		ms = 20;
+	if ((unsigned int)ms == mTimerDelay)
+		return;
+	mTimerDelay = ms;
+	/* the timer belongs to the backend thread: it restarts it there */
+	postToPlayer(Message(Message::tPositionInterval, ms));
 }
 
 void PlayerBackend::_updatePosition()
 {
 	pPlayer->sendUpdatePosition();
 
-	/* every 20 ticks (2 s) re-check the current audio track: an ad break or
-	 * programme change can switch 5.1 to 2.0 or DD+ to Atmos on the same
-	 * track, see recvAudioTrackCurrent() */
-	if (++mAudioCheckCounter >= 20)
+	/* about every 2 s (whatever the poll interval) re-check the current
+	 * audio track: an ad break or programme change can switch 5.1 to 2.0 or
+	 * DD+ to Atmos on the same track, see recvAudioTrackCurrent() */
+	if (++mAudioCheckCounter * mTimerDelay >= 2000)
 	{
 		mAudioCheckCounter = 0;
 		pPlayer->sendPollAudioTrackCurrent();
@@ -413,13 +430,37 @@ int PlayerBackend::getErrorMessage(errorMessage& error)
 	return 0;
 }
 
+/* The GUI asks for the track counts often (skin converters, the InfoBar on
+ * every evUpdatedInfo); a wait blocked it up to 500 ms each time. The player
+ * sends both lists at the start and again when they change (a_l, s_l), so
+ * the cached count is the answer; only while no list is known yet and the
+ * player runs the caller waits, at most 200 ms. */
+static const int LIST_WAIT_MAX_MS = 200;
+
 int PlayerBackend::audioGetNumberOfTracks(int timeout)
 {
-	if (!mWaitForUpdate)
+	size_t count;
+	bool known;
 	{
-		Message m (Message::tAudioList);
-		sendMessage(m, timeout);
+		eSingleLocker l_(mStreamsLock);
+		count = mAudioStreams.size();
+		known = mAudioListKnown;
 	}
+	if (timeout < 0 || !canPost())
+		return count;
+	if (timeout == 0)
+	{
+		// asynchronous: the answer comes as audioTracksAvailable
+		sendListRequest(Message(Message::tAudioList), mWaitForAudioList, 0);
+		return count;
+	}
+	if (known || !playbackStarted)
+		return count;
+	pthread_mutex_lock(&mWaitMutex);
+	bool waiting = mWaitForAudioList;
+	pthread_mutex_unlock(&mWaitMutex);
+	if (!waiting)
+		sendListRequest(Message(Message::tAudioList), mWaitForAudioList, std::min(timeout, LIST_WAIT_MAX_MS));
 	eSingleLocker l_(mStreamsLock);
 	return mAudioStreams.size();
 }
@@ -476,11 +517,29 @@ int PlayerBackend::audioGetTrackInfo(audioStream& trackInfo, int trackNum)
 
 int PlayerBackend::subtitleGetNumberOfTracks(int timeout)
 {
-	if (!mWaitForUpdate)
+	size_t count;
+	bool known;
 	{
-		Message m(Message::tSubtitleList);
-		sendMessage(m, timeout);
+		eSingleLocker l_(mStreamsLock);
+		count = mSubtitleStreams.size();
+		known = mSubtitleListKnown;
 	}
+	if (timeout < 0 || !canPost())
+		return count;
+	if (timeout == 0)
+	{
+		/* asynchronous: an answer that changes the list comes as
+		 * subtitleTracksChanged */
+		sendListRequest(Message(Message::tSubtitleList), mWaitForSubtitleList, 0);
+		return count;
+	}
+	if (known || !playbackStarted)
+		return count;
+	pthread_mutex_lock(&mWaitMutex);
+	bool waiting = mWaitForSubtitleList;
+	pthread_mutex_unlock(&mWaitMutex);
+	if (!waiting)
+		sendListRequest(Message(Message::tSubtitleList), mWaitForSubtitleList, std::min(timeout, LIST_WAIT_MAX_MS));
 	eSingleLocker l_(mStreamsLock);
 	return mSubtitleStreams.size();
 }
@@ -569,7 +628,15 @@ void PlayerBackend::gotMessage(const PlayerBackend::Message& message)
 				eDebug("PlayerBackend::gotMessage - tStop");
 			if (mTimer)
 				mTimer->stop();
+			mTimerActive = false;
 			pPlayer->sendStop();
+			break;
+		case Message::tPositionInterval:
+			if(mDebug)
+				eDebug("PlayerBackend::gotMessage - tPositionInterval %d", message.dataInt);
+			// a stopped (paused) timer starts with the new interval on resume
+			if (mTimer && mTimerActive)
+				startPositionTimer();
 			break;
 		case Message::tKill:
 			if(mDebug)
@@ -764,7 +831,7 @@ void PlayerBackend::recvStarted(int status)
 	if (playbackStarted || status)
 		return;
 	playbackStarted = true;
-	mTimer->start(mTimerDelay, false);
+	startPositionTimer();
 	mMessageMain.send(Message(Message::start));
 }
 
@@ -815,6 +882,7 @@ void PlayerBackend::recvPaused(int status)
 	if (!status)
 	{
 		mTimer->stop();
+		mTimerActive = false;
 		mMessageMain.send(Message(Message::pause));
 	}
 }
@@ -825,7 +893,7 @@ void PlayerBackend::recvResumed(int status)
 		eDebug("PlayerBackend::recvResume - status = %d", status);
 	if (!status)
 	{
-		mTimer->start(mTimerDelay, false);
+		startPositionTimer();
 		mMessageMain.send(Message(Message::resume));
 	}
 }
@@ -848,10 +916,11 @@ void PlayerBackend::recvAudioTracksList(int status, std::vector<audioStream>& st
 				if (!l->second.codec_name.empty())
 					i->codec_name = l->second.codec_name;
 			}
+			mAudioListKnown = true;
 		}
 		mMessageMain.send(Message(Message::audioList));
 	}
-	recvMessage();
+	recvListAnswer(mWaitForAudioList);
 }
 
 void PlayerBackend::recvAudioTrackCurrent(int status, audioStream& stream)
@@ -927,12 +996,13 @@ void PlayerBackend::recvSubtitleTracksList(int status, std::vector<subtitleStrea
 		eSingleLocker l_(mStreamsLock);
 		changed = playbackStarted && streams.size() != mSubtitleStreams.size();
 		mSubtitleStreams = streams;
+		mSubtitleListKnown = true;
 	}
-	pthread_mutex_lock(&mWaitMutex);
-	bool asked = mWaitForUpdate;
-	pthread_mutex_unlock(&mWaitMutex);
-	recvMessage();
-	/* exteplayer3 sends the list again by itself when closed captions show up */
+	/* a waiting GUI caller reads the new list itself; only the subtitle wait
+	 * counts, an audio list wait no longer hid this answer */
+	bool asked = recvListAnswer(mWaitForSubtitleList);
+	/* exteplayer3 sends the list again by itself when closed captions show
+	 * up; also the answer to a request nobody waited for */
 	if (changed && !asked)
 		mMessageMain.send(Message(Message::subtitleTracksChanged));
 }

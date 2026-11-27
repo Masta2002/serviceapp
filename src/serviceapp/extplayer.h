@@ -234,8 +234,9 @@ class BasePlayer: public iPlayerSend, public iPlayerCallback
 protected:
 	std::string mPath;
 	std::map<std::string, std::string> mHeaders;
-	// the player announced that it can wind
-	bool mCanWind = false;
+	// the player announced that it can wind; the EPLAYER3_EXTENDED fields are
+	// written by the backend thread and read by the GUI: atomic
+	std::atomic<bool> mCanWind{false};
 
 	void recvStarted(int status){pCallback->recvStarted(status);};
 	void recvStopped(int status){pCallback->recvStopped(status);};
@@ -261,9 +262,9 @@ protected:
 	void recvChapters(std::vector<chapterEntry>& chapters){pCallback->recvChapters(chapters);};
 	void recvCover(const std::string& file){pCallback->recvCover(file);};
 	// the player announced the dual mono selection (am<n>)
-	bool mCanSelectChannel = false;
+	std::atomic<bool> mCanSelectChannel{false};
 	// the player announced "forcedonly" (so1 / so0)
-	bool mCanForcedOnly = false;
+	std::atomic<bool> mCanForcedOnly{false};
 public:
 	virtual ~BasePlayer(){}
 
@@ -331,6 +332,7 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 			chaptersChanged,
 			coverAvailable,
 			tSubtitleForcedOnly,
+			tPositionInterval,
 		};
 		Message(int type)
 			:type(type), dataInt(0) {}
@@ -338,11 +340,12 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 			:type(type), dataInt(dataInt) {}
 	};
 
-	int mPositionInMs, mLengthInMs;
-	int mExitCode; // of the player process, -1 while it runs
-	int mAudioChannel; // dual mono selection, 1 stereo
-	bool playbackStarted;
-	bool mThreadRunning;
+	/* written by the backend thread, read by the GUI without a lock: atomic */
+	std::atomic<int> mPositionInMs, mLengthInMs;
+	std::atomic<int> mExitCode; // of the player process, -1 while it runs
+	std::atomic<int> mAudioChannel; // dual mono selection, 1 stereo
+	std::atomic<bool> playbackStarted;
+	std::atomic<bool> mThreadRunning;
 	bool mDebug;
 
 	BasePlayer *pPlayer;
@@ -362,15 +365,22 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 
 	eFixedMessagePump<Message> mMessageMain, mMessageThread;
 	ePtr<eTimer> mTimer;
-	unsigned int mTimerDelay;
+	// position poll interval (ms): 500, 100 while subtitles are shown
+	std::atomic<unsigned int> mTimerDelay;
+	bool mTimerActive; // backend thread only: the position poll runs
 
 	eSingleLock mSubLock;
 	// protects mAudioStreams/mSubtitleStreams/pCurrent*/pErrorMessage (parser thread vs e2 main thread)
 	eSingleLock mStreamsLock;
-	
+	// a list came from the player in this playback (under mStreamsLock)
+	bool mAudioListKnown, mSubtitleListKnown;
+
+	/* a GUI caller waits for the answer to its list request: one flag per
+	 * list, an s_l must not end the wait for an a_l (stale track count) */
 	pthread_mutex_t mWaitMutex;
 	pthread_cond_t mWaitCond;
-	bool mWaitForUpdate;
+	bool mWaitForAudioList;
+	bool mWaitForSubtitleList;
 
 	pthread_mutex_t mWaitForStopMutex;
 	pthread_cond_t mWaitForStopCond;
@@ -391,8 +401,11 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 	bool canPost() const { return mThreadRunning && !mProcessEnded; }
 	// a t* message to the backend loop, false (not sent) without a player
 	bool postToPlayer(const Message& m);
-	void sendMessage(const Message& m, int timeout=0);
-	void recvMessage();
+	// a list request, waiting at most timeout ms for the answer (flag)
+	void sendListRequest(const Message& m, bool& waitFlag, int timeout);
+	// an answer came: wakes its waiter; true when one was waiting
+	bool recvListAnswer(bool& waitFlag);
+	void startPositionTimer();
 
 	// eThread
 	void thread();
@@ -464,8 +477,12 @@ public:
 		mAudioCheckCounter(0),
 		mMessageMain(eApp, 1, "extplayer"),
 		mMessageThread(this, 1, "extplayer"),
-		mTimerDelay(100), // updated play position timer
-		mWaitForUpdate(false),
+		mTimerDelay(500), // updated play position timer, see setPositionInterval
+		mTimerActive(false),
+		mAudioListKnown(false),
+		mSubtitleListKnown(false),
+		mWaitForAudioList(false),
+		mWaitForSubtitleList(false),
 		mWaitForStop(false),
 		mProcessEnded(false),
 		mStopRequested(false),
@@ -537,6 +554,11 @@ public:
 	/* exit code of the player process, -1 while it runs */
 	int exitCode() const { return mExitCode; }
 	int getSubtitles(std::queue<subtitleMessage>&);
+	/* how often the play position is polled: 500 ms by default (the GUI's
+	 * seek bar), 100 ms while subtitles are shown (their timing) */
+	void setPositionInterval(int ms);
+	/* timeout < 0: the cached count only; 0: also ask the player without
+	 * waiting; > 0: wait (at most 200 ms) only while no list is known */
 	int audioGetNumberOfTracks(int timeout=0);
 	int audioSelectTrack(int trackId);
 	int audioGetTrackInfo(audioStream& trackInfo, int trackId);
