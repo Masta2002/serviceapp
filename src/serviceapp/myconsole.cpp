@@ -47,6 +47,13 @@ int bidirpipe(int pfd[], const char *cmd , const char * const argv[], const char
 		if (cwd && chdir(cwd) < 0)
 			eDebug("[ServiceApp][eConsoleContainer] failed to change directory to %s (%m)", cwd);
 
+		/* enigma2 runs in the background of enigma2.sh, which ignores these;
+		 * an ignored signal stays ignored across exec and sendCtrlC (the clean
+		 * stop of the player) would not reach the child (as openATV enigma2
+		 * console.cpp 36c0128) */
+		signal(SIGINT, SIG_DFL);
+		signal(SIGQUIT, SIG_DFL);
+
 		execvp(cmd, (char * const *)argv);
 			/* the vfork will actually suspend the parent thread until execvp is called. thus it's ok to use the shared arg/cmdline pointers here. */
 		_exit(0);

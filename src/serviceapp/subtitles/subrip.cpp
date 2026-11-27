@@ -15,7 +15,8 @@ int SubripParser::get_event_info(const char *line, event_info *ei)
     ei->x1 = ei->x2 = ei->y1 = ei->y2 = ei->duration = -1;
     ei->start = 0;//fixme
     ei->pos = -1;
-    if (sscanf(line, "%d:%2d:%2d%*1[,.]%3d --> %d:%2d:%2d%*1[,.]%3d"
+    /* not strict about the number of digits ("0:0:1,5"), as FFmpeg srtdec 7af3f27 */
+    if (sscanf(line, "%d:%d:%d%*1[,.]%d --> %d:%d:%d%*1[,.]%d"
                "%*[ ]X1:%d X2:%d Y1:%d Y2:%d",
                &hh1, &mm1, &ss1, &ms1,
                &hh2, &mm2, &ss2, &ms2,
