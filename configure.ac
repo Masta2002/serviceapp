@@ -73,7 +73,10 @@ AC_LINK_IFELSE(
         AC_DEFINE(OPENPLI_ISERVICE_VERSION, 1)
     ])
 
-AC_PATH_PROG(MSGFMT, msgfmt, AC_MSG_ERROR(Could not find msgfmt))
+AC_PATH_PROG(MSGFMT, msgfmt, no)
+if test "$MSGFMT" = no; then
+    AC_MSG_ERROR([msgfmt not found, install gettext])
+fi
 
 CXXFLAGS="$SAVE_CXXFLAGS"
 LDFLAGS="$SAVE_LDFLAGS"

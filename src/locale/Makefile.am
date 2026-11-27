@@ -2,7 +2,9 @@ LANGS = ar bg bs cs da de el en es fa fi fr hr hu it lv nb nl pl pt pt_BR ro ru 
 LANGMO = $(LANGS:=.mo)
 LANGPO = $(LANGS:=.po)
 
-EXTRA_DIST = $(LANGPO)
+EXTRA_DIST = $(LANGPO) ServiceApp.pot updateallpo.sh
+
+CLEANFILES = $(LANGMO)
 
 .po.mo:
 	$(MSGFMT) -o $@ $<
