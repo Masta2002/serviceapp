@@ -11,6 +11,16 @@
 #include "extplayer.h"
 #include "myconsole.h"
 
+/* stdout/stderr of the script kept in memory: the URL is the last line,
+ * a script printing a lot before it only costs memory */
+#define SCRIPT_MAX_OUTPUT ((size_t) 64 * 1024)
+/* the service waits for the resolved URL: a hanging script is killed and
+ * reported as failure instead of leaving the service waiting forever */
+#define RESOLVE_TIMEOUT_MS 30000
+/* after the kill, the hangup of the script's pipes normally ends the run;
+ * a descendant that keeps them open is given up on after this */
+#define RESOLVE_KILL_GRACE_MS 5000
+
 class scriptrun: public sigc::trackable
 {
     std::vector<std::string> m_params;
@@ -58,6 +68,10 @@ class ResolveUrl: public sigc::trackable, public eThread, public eMainloop
 
     bool mThreadRunning;
     bool mStopped;
+    // resolve thread only: timeout timer state, scriptEnded() reported
+    ePtr<eTimer> mTimeoutTimer;
+    bool mTimedOut;
+    bool mEnded;
 
     eFixedMessagePump<Message> mMessageMain, mMessageThread;
     pthread_mutex_t mWaitForStopMutex;
@@ -68,6 +82,7 @@ class ResolveUrl: public sigc::trackable, public eThread, public eMainloop
     // eThread
     void thread();
     void thread_finished();
+    void resolveTimeout();
 
 public:
     ResolveUrl(const std::string &url);

@@ -1,16 +1,24 @@
 #include "scriptrun.h"
 #include "common.h"
 
+// keep the tail: the URL is the last line of the output
+static void appendCapped(std::string &buffer, const char *data)
+{
+    buffer.append(data);
+    if (buffer.size() > SCRIPT_MAX_OUTPUT)
+        buffer.erase(0, buffer.size() - SCRIPT_MAX_OUTPUT);
+}
+
 void scriptrun::stdoutAvail(const char *data)
 {
     //eDebug("outData: %s", data);
-    m_stdout.append(data);
+    appendCapped(m_stdout, data);
 }
 
 void scriptrun::stderrAvail(const char *data)
 {
     //eDebug("errData: %s", data);
-    m_stderr.append(data);
+    appendCapped(m_stderr, data);
 }
 
 void scriptrun::appClosed(int retval)
@@ -87,6 +95,8 @@ ResolveUrl::ResolveUrl(const std::string &url):
     m_success(0),
     mThreadRunning(false),
     mStopped(false),
+    mTimedOut(false),
+    mEnded(false),
     mMessageMain(eApp, 1, "scriptrun"),
     mMessageThread(this, 1, "scriptrun"),
     mWaitForStop(false)
@@ -103,6 +113,8 @@ ResolveUrl::~ResolveUrl()
     stop();
     pthread_mutex_destroy(&mWaitForStopMutex);
     pthread_cond_destroy(&mWaitForStopCond);
+    // the thread is gone (stop() joined it), nothing uses the timer any more
+    mTimeoutTimer = 0;
     // before the message pumps, as the old delete here did
     m_scriptrun.reset();
 }
@@ -147,16 +159,47 @@ void ResolveUrl::stop()
 
 std::string ResolveUrl::getUrl()
 {
-    std::string url = m_scriptrun->getStdOut();
-    // strip trailing newlines only, a script using printf without a
-    // newline would lose the last character
-    while (!url.empty() && (url[url.size() - 1] == '\n' || url[url.size() - 1] == '\r'))
-        url.erase(url.size() - 1);
-    return url;
+    std::string output = m_scriptrun->getStdOut();
+    // the URL is the last non-empty line: anything the script printed
+    // before it (progress, debug) must not end up inside the URL with its
+    // newlines. Only whitespace around it goes, a script using printf
+    // without a newline keeps its last character.
+    size_t lineEnd = output.find_last_not_of(" \t\r\n");
+    if (lineEnd == std::string::npos)
+        return "";
+    size_t lineStart = output.find_last_of("\r\n", lineEnd);
+    lineStart = lineStart == std::string::npos ? 0 : lineStart + 1;
+    lineStart = output.find_first_not_of(" \t", lineStart);
+    return output.substr(lineStart, lineEnd - lineStart + 1);
+}
+
+void ResolveUrl::resolveTimeout()
+{
+    if (!mTimedOut)
+    {
+        eDebug("ResolveUrl - script still running after %d ms, killing it", RESOLVE_TIMEOUT_MS);
+        mTimedOut = true;
+        if (m_scriptrun)
+            m_scriptrun->kill();
+        // its pipes' hangup normally ends the run through scriptEnded()
+        mTimeoutTimer->start(RESOLVE_KILL_GRACE_MS, true);
+        return;
+    }
+    // a descendant in a session of its own still holds the pipes: report
+    // the failure anyway, the service must not wait for it
+    eDebug("ResolveUrl - script output still open after the kill, giving up");
+    scriptEnded(-1);
 }
 
 void ResolveUrl::scriptEnded(int retval)
 {
+    // once only: after the give-up of resolveTimeout() a late hangup of
+    // the pipes must not report a second result
+    if (mEnded)
+        return;
+    mEnded = true;
+    if (mTimeoutTimer)
+        mTimeoutTimer->stop();
     pthread_mutex_lock(&mWaitForStopMutex);
     if (mWaitForStop)
     {
@@ -165,7 +208,9 @@ void ResolveUrl::scriptEnded(int retval)
     }
     pthread_mutex_unlock(&mWaitForStopMutex);
     quit(0);
-    if (mStopped)
+    // killed by the timeout: a SIGKILL'd script may still report 0 and
+    // have printed half a URL
+    if (mStopped || mTimedOut)
         m_success = false;
     else
     {
@@ -203,6 +248,11 @@ void ResolveUrl::gotMessage(const ResolveUrl::Message &message)
     {
     case Message::tStart:
         //eDebug("ResolveUrl::gotMessage - tStart");
+        // created here, in the resolve thread: the timer belongs to its
+        // mainloop, like the console of the script
+        mTimeoutTimer = eTimer::create(this);
+        CONNECT(mTimeoutTimer->timeout, ResolveUrl::resolveTimeout);
+        mTimeoutTimer->start(RESOLVE_TIMEOUT_MS, true);
         CONNECT(m_scriptrun->scriptEnded, ResolveUrl::scriptEnded);
         m_scriptrun->run(this);
         break;
