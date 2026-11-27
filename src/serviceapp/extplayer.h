@@ -7,6 +7,7 @@
 #include <lib/python/connections.h>
 
 #include <map>
+#include <optional>
 
 #include "cJSON/cJSON.h"
 #include "myconsole.h"
@@ -334,10 +335,10 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 
 	BasePlayer *pPlayer;
 
-	audioStream *pCurrentAudio;
-	videoStream *pCurrentVideo;
-	subtitleStream *pCurrentSubtitle;
-	errorMessage *pErrorMessage;
+	std::optional<audioStream> pCurrentAudio;
+	std::optional<videoStream> pCurrentVideo;
+	std::optional<subtitleStream> pCurrentSubtitle;
+	std::optional<errorMessage> pErrorMessage;
 
 	std::vector<audioStream> mAudioStreams;
 	std::vector<subtitleStream> mSubtitleStreams;
@@ -392,8 +393,7 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 	void recvErrorMessage(errorMessage& message){
 		{
 			eSingleLocker l_(mStreamsLock);
-			if (pErrorMessage) delete pErrorMessage;
-			pErrorMessage = new errorMessage(message);
+			pErrorMessage = message;
 		}
 		// evUser+12 in the main thread, the text is sUser+12
 		mMessageMain.send(Message(Message::error));
@@ -432,10 +432,6 @@ public:
 		mThreadRunning(false),
 		mDebug(false),
 		pPlayer(extplayer),
-		pCurrentAudio(NULL),
-		pCurrentVideo(NULL),
-		pCurrentSubtitle(NULL),
-		pErrorMessage(NULL),
 		mAudioCheckCounter(0),
 		mMessageMain(eApp, 1, "extplayer"),
 		mMessageThread(this, 1, "extplayer"),
@@ -455,16 +451,9 @@ public:
 	~PlayerBackend()
 	{
 		// join the backend thread first: its recv* callbacks use and
-		// replace the pCurrent... / pErrorMessage objects
+		// replace the pCurrent... / pErrorMessage objects (they are
+		// members and go only after this body)
 		stop();
-		if (pErrorMessage != NULL)
-			delete pErrorMessage;
-		if (pCurrentVideo != NULL)
-			delete pCurrentVideo;
-		if (pCurrentAudio != NULL)
-			delete pCurrentAudio;
-		if (pCurrentSubtitle != NULL)
-			delete pCurrentSubtitle;
 		pthread_mutex_destroy(&mWaitMutex);
 		pthread_cond_destroy(&mWaitCond);
 		pthread_mutex_destroy(&mWaitForStopMutex);
