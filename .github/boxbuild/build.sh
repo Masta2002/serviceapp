@@ -136,13 +136,20 @@ unresolved() {
     done
   done
   for l in $(echo $libs | tr ' ' '\n' | sort -u); do
-    ${CROSS}nm -D --defined-only "$l" 2>/dev/null | awk '{print $3}'
+    echo "  $(${CROSS}nm -D --defined-only "$l" 2>&1 | wc -l) dynamic symbols in $l" >&2
+    ${CROSS}nm -D --defined-only "$l" 2>/dev/null | awk 'NF >= 3 {print $3}'
   done | sed 's/@.*//' | sort -u > "$TC/defined.txt"
   ${CROSS}nm -D --undefined-only "$so" | awk '$1 == "U" {print $2}' | sed 's/@.*//' | sort -u > "$TC/undefined.txt"
   comm -23 "$TC/undefined.txt" "$TC/defined.txt"
 }
 
 stage_check() {
+  ls -l "$SR/usr/bin/enigma2"* || true
+  file "$SR/usr/bin/enigma2" || true
+  ${CROSS}readelf -d "$SR/usr/bin/enigma2" | grep -E 'NEEDED|FLAGS' || true
+  ${CROSS}nm -D --defined-only "$SR/usr/bin/enigma2" | head -5 || true
+  ${CROSS}nm -D --defined-only "$SR/usr/bin/enigma2" | grep -cE 'loadPNG|CFile|eSimpleConfig' || true
+  ls -l "$SR"/usr/lib/libpython3* || true
   ours=$OUT/root$PLUGINDIR/serviceapp.so
   image=$SR$PLUGINDIR/serviceapp.so
   for f in "$image" "$ours"; do

@@ -35,9 +35,6 @@ jobs:
     - name: Build
       run: bash .github/boxbuild/build.sh build
 
-    - name: Symbols against enigma2
-      run: bash .github/boxbuild/build.sh check
-
     - name: Package
       run: bash .github/boxbuild/build.sh package
 
@@ -46,3 +43,6 @@ jobs:
         name: serviceapp-box
         path: ${{ runner.temp }}/dist/
         if-no-files-found: error
+
+    - name: Symbols against enigma2
+      run: bash .github/boxbuild/build.sh check
