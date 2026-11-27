@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ServiceApp / enigma2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 00:12+0100\n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
 "PO-Revision-Date: 2026-10-16 10:00+0300\n"
 "Last-Translator: audi06_19 <info@dreamosat-forum.com>\n"
 "Language-Team: Turkish\n"
@@ -170,6 +170,9 @@ msgstr "Oynatıcı"
 msgid "RTMP protocol implementation"
 msgstr "RTMP protokol uygulaması"
 
+msgid "Resolving the stream address failed"
+msgstr "Yayın adresi çözümlenemedi"
+
 msgid "Select sink which you want to use."
 msgstr "Kullanmak istediğiniz çıkış bileşenini seçin."
 
@@ -293,6 +296,11 @@ msgstr "kurulu değil"
 
 msgid "original"
 msgstr "orijinal"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "Oynatıcı %d sinyaliyle sonlandı"
 
 msgid "serviceapp"
 msgstr "serviceapp"

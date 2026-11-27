@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 00:12+0100\n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
 "PO-Revision-Date: 2018-07-28 11:56+0200\n"
 "Last-Translator: Pr2\n"
 "Language-Team: \n"
@@ -173,6 +173,9 @@ msgstr "Lecteur"
 msgid "RTMP protocol implementation"
 msgstr "Implémentation du protocole RTMP"
 
+msgid "Resolving the stream address failed"
+msgstr "La résolution de l'adresse du flux a échoué"
+
 msgid "Select sink which you want to use."
 msgstr "Sélectionnez le « sink » que vous souhaitez utiliser."
 
@@ -296,6 +299,11 @@ msgstr "pas installé"
 
 msgid "original"
 msgstr "original"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "Le lecteur s'est arrêté sur le signal %d"
 
 msgid "serviceapp"
 msgstr "serviceApp"

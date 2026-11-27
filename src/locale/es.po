@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ServiceApp / enigma2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 00:12+0100\n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
 "PO-Revision-Date: 2017-10-03 20:11+0200\n"
 "Last-Translator: OpenLD | by Javilonas <admin@lonasdigital.com>\n"
 "Language-Team: OpenLD | by Javilonas <admin@lonasdigital.com>\n"
@@ -170,6 +170,9 @@ msgstr "Player"
 msgid "RTMP protocol implementation"
 msgstr "Implementación del protocolo RTMP"
 
+msgid "Resolving the stream address failed"
+msgstr "No se pudo resolver la dirección del flujo"
+
 msgid "Select sink which you want to use."
 msgstr "Seleccione que no desea usar."
 
@@ -293,6 +296,11 @@ msgstr "no instalado"
 
 msgid "original"
 msgstr "original"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "El reproductor terminó por la señal %d"
 
 msgid "serviceapp"
 msgstr "serviceapp"

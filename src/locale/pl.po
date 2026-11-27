@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: serviceapp\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 00:12+0100\n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
 "PO-Revision-Date: 2024-11-08 10:24+0000\n"
 "Last-Translator: pololoko111 <www.sat-4-all.com>\n"
 "Language-Team: \n"
@@ -175,6 +175,9 @@ msgstr "Odtwarzacz"
 msgid "RTMP protocol implementation"
 msgstr "Implementacja protokołu RTMP"
 
+msgid "Resolving the stream address failed"
+msgstr "Nie udało się ustalić adresu strumienia"
+
 msgid "Select sink which you want to use."
 msgstr "Wybierz źródło, które chcesz użyć."
 
@@ -298,6 +301,11 @@ msgstr "niezainstalowany"
 
 msgid "original"
 msgstr "oryginalny"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "Odtwarzacz zakończony sygnałem %d"
 
 msgid "serviceapp"
 msgstr "serviceapp"

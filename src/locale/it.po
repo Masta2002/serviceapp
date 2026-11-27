@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ServiceApp Italian translation for enigma2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 00:12+0100\n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
 "PO-Revision-Date: 2019-01-24 21:18+0000\n"
 "Last-Translator: insanity-alexwilmac\n"
 "Language-Team: insanity & alexwilmac @vuplus-community.net\n"
@@ -175,6 +175,9 @@ msgstr "Player"
 msgid "RTMP protocol implementation"
 msgstr "Implementazione del protocollo RTMP"
 
+msgid "Resolving the stream address failed"
+msgstr "Risoluzione dell'indirizzo del flusso non riuscita"
+
 msgid "Select sink which you want to use."
 msgstr "Seleziona il recipiente che desideri utilizzare"
 
@@ -298,6 +301,11 @@ msgstr "non installato"
 
 msgid "original"
 msgstr "originale"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "Il player è terminato con il segnale %d"
 
 msgid "serviceapp"
 msgstr "ServiceApp"

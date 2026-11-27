@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ServiceApp / enigma2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 00:12+0100\n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
 "PO-Revision-Date: 2016-12-02 21:50+0200\n"
 "Last-Translator: TM2TURK | by thawtes <thawtes@gmail.com>\n"
 "Language-Team: TM2TURK | by thawtes <thawtes@gmail.com>\n"
@@ -170,6 +170,9 @@ msgstr "Player"
 msgid "RTMP protocol implementation"
 msgstr "RTMP protocol implementation"
 
+msgid "Resolving the stream address failed"
+msgstr "Resolving the stream address failed"
+
 msgid "Select sink which you want to use."
 msgstr "Select sink which you want to use."
 
@@ -293,6 +296,11 @@ msgstr "not installed"
 
 msgid "original"
 msgstr "original"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "player ended by signal %d"
 
 msgid "serviceapp"
 msgstr "serviceapp"

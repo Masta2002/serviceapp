@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ServiceApp\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 00:12+0100\n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
 "PO-Revision-Date: 2026-11-27 00:12+0100\n"
 "Last-Translator: \n"
 "Language-Team: none\n"
@@ -176,6 +176,9 @@ msgstr "المشغل"
 msgid "RTMP protocol implementation"
 msgstr "تطبيق بروتوكول RTMP"
 
+msgid "Resolving the stream address failed"
+msgstr "فشل تحديد عنوان البث"
+
 msgid "Select sink which you want to use."
 msgstr "اختر الـ sink الذي تريد استخدامه."
 
@@ -299,6 +302,11 @@ msgstr "غير مثبت"
 
 msgid "original"
 msgstr "أصلي"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "انتهى المشغل بالإشارة %d"
 
 msgid "serviceapp"
 msgstr "serviceapp"

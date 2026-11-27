@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ServiceApp\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 00:12+0100\n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
 "PO-Revision-Date: 2026-11-27 00:12+0100\n"
 "Last-Translator: \n"
 "Language-Team: none\n"
@@ -173,6 +173,9 @@ msgstr "Přehrávač"
 msgid "RTMP protocol implementation"
 msgstr "Implementace protokolu RTMP"
 
+msgid "Resolving the stream address failed"
+msgstr "Zjištění adresy streamu selhalo"
+
 msgid "Select sink which you want to use."
 msgstr "Vyberte sink, který chcete použít."
 
@@ -296,6 +299,11 @@ msgstr "není nainstalován"
 
 msgid "original"
 msgstr "originální"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "Přehrávač byl ukončen signálem %d"
 
 msgid "serviceapp"
 msgstr "serviceapp"

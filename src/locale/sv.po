@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ServiceApp\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 00:12+0100\n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
 "PO-Revision-Date: 2026-11-27 00:12+0100\n"
 "Last-Translator: \n"
 "Language-Team: none\n"
@@ -173,6 +173,9 @@ msgstr "Spelare"
 msgid "RTMP protocol implementation"
 msgstr "Implementering av RTMP-protokollet"
 
+msgid "Resolving the stream address failed"
+msgstr "Det gick inte att slå upp strömmens adress"
+
 msgid "Select sink which you want to use."
 msgstr "Välj vilken sink som ska användas."
 
@@ -296,6 +299,11 @@ msgstr "inte installerad"
 
 msgid "original"
 msgstr "original"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "Spelaren avslutades av signal %d"
 
 msgid "serviceapp"
 msgstr "serviceapp"

@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ServiceApp / enigma2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 00:12+0100\n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
 "PO-Revision-Date: 2020-03-02 22:16+0800\n"
 "Last-Translator: igorrrrr <igorzhugan66@gmail.com>\n"
 "Language-Team: igorrrrr <igorzhugan66@gmail.com>\n"
@@ -168,6 +168,9 @@ msgstr "播放器"
 msgid "RTMP protocol implementation"
 msgstr "RTMP协议实现方式"
 
+msgid "Resolving the stream address failed"
+msgstr "无法解析流地址"
+
 msgid "Select sink which you want to use."
 msgstr "选择要使用的sink."
 
@@ -291,6 +294,11 @@ msgstr "未安装的"
 
 msgid "original"
 msgstr "原始"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "播放器因信号 %d 而结束"
 
 msgid "serviceapp"
 msgstr "serviceapp"

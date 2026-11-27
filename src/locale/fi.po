@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ServiceApp / enigma2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 00:12+0100\n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
 "PO-Revision-Date: 2025-04-13 10:51+0300\n"
 "Last-Translator: Orlandox\n"
 "Language-Team: Orlandox\n"
@@ -168,6 +168,9 @@ msgstr "Soitin"
 msgid "RTMP protocol implementation"
 msgstr "RTMP-protokollan toteutus"
 
+msgid "Resolving the stream address failed"
+msgstr "Lähetyksen osoitteen selvittäminen epäonnistui"
+
 msgid "Select sink which you want to use."
 msgstr "Valitse upotus, jota haluat käyttää."
 
@@ -291,6 +294,11 @@ msgstr "ei asennettu"
 
 msgid "original"
 msgstr "alkuperäinen"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "Soitin päättyi signaaliin %d"
 
 msgid "serviceapp"
 msgstr "serviceapp"

@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ServiceApp / enigma2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 00:12+0100\n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
 "PO-Revision-Date: 2018-03-26 21:50+0200\n"
 "Last-Translator: igorrrrr <igorzhugan66@gmail.com>\n"
 "Language-Team: igorrrrr <igorzhugan66@gmail.com>\n"
@@ -170,6 +170,9 @@ msgstr "Проигрыватель"
 msgid "RTMP protocol implementation"
 msgstr "Реализация протокола RTMP"
 
+msgid "Resolving the stream address failed"
+msgstr "Не удалось определить адрес потока"
+
 msgid "Select sink which you want to use."
 msgstr "Выберите устройство вывода."
 
@@ -293,6 +296,11 @@ msgstr "не установлен"
 
 msgid "original"
 msgstr "оригинальный"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "Плеер завершён сигналом %d"
 
 msgid "serviceapp"
 msgstr "serviceapp"

@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ServiceApp / enigma2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 00:12+0100\n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
 "PO-Revision-Date: 2016-12-02 21:50+0200\n"
 "Last-Translator: Tapat <taapat@gmail.com>\n"
 "Language-Team: Taapat <taapat@gmail.com>\n"
@@ -170,6 +170,9 @@ msgstr "Atskaņotājs"
 msgid "RTMP protocol implementation"
 msgstr "RTMP atskaņošana"
 
+msgid "Resolving the stream address failed"
+msgstr "Straumes adresi neizdevās noteikt"
+
 msgid "Select sink which you want to use."
 msgstr "Izvēlieties veidu kuru vēlaties izmantot."
 
@@ -293,6 +296,11 @@ msgstr "nav uzstādīts"
 
 msgid "original"
 msgstr "oriģinālais"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "Atskaņotājs beidza darbu ar signālu %d"
 
 msgid "serviceapp"
 msgstr "serviceapp"

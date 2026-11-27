@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: serviceapp v1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 00:12+0100\n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
 "PO-Revision-Date: 2020-01-31 14:05+0100\n"
 "Last-Translator: Alec <alex1vagyok@gmail.com>\n"
 "Language-Team: Alec <alex1vagyok@gmail.com>\n"
@@ -173,6 +173,9 @@ msgstr "Lejátszó"
 msgid "RTMP protocol implementation"
 msgstr "RTMP protokoll implementációja"
 
+msgid "Resolving the stream address failed"
+msgstr "Az adás címének feloldása nem sikerült"
+
 msgid "Select sink which you want to use."
 msgstr "Jelölje ki a használni kívánt fogadót."
 
@@ -296,6 +299,11 @@ msgstr "nincs telepítve"
 
 msgid "original"
 msgstr "eredeti"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "A lejátszó a(z) %d jelzéssel leállt"
 
 msgid "serviceapp"
 msgstr "serviceapp"

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ServiceApp\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 00:12+0100\n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
 "PO-Revision-Date: 2026-11-27 00:12+0100\n"
 "Last-Translator: \n"
 "Language-Team: none\n"
@@ -174,6 +174,9 @@ msgstr "Player"
 msgid "RTMP protocol implementation"
 msgstr "Implementacija RTMP protokola"
 
+msgid "Resolving the stream address failed"
+msgstr "Određivanje adrese streama nije uspjelo"
+
 msgid "Select sink which you want to use."
 msgstr "Odaberite sink koji želite koristiti."
 
@@ -297,6 +300,11 @@ msgstr "nije instalirano"
 
 msgid "original"
 msgstr "izvorno"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "Player je završio zbog signala %d"
 
 msgid "serviceapp"
 msgstr "serviceapp"

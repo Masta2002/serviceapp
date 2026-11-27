@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ServiceApp Portuguese translation for enigma2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 00:12+0100\n"
+"POT-Creation-Date: 2026-11-27 02:02+0100\n"
 "PO-Revision-Date: 2017-09-24 10:58+0100\n"
 "Last-Translator: \n"
 "Language-Team: BhTeam\n"
@@ -174,6 +174,9 @@ msgstr "Leitor"
 msgid "RTMP protocol implementation"
 msgstr "Implementação do protocolo RTMP"
 
+msgid "Resolving the stream address failed"
+msgstr "Não foi possível determinar o endereço da transmissão"
+
 msgid "Select sink which you want to use."
 msgstr "Selecione o recipiente que deseja usar."
 
@@ -297,6 +300,11 @@ msgstr "não instalado"
 
 msgid "original"
 msgstr "original"
+
+#. TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL)
+#, c-format
+msgid "player ended by signal %d"
+msgstr "O leitor terminou com o sinal %d"
 
 msgid "serviceapp"
 msgstr "serviceapp"
