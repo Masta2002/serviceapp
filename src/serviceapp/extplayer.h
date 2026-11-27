@@ -44,13 +44,14 @@ enum
 class PlayerApp: public sigc::trackable
 {
 	ePtr<eConsoleContainer> console;
-	std::string jsonstr;
+	std::string jsonstr; // the start of a line whose '\n' has not come yet
 	unsigned int parseOutput;
-	unsigned int truncated;
-	void stdoutAvail(const char *data);
-	void stderrAvail(const char *data);
+	bool mDiscardLine; // an overlong line is dropped up to its '\n'
+	void stdoutData(const char *data, int len);
+	void stderrData(const char *data, int len);
 	void appClosed(int retval);
-	void handleOutput(const std::string& data);
+	void handleOutput(const char *data, size_t len);
+	void handleLine(const char *data, size_t len);
 	void handleJsonStr(const std::string& data);
 	void handleAppClosed(int retval);
 protected:
@@ -65,7 +66,7 @@ protected:
 public:
 	PlayerApp(int parseOutput=STD_ERROR):
 		parseOutput(parseOutput),
-		truncated(0){}
+		mDiscardLine(false){}
 	~PlayerApp(){}
 };
 

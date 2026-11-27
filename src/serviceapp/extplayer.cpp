@@ -1,3 +1,4 @@
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
 #include <extplayer.h>
@@ -16,79 +17,98 @@ void PlayerApp::handleJsonStr(const std::string& data)
 	handleJsonOutput(json);
 	cJSON_Delete(json);
 }
-void PlayerApp::handleOutput(const std::string& mydata)
-{
-	std::size_t pos = 0;
-	std::size_t startpos = 0;
+/* a line longer than this is no message of the player: it is dropped and
+ * the parser starts again after its end */
+static const size_t MAX_LINE_LENGTH = 256 * 1024;
 
-	/* one line at a time: a line that is not JSON (e.g. debug text on the
-	 * same stderr channel) is dropped alone, the JSON lines after it in the
-	 * same buffer are still handled */
-	while((pos = mydata.find('\n', pos)) != std::string::npos)
+void PlayerApp::handleLine(const char *data, size_t len)
+{
+	/* a line that is not JSON (e.g. debug text on the same stderr channel)
+	 * is dropped alone */
+	if (len > 0 && data[0] == '{')
+		handleJsonStr(std::string(data, len));
+}
+
+void PlayerApp::handleOutput(const char *data, size_t len)
+{
+	/* only complete lines are parsed: a chunk that ended after an inner '}'
+	 * of a long line was taken for a whole message before, and the line was
+	 * lost. The rest of a line is kept until its '\n' comes. */
+	size_t start = 0;
+	while (start < len)
 	{
-		std::string line = mydata.substr(startpos, pos - startpos);
-		if (truncated)
+		const char *nl = (const char *)memchr(data + start, '\n', len - start);
+		if (!nl)
+			break;
+		size_t end = nl - data;
+		if (mDiscardLine)
 		{
-			line = jsonstr + line;
-			jsonstr = "";
-			truncated = 0;
+			/* the end of an overlong line: in sync again */
+			mDiscardLine = false;
 		}
-		if (!line.empty() && line[0] == '{')
-			handleJsonStr(line);
-		pos+=1;
-		startpos = pos;
-	}
-	if (startpos < mydata.length())
-	{
-		/* a chunk without a newline continues a fragment kept before */
-		std::string rest = mydata.substr(startpos);
-		if (truncated)
-			rest = jsonstr + rest;
-		if (rest[0] == '{' && rest[rest.length()-1] == '}')
+		else if (jsonstr.empty())
 		{
-			handleJsonStr(rest);
-			jsonstr = "";
-			truncated = 0;
+			handleLine(data + start, end - start);
 		}
 		else
 		{
-			truncated = 1;
-			jsonstr = rest;
+			jsonstr.append(data + start, end - start);
+			handleLine(jsonstr.data(), jsonstr.size());
+		}
+		jsonstr.clear();
+		start = end + 1;
+	}
+	if (start < len && !mDiscardLine)
+	{
+		if (jsonstr.size() + (len - start) > MAX_LINE_LENGTH)
+		{
+			eWarning("PlayerApp::handleOutput - line longer than %zu bytes dropped", MAX_LINE_LENGTH);
+			jsonstr.clear();
+			mDiscardLine = true;
+		}
+		else
+		{
+			jsonstr.append(data + start, len - start);
 		}
 	}
 }
 
-void PlayerApp::stderrAvail(const char *data)
+void PlayerApp::stderrData(const char *data, int len)
 {
-	std::string mydata(data);
-	eLog(5, "PlayerApp::stderrAvail: %s", mydata.c_str());
-	if (parseOutput == STD_ERROR)
+	eLog(5, "PlayerApp::stderrData: %.*s", len, data);
+	if (parseOutput == STD_ERROR && len > 0)
 	{
-		handleOutput(mydata);
+		handleOutput(data, len);
 	}
 }
 
-void PlayerApp::stdoutAvail(const char *data)
+void PlayerApp::stdoutData(const char *data, int len)
 {
-	std::string mydata(data);
-	eLog(5, "PlayerApp::stdoutAvail: %s", mydata.c_str());
-	if (parseOutput == STD_OUTPUT)
+	eLog(5, "PlayerApp::stdoutData: %.*s", len, data);
+	if (parseOutput == STD_OUTPUT && len > 0)
 	{
-		handleOutput(mydata);
+		handleOutput(data, len);
 	}
 }
 
 void PlayerApp::appClosed(int retval)
 {
+	/* the last line of a player that ended without its '\n' */
+	if (!mDiscardLine && !jsonstr.empty())
+		handleLine(jsonstr.data(), jsonstr.size());
+	jsonstr.clear();
+	mDiscardLine = false;
 	handleProcessStopped(retval);
 }
 
 int PlayerApp::processStart(eMainloop *context)
 {
+	jsonstr.clear();
+	mDiscardLine = false;
 	console = new eConsoleContainer();
 	CONNECT(console->appClosed, PlayerApp::appClosed);
-	CONNECT(console->stdoutAvail, PlayerApp::stdoutAvail);
-	CONNECT(console->stderrAvail, PlayerApp::stderrAvail);
+	CONNECT(console->stdoutData, PlayerApp::stdoutData);
+	CONNECT(console->stderrData, PlayerApp::stderrData);
 	const std::vector<std::string> args = buildCommand();
 	eDebugNoNewLine("PlayerApp::processStart: ");
 	std::vector<const char *> cargs(args.size()+1);
