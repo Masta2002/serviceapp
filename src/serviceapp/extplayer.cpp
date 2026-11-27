@@ -118,7 +118,10 @@ int PlayerApp::processSend(const std::string& data)
 	if (console && console->running())
 	{
 		eLog(5, "sending command \"%s\" ", data.c_str());
-		console->write(data.c_str(), data.length());
+		/* position, length and live audio polls: the next tick asks again,
+		 * they may go while the player does not read its stdin */
+		bool poll = data == "j\n" || data == "l\n" || data == "ac\n";
+		console->write(data.c_str(), data.length(), poll);
 		return 0;
 	}
 	return -1;
