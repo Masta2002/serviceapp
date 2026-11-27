@@ -24,7 +24,7 @@ jobs:
       run: |
         sudo apt-get update -q
         sudo apt-get install -y -q gcc-14-arm-linux-gnueabihf g++-14-arm-linux-gnueabihf \
-          binutils-arm-linux-gnueabihf qemu-user autoconf automake libtool pkgconf gettext
+          binutils-arm-linux-gnueabihf qemu-user upx-ucl autoconf automake libtool pkgconf gettext
 
     - name: Sysroot from the feed
       run: bash .github/boxbuild/build.sh sysroot

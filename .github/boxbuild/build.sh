@@ -127,8 +127,8 @@ stage_build() {
 # the module) defines; weak references are left out
 unresolved() {
   local so=$1 libs l n f
-  libs="$SR/usr/bin/enigma2"
-  for f in "$SR/usr/bin/enigma2" "$so"; do
+  libs="$E2BIN"
+  for f in "$E2BIN" "$so"; do
     for n in $(${CROSS}readelf -d "$f" | sed -n 's/.*(NEEDED).*\[\(.*\)\]/\1/p'); do
       for l in "$SR/usr/lib/$n" "$SR/lib/$n"; do
         if [ -e "$l" ]; then libs="$libs $(readlink -f "$l")"; break; fi
@@ -144,12 +144,14 @@ unresolved() {
 }
 
 stage_check() {
-  ls -l "$SR/usr/bin/enigma2"* || true
-  file "$SR/usr/bin/enigma2" || true
-  ${CROSS}readelf -d "$SR/usr/bin/enigma2" | grep -E 'NEEDED|FLAGS' || true
-  ${CROSS}nm -D --defined-only "$SR/usr/bin/enigma2" | head -5 || true
-  ${CROSS}nm -D --defined-only "$SR/usr/bin/enigma2" | grep -cE 'loadPNG|CFile|eSimpleConfig' || true
-  ls -l "$SR"/usr/lib/libpython3* || true
+  # the image's /usr/bin/enigma2 is UPX-packed (it runs from /memfd:upx):
+  # its dynamic symbols are only seen in the unpacked file
+  E2BIN=$TC/enigma2.unpacked
+  cp "$SR/usr/bin/enigma2" "$E2BIN"
+  if upx -t "$E2BIN" > /dev/null 2>&1; then upx -q -d "$E2BIN" > /dev/null; echo "enigma2: UPX-packed, unpacked"; fi
+  file "$E2BIN"
+  echo "enigma2 exports $(${CROSS}nm -D --defined-only "$E2BIN" | wc -l) dynamic symbols"
+  test "$(${CROSS}nm -D --defined-only "$E2BIN" | wc -l)" -gt 1000
   ours=$OUT/root$PLUGINDIR/serviceapp.so
   image=$SR$PLUGINDIR/serviceapp.so
   for f in "$image" "$ours"; do
