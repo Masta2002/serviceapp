@@ -148,6 +148,7 @@ the one of an image) keeps working, it just offers less.
 | embedded cover | `cover` (after 187): `--cover` | `/tmp/.id3coverart` and evUpdateIDv3Cover, as servicemp3 of openATV |
 | CENC keys per KID | `drmkey` & 1: `--key` | url option `#sapp_key=` |
 | keyframe winding | `trick` (DreamNextGen) | fast forward / rewind by the player |
+| live bit rate | `br`, or an answer to one of the first three stdin `BR` (BlackHole): `{"BR":{"v":..,"a":..}}` byte counters | `sVideoBitrate` / `sAudioBitrate` in kbit/s once a second, only with an enigma2 that has them (OpenViX, BlackHole; configure: `HAVE_SERVICE_BITRATE`) |
 
 ## ⚙️ Settings
 

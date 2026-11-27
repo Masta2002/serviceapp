@@ -73,6 +73,19 @@ AC_LINK_IFELSE(
         AC_DEFINE(OPENPLI_ISERVICE_VERSION, 1)
     ])
 
+dnl live bit rate (sVideoBitrate / sAudioBitrate): enigma2 of OpenViX and
+dnl BlackHole has it, openATV and OpenPLi not
+AC_MSG_CHECKING([for sVideoBitrate in iservice.h])
+AC_COMPILE_IFELSE(
+    [AC_LANG_PROGRAM([#include <enigma2/lib/service/iservice.h>],
+        [int w = iServiceInformation::sVideoBitrate + iServiceInformation::sAudioBitrate; (void)w;])
+    ],[
+        AC_MSG_RESULT([yes])
+        AC_DEFINE([HAVE_SERVICE_BITRATE])
+    ],[
+        AC_MSG_RESULT([no])
+    ])
+
 AC_PATH_PROG(MSGFMT, msgfmt, no)
 if test "$MSGFMT" = no; then
     AC_MSG_ERROR([msgfmt not found, install gettext])

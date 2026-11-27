@@ -69,6 +69,10 @@ class ExtEplayer3: public PlayerApp, public BasePlayer
 	std::atomic<bool> mSeekMs;
 	// a live stream: FFmpeg reconnects an HTTP stream without a length itself
 	bool mLiveStream;
+	// the player reports byte counters ("BR"): announced ("br" in
+	// EPLAYER3_EXTENDED) or it answered one of the first requests
+	std::atomic<bool> mCanBitrate;
+	int mBitrateProbes; // requests without an answer so far (backend thread)
 	// graphic subtitles: the PNG directory of this player (-G), empty: off
 	std::string mGraphicSubDir;
 	void removeGraphicSubDir();
@@ -101,6 +105,7 @@ class ExtEplayer3: public PlayerApp, public BasePlayer
 	int sendFastForward(int speed);
 	int sendAudioChannel(int channel);
 	int sendSubtitleForcedOnly(bool on);
+	int sendUpdateBitrate();
 	void setLiveStream(bool live){mLiveStream = live;}
 };
 #endif

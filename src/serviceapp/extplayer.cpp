@@ -294,6 +294,42 @@ void PlayerBackend::_updatePosition()
 		mAudioCheckCounter = 0;
 		pPlayer->sendPollAudioTrackCurrent();
 	}
+
+	/* about once a second the byte counters for the live bit rate; the
+	 * player decides whether it sends the request (exteplayer3 "BR") */
+	if (++mBitrateCheckCounter * mTimerDelay >= 1000)
+	{
+		mBitrateCheckCounter = 0;
+		pPlayer->sendUpdateBitrate();
+	}
+}
+
+/* kbit/s between two readings of a byte counter that wraps at 2^32 */
+static int bitrateKbps(int64_t bytes, int64_t lastBytes, int64_t ms)
+{
+	if (bytes < 0)
+		return -1; // no such track
+	if (lastBytes < 0)
+		return 0; // counting has just started
+	return (int)((((uint64_t)bytes - (uint64_t)lastBytes) & 0xffffffffULL) * 8 / (uint64_t)ms);
+}
+
+void PlayerBackend::recvBitrate(int64_t videoBytes, int64_t audioBytes)
+{
+	const int64_t now = monotonicMs();
+	const int64_t ms = now - mBitrateLastMs;
+	if (mBitrateLastMs && ms < 500)
+		return; // an answer to an older request, the next one measures
+	/* a gap of more than 5 s (pause, the poll stopped) only starts a new
+	 * measurement: averaged over it the rate would be far too low */
+	if (mBitrateLastMs && ms <= 5000)
+	{
+		mVideoKbps = bitrateKbps(videoBytes, mBitrateLastVideoBytes, ms);
+		mAudioKbps = bitrateKbps(audioBytes, mBitrateLastAudioBytes, ms);
+	}
+	mBitrateLastMs = now;
+	mBitrateLastVideoBytes = videoBytes;
+	mBitrateLastAudioBytes = audioBytes;
 }
 
 int PlayerBackend::start(const std::string& path, const std::map<std::string,std::string>& headers)

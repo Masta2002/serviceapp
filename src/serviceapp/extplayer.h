@@ -204,6 +204,8 @@ public:
 	virtual int sendAudioChannel(int channel){ return -1;}
 	// only the forced cues of the selected subtitle track (PGS forced pictures)
 	virtual int sendSubtitleForcedOnly(bool on){ return -1;}
+	// byte counters of the selected video / audio track (live bit rate)
+	virtual int sendUpdateBitrate(){ return -1;}
 };
 
 
@@ -236,6 +238,8 @@ public:
 	virtual void recvChapters(std::vector<chapterEntry>& chapters){};
 	// the embedded cover was written to the --cover file, empty: none
 	virtual void recvCover(const std::string& file){};
+	// compressed bytes of the selected tracks so far (32 bit, wrapping), -1: no such track
+	virtual void recvBitrate(int64_t videoBytes, int64_t audioBytes){};
 };
 
 
@@ -273,6 +277,7 @@ protected:
 	void recvMetadata(const std::string& title, const std::string& artist, const std::string& text){pCallback->recvMetadata(title, artist, text);};
 	void recvChapters(std::vector<chapterEntry>& chapters){pCallback->recvChapters(chapters);};
 	void recvCover(const std::string& file){pCallback->recvCover(file);};
+	void recvBitrate(int64_t videoBytes, int64_t audioBytes){pCallback->recvBitrate(videoBytes, audioBytes);};
 	// the player announced the dual mono selection (am<n>)
 	std::atomic<bool> mCanSelectChannel{false};
 	// the player announced "forcedonly" (so1 / so0)
@@ -374,6 +379,11 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 	// player's open-time snapshot
 	std::map<int, audioStream> mLiveAudio;
 	unsigned int mAudioCheckCounter;
+	// live bit rate from the byte counters of the player ("BR"): the last
+	// reading (backend thread) and the kbit/s for the GUI, -1 not available
+	unsigned int mBitrateCheckCounter;
+	int64_t mBitrateLastMs, mBitrateLastVideoBytes, mBitrateLastAudioBytes;
+	std::atomic<int> mVideoKbps, mAudioKbps;
 
 	eFixedMessagePump<Message> mMessageMain, mMessageThread;
 	ePtr<eTimer> mTimer;
@@ -475,6 +485,7 @@ class PlayerBackend: public sigc::trackable, public eThread, public eMainloop, p
 		mMessageMain.send(Message(Message::chaptersChanged));
 	}
 	void recvCover(const std::string& file){ if (!file.empty()) mMessageMain.send(Message(Message::coverAvailable)); }
+	void recvBitrate(int64_t videoBytes, int64_t audioBytes);
 
 public:
 	PlayerBackend(BasePlayer* extplayer):
@@ -487,6 +498,12 @@ public:
 		mDebug(false),
 		pPlayer(extplayer),
 		mAudioCheckCounter(0),
+		mBitrateCheckCounter(0),
+		mBitrateLastMs(0),
+		mBitrateLastVideoBytes(-1),
+		mBitrateLastAudioBytes(-1),
+		mVideoKbps(-1),
+		mAudioKbps(-1),
 		mMessageMain(eApp, 1, "extplayer"),
 		mMessageThread(this, 1, "extplayer"),
 		mTimerDelay(500), // updated play position timer, see setPositionInterval
@@ -565,6 +582,10 @@ public:
 	int lengthMs() const { return mLengthInMs; }
 	/* exit code of the player process, -1 while it runs */
 	int exitCode() const { return mExitCode; }
+	/* live bit rate of the selected video / audio track in kbit/s, -1 when
+	 * the player does not report its byte counters */
+	int getVideoBitrate() const { return mVideoKbps; }
+	int getAudioBitrate() const { return mAudioKbps; }
 	int getSubtitles(std::queue<subtitleMessage>&);
 	/* how often the play position is polled: 500 ms by default (the GUI's
 	 * seek bar), 100 ms while subtitles are shown (their timing) */
