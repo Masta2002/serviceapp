@@ -86,11 +86,11 @@ static void updatePlayerOptions(IOption& options, const HeaderMap& headers) {
 	}
 }
 
-static std::unique_ptr<BasePlayer> createPlayer(const eServiceReference& ref, const HeaderMap& headers) {
+static std::unique_ptr<BasePlayer> createPlayer(const eServiceReference& ref, const HeaderMap& headers, bool useUserSettings) {
 	std::unique_ptr<BasePlayer> player;
 	if (ref.type == eServiceFactoryApp::idServiceExtEplayer3 || (ref.type == eServiceFactoryApp::idServiceMP3 && g_playerServiceMP3 == EXTEPLAYER3)) {
 		ExtEplayer3Options options;
-		if (g_useUserSettings)
+		if (useUserSettings)
 			options = *g_ExtEplayer3OptionsUser;
 		else if (ref.type == eServiceFactoryApp::idServiceExtEplayer3)
 			options = *g_ExtEplayer3OptionsServiceExt3;
@@ -100,7 +100,7 @@ static std::unique_ptr<BasePlayer> createPlayer(const eServiceReference& ref, co
 		player = std::make_unique<ExtEplayer3>(options);
 	} else if (ref.type == eServiceFactoryApp::idServiceGstPlayer || (ref.type == eServiceFactoryApp::idServiceMP3 && g_playerServiceMP3 == GSTPLAYER)) {
 		GstPlayerOptions options;
-		if (g_useUserSettings)
+		if (useUserSettings)
 			options = *g_GstPlayerOptionsUser;
 		else if (ref.type == eServiceFactoryApp::idServiceGstPlayer)
 			options = *g_GstPlayerOptionsServiceGst;
@@ -112,7 +112,7 @@ static std::unique_ptr<BasePlayer> createPlayer(const eServiceReference& ref, co
 	return player;
 }
 
-static std::unique_ptr<eServiceAppOptions> createOptions(const eServiceReference& ref) {
+static std::unique_ptr<eServiceAppOptions> createOptions(const eServiceReference& ref, bool useUserSettings) {
 	eServiceAppOptions* options = NULL;
 	switch (ref.type) {
 		case eServiceFactoryApp::idServiceMP3:
@@ -127,7 +127,7 @@ static std::unique_ptr<eServiceAppOptions> createOptions(const eServiceReference
 		default:
 			break;
 	}
-	if (g_useUserSettings) {
+	if (useUserSettings) {
 		options = g_ServiceAppOptionsUser;
 	}
 	return std::make_unique<eServiceAppOptions>(*options);
@@ -243,7 +243,10 @@ eServiceApp::eServiceApp(eServiceReference ref)
 	  m_width(-1), m_height(-1), m_progressive(-1), m_gamma(-1), m_subtitle_pages(0), m_prev_subtitle_message(0), m_prev_subtitle_fps(1), m_prev_decoder_time(-1),
 	  m_decoder_time_valid_state(0), m_cuesheet_changed(0), m_cutlist_enabled(0), m_cuesheet_loaded(false), m_is_streaming(false), m_last_seek_pos(0),
 	  m_media_length(0), m_pending_seek(-1) {
-	options = createOptions(ref);
+	/* the decision of use_user_settings() at the creation is kept for the
+	 * player of a later reconnect */
+	m_user_settings = g_useUserSettings;
+	options = createOptions(ref, m_user_settings);
 	if (!ref.alternativeurl.empty())
 		m_ref.path = ref.alternativeurl;
 	m_is_streaming = (m_ref.path.find("://") != std::string::npos);
@@ -258,7 +261,7 @@ eServiceApp::eServiceApp(eServiceReference ref)
 		}
 	}
 
-	extplayer = createPlayer(ref, getHeaders(m_ref.path));
+	extplayer = createPlayer(ref, getHeaders(m_ref.path), m_user_settings);
 	player = std::make_unique<PlayerBackend>(extplayer.get());
 
 	m_subtitle_widget = 0;
@@ -896,12 +899,23 @@ void eServiceApp::urlResolved(int success) {
 	if (m_debug)
 		eDebug("eServiceApp::urlResolved: %s", success ? "success" : "error");
 	if (success) {
-		m_ref.path = m_resolver->getUrl();
-		if (m_debug)
-			eDebug("eServiceApp::urlResolved: %s", m_ref.path.c_str());
-		start();
-	} else
-		stop();
+		std::string url = m_resolver->getUrl();
+		if (url.compare(0, m_resolve_uri.size(), m_resolve_uri) != 0) {
+			m_ref.path = url;
+			if (m_debug)
+				eDebug("eServiceApp::urlResolved: %s", m_ref.path.c_str());
+			start();
+			return;
+		}
+		/* start() would replace m_resolver while this callback of it runs */
+		eWarning("eServiceApp::urlResolved - the resolver returned another resolve:// url, refused");
+	}
+	/* stop() only set m_stopping without an event: a black picture for good,
+	 * also after a re-resolve of a reconnect. The user gets the reason (sUser+12)
+	 * and the InfoBar the end. */
+	m_error_message = SAPP_TR("Resolving the stream address failed");
+	m_event(this, evUser + 12);
+	m_event(this, evEOF);
 }
 
 void eServiceApp::gotExtPlayerMessage(int message) {
@@ -956,13 +970,27 @@ void eServiceApp::gotExtPlayerMessage(int message) {
 			// This should be fixed on player's side so it doesn't end
 			// immediately but waits at the end for our input..
 			m_live_check_timer->stop();
+			if (m_not_live) {
+				/* checkLiveRestart() stopped a film without a length that
+				 * FFmpeg started again: its end, no reconnect (it counted as
+				 * another clean live end and the film played up to 4 times) */
+				m_event(this, evEOF);
+				break;
+			}
 			if (!m_stopping && isLiveStream() && !isPermanentPlayerError()) {
+				/* a 24/7 stream that played for a while starts both counts
+				 * again: they never decayed, after 3 clean ends in a session
+				 * the stream was given up */
+				if (m_player_started && ::time(0) - m_player_start_time >= 600) {
+					m_clean_ends = 0;
+					m_live_reconnects = 0;
+				}
 				errorMessage e;
 				if (player->getErrorMessage(e) != 0) {
 					/* an end without an error: a server that closed the stream,
 					 * or a film without a length that played to its end; FFmpeg
 					 * bridges closes of a live stream after the first reconnect,
-					 * so few of these, and never counted down again */
+					 * so few of these (reset after a run of 10 minutes) */
 					if (++m_clean_ends > 3) {
 						eDebug("[ServiceApp] stream ended without an error %d times, a film without a length: no reconnect", m_clean_ends);
 						m_event(this, evEOF);
@@ -1224,6 +1252,7 @@ void eServiceApp::checkLiveRestart() {
 		eDebug("[ServiceApp] position back from %lld to %lld s: a film without a length started again, ended", (long long)(m_max_position / 90000), (long long)(pos / 90000));
 		m_live_check_timer->stop();
 		m_ffmpeg_reconnect = false; /* the next start without the reconnect of FFmpeg */
+		m_not_live = true; /* the stop handler ends it with evEOF */
 		player->stop();
 	}
 }
@@ -1283,11 +1312,16 @@ void eServiceApp::liveReconnect() {
 	}
 	/* a resolved url may have expired, resolve it again */
 	m_ref.path = m_start_path;
+	/* so may the HLS variant urls of the master playlist (tokens): read it
+	 * again, the cached variant gave 403 and evEOF */
+	m_subservices_checked = false;
+	m_subservice_vec.clear();
+	m_subserviceref_vec.clear();
 	player->stop();
 	/* the old players go before the new one is created */
 	player.reset();
 	extplayer.reset();
-	extplayer = createPlayer(m_ref, getHeaders(m_ref.path));
+	extplayer = createPlayer(m_ref, getHeaders(m_ref.path), m_user_settings);
 	if (extplayer && m_ffmpeg_reconnect) {
 		/* FFmpeg reconnects it itself from now on; watch for a film that
 		 * starts again at byte 0 */
@@ -2084,7 +2118,7 @@ std::string eServiceApp::getInfoString(int w) {
 			errorMessage e;
 			if (!player->getErrorMessage(e))
 				return e.message;
-			return "";
+			return m_error_message;
 		}
 		default:
 			return "";

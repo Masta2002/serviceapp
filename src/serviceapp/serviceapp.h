@@ -135,7 +135,16 @@ class eServiceApp : public sigc::trackable,
 	bool m_stopping;
 	bool m_reconnected;
 	int m_reconnect_channel; // dual mono selection of the old player
-	int m_clean_ends; // ends without an error, never counted down
+	int m_clean_ends; // ends without an error, reset after a long run
+	/* checkLiveRestart() found a film without a length: no reconnect */
+	bool m_not_live = false;
+	/* the option set of this service (use_user_settings() at its creation):
+	 * g_useUserSettings is cleared by any ~eServiceApp, a later reconnect
+	 * built its player with another set */
+	bool m_user_settings = false;
+	/* sUser+12 of the service itself (the resolver failed), else the
+	 * player's error */
+	std::string m_error_message;
 	/* "Forced only" with a PGS track: only its forced pictures (so1) */
 	int m_forced_only_pid;
 	bool m_forced_only_active;
