@@ -18,6 +18,21 @@ from . import _, _ngettext
 from . import serviceapp_client
 
 
+# enigma2 only allows recordings of its own reference types; 5001/5002 streams
+# are recorded by serviceapp through the native 4097 recorder.
+try:
+	from ServiceReference import ServiceReference as _ServiceReference
+	_orig_is_recordable = _ServiceReference.isRecordable
+
+	def _serviceapp_is_recordable(self):
+		return _orig_is_recordable(self) or (self.ref.type in (5001, 5002) and "://" in self.ref.getPath())
+
+	if serviceapp_client.canRecord():
+		_ServiceReference.isRecordable = _serviceapp_is_recordable
+except (ImportError, AttributeError):
+	pass
+
+
 SINKS_DEFAULT = ("", "")
 SINKS_EXPERIMENTAL = ("dvbvideosinkexp", "dvbaudiosinkexp")
 
@@ -53,7 +68,8 @@ for key in list(config_serviceapp.options.keys()):
 	config_serviceapp.options[key].hls_explorer = ConfigYesNo(default=True)
 	config_serviceapp.options[key].autoselect_stream = ConfigYesNo(default=True)
 	config_serviceapp.options[key].connection_speed_kb = ConfigInteger(9999999, limits=(0, 9999999))
-	config_serviceapp.options[key].autoturnon_subtitles = ConfigYesNo(default=True)
+	# "False"/"True" are the values of the former yes/no setting
+	config_serviceapp.options[key].autoturnon_subtitles = ConfigSelection(default="True", choices=[("False", _("No")), ("True", _("Yes")), ("forced", _("Forced only"))])
 
 config_serviceapp.gstplayer = ConfigSubDict()
 config_serviceapp.gstplayer["servicemp3"] = ConfigSubsection()
@@ -76,7 +92,48 @@ for key in list(config_serviceapp.exteplayer3.keys()):
 	config_serviceapp.exteplayer3[key].wma_swdecoding = ConfigYesNo(default=False)
 	config_serviceapp.exteplayer3[key].lpcm_injecion = ConfigYesNo(default=False)
 	config_serviceapp.exteplayer3[key].downmix = ConfigYesNo(default=False)
-	config_serviceapp.exteplayer3[key].rtmp_protocol = ConfigSelection(default="auto", choices=["auto", "ffmpeg", "librtmp"])
+	config_serviceapp.exteplayer3[key].rtmp_protocol = ConfigSelection(default="auto", choices=[("auto", _("Auto")), ("ffmpeg", "ffmpeg"), ("librtmp", "librtmp")])
+	# exteplayer3 187, offered by the "xcode" bits of the player (names as in OpenBH/OpenViX)
+	config_serviceapp.exteplayer3[key].dts_transcoding = ConfigSelection(default="no", choices=[("no", _("No")), ("ac3", _("Dolby Digital")), ("eac3", _("Dolby Digital +"))])
+	config_serviceapp.exteplayer3[key].truehd_transcoding = ConfigSelection(default="no", choices=[("no", _("No")), ("ac3", _("Dolby Digital")), ("eac3", _("Dolby Digital +"))])
+	config_serviceapp.exteplayer3[key].aac_he_transcoding = ConfigSelection(default="no", choices=[("no", _("No")), ("aaclc", _("AAC-LC"))])
+	# exteplayer3 185 and newer: -Q and -D
+	config_serviceapp.exteplayer3[key].hls_quality = ConfigSelection(default="0", choices=[("0", _("Auto")), ("1", _("Lowest")), ("2", _("Highest"))])
+	config_serviceapp.exteplayer3[key].hls_default_audio = ConfigYesNo(default=False)
+
+
+# what the installed exteplayer3 reports in EPLAYER3_EXTENDED: version and feature keys
+EXTEPLAYER3_CAPS = {}
+
+# where servicemp3 puts the cover of a file (evUpdateIDv3Cover), exteplayer3 --cover
+COVER_FILE = "/tmp/.id3coverart"
+
+# graphic subtitles (PGS, DVB, XSUB): exteplayer3 -G writes the pictures as PNG
+# files, each player in a directory of its own below this one (RAM)
+GRAPHIC_SUB_DIR = "/tmp/serviceapp_subs"
+
+# EPLAYER3_EXTENDED "xcode" bits
+XCODE_AC3 = 1
+XCODE_AACLC = 2
+XCODE_EAC3 = 4
+
+
+def exteplayer3_xcode():
+	try:
+		return int(EXTEPLAYER3_CAPS.get("xcode", 0))
+	except (TypeError, ValueError):
+		return 0
+
+
+def exteplayer3_has_hls_options():
+	# -Q 0|1|2 and -D 0|1 with a value: OE-A and skyjet 185 and newer
+	return bool(EXTEPLAYER3_VERSION) and EXTEPLAYER3_VERSION >= 185
+
+
+def exteplayer3_has_graphic_subtitles():
+	# -G DIR -W -H: since version 63 (2019) in all builds (OE-A, skyjet, ...);
+	# a player that does not know an option exits with its usage text
+	return bool(EXTEPLAYER3_VERSION) and EXTEPLAYER3_VERSION >= 63
 
 
 def key_to_setting_id(key):
@@ -90,6 +147,14 @@ def key_to_setting_id(key):
 	return setting_id
 
 
+def autoturnon_subtitles_mode(value):
+	if value == "forced":
+		return serviceapp_client.AUTOTURNON_SUBTITLES_FORCED
+	if value == "False":
+		return serviceapp_client.AUTOTURNON_SUBTITLES_OFF
+	return serviceapp_client.AUTOTURNON_SUBTITLES_ALL
+
+
 def init_serviceapp_settings():
 	for key in list(config_serviceapp.options.keys()):
 		setting_id = key_to_setting_id(key)
@@ -99,7 +164,7 @@ def init_serviceapp_settings():
 				serviceapp_cfg.hls_explorer.value,
 				serviceapp_cfg.autoselect_stream.value,
 				serviceapp_cfg.connection_speed_kb.value,
-				serviceapp_cfg.autoturnon_subtitles.value)
+				autoturnon_subtitles_mode(serviceapp_cfg.autoturnon_subtitles.value))
 
 	for key in list(config_serviceapp.gstplayer.keys()):
 		setting_id = key_to_setting_id(key)
@@ -119,6 +184,10 @@ def init_serviceapp_settings():
 				player_cfg.buffer_size.value,
 				player_cfg.buffer_duration.value)
 
+	# a player does not start with an option it does not know: send only what it reports
+	xcode = exteplayer3_xcode()
+	hls_options = exteplayer3_has_hls_options()
+	graphic_sub_dir = GRAPHIC_SUB_DIR if exteplayer3_has_graphic_subtitles() else None
 	for key in list(config_serviceapp.exteplayer3.keys()):
 		setting_id = key_to_setting_id(key)
 		player_cfg = config_serviceapp.exteplayer3[key]
@@ -141,7 +210,16 @@ def init_serviceapp_settings():
 			player_cfg.ac3_swdecoding.value,
 			player_cfg.eac3_swdecoding.value,
 			player_cfg.mp3_swdecoding.value,
-			rtmp_proto_val)
+			rtmp_proto_val,
+			bool(xcode & XCODE_AC3) and player_cfg.dts_transcoding.value == "ac3",
+			bool(xcode & XCODE_AC3) and player_cfg.truehd_transcoding.value == "ac3",
+			bool(xcode & XCODE_AACLC) and player_cfg.aac_he_transcoding.value == "aaclc",
+			bool(xcode & XCODE_EAC3) and player_cfg.dts_transcoding.value == "eac3",
+			bool(xcode & XCODE_EAC3) and player_cfg.truehd_transcoding.value == "eac3",
+			int(player_cfg.hls_quality.value) if hls_options else 0,
+			1 if hls_options and player_cfg.hls_default_audio.value else 0,
+			COVER_FILE if EXTEPLAYER3_CAPS.get("cover") else None,
+			graphic_sub_dir)
 
 	if config_serviceapp.servicemp3.player.value == "gstplayer":
 		serviceapp_client.setServiceMP3GstPlayer()
@@ -150,6 +228,35 @@ def init_serviceapp_settings():
 
 
 init_serviceapp_settings()
+
+
+def _exteplayer3_caps_from_output(data):
+	if isinstance(data, bytes):
+		data = data.decode("utf-8", "ignore")
+	for line in data.splitlines():
+		try:
+			caps = loads(line)["EPLAYER3_EXTENDED"]
+			caps["version"] = int(caps["version"])
+			return caps
+		except (ValueError, KeyError, TypeError):
+			pass
+	return None
+
+
+def _exteplayer3_version_detected(data, retval, extra_args):
+	global EXTEPLAYER3_VERSION, EXTEPLAYER3_CAPS
+	caps = _exteplayer3_caps_from_output(data)
+	if caps is not None and caps != EXTEPLAYER3_CAPS:
+		EXTEPLAYER3_CAPS = caps
+		EXTEPLAYER3_VERSION = caps["version"]
+		print("[ServiceApp] found exteplayer3 - %d version, %s" % (EXTEPLAYER3_VERSION, caps))
+		init_serviceapp_settings()
+
+
+# the version of the installed exteplayer3 decides which options it gets
+_version_console = Console()
+if serviceapp_client.isExtEplayer3Available():
+	_version_console.ePopen("exteplayer3", _exteplayer3_version_detected)
 
 
 class ServiceAppSettings(Setup):
@@ -175,9 +282,32 @@ class ServiceAppSettings(Setup):
 		config_list.append((self.indent + _("Stereo downmix"), exteplayer3_options_cfg.downmix, _("Turn on downmix to stereo, when software decoding is in use")))
 		config_list.append((self.indent + _("LPCM injection"), exteplayer3_options_cfg.lpcm_injecion, _("Software decoder use LPCM for injection (otherwise wav PCM will be used)")))
 		config_list.append((self.indent + _("RTMP protocol implementation"), exteplayer3_options_cfg.rtmp_protocol, _("Set which RTMP protocol implementation will be used for playback of RTMP streams")))
+		# only what the installed player reports, it does not start with an unknown option
+		xcode = exteplayer3_xcode()
+		if xcode & XCODE_AC3:
+			choices = [("no", _("No")), ("ac3", _("Dolby Digital"))]
+			if xcode & XCODE_EAC3:
+				choices.append(("eac3", _("Dolby Digital +")))
+			offered = [c[0] for c in choices]
+			for cfg in (exteplayer3_options_cfg.dts_transcoding, exteplayer3_options_cfg.truehd_transcoding):
+				value = cfg.value
+				# setChoices would reset a saved value the player does not offer
+				# (Dolby Digital + without the EAC3 bit) and the next save would
+				# store that: keep the full list then, init_serviceapp_settings
+				# sends only what the xcode bits allow
+				if value in offered:
+					cfg.setChoices(choices, default="no")
+					cfg.value = value
+			config_list.append((self.indent + _("DTS / DTS-HD transcoding"), exteplayer3_options_cfg.dts_transcoding, _("Choose whether DTS / DTS-HD sound tracks should be transcoded to Dolby Digital or Dolby Digital +.")))
+			config_list.append((self.indent + _("Dolby TrueHD transcoding"), exteplayer3_options_cfg.truehd_transcoding, _("Choose whether Dolby TrueHD sound tracks should be transcoded to Dolby Digital or Dolby Digital +.")))
+		if xcode & XCODE_AACLC:
+			config_list.append((self.indent + _("HE-AAC transcoding"), exteplayer3_options_cfg.aac_he_transcoding, _("Choose whether HE-AAC sound tracks should be transcoded to AAC-LC.")))
+		if exteplayer3_has_hls_options():
+			config_list.append((self.indent + _("HLS quality"), exteplayer3_options_cfg.hls_quality, _("Variant of a HLS or DASH stream the player picks: Auto and Highest play the best one, Lowest the smallest.")))
+			config_list.append((self.indent + _("HLS default audio only"), exteplayer3_options_cfg.hls_default_audio, _("Offer only the default audio track of a HLS stream instead of all of its languages.")))
 
 	def serviceapp_options(self, serviceapp_options_cfg, config_list):
-		config_list.append((self.indent + _("Auto turn on subtitles"), serviceapp_options_cfg.autoturnon_subtitles, _("Automatically turn on subtitles if available.")))
+		config_list.append((self.indent + _("Auto turn on subtitles"), serviceapp_options_cfg.autoturnon_subtitles, _("Automatically turn on subtitles if available.") + " " + _("Forced only: an embedded forced track (foreign language parts) in the language of the audio track or of the preferred audio languages.")))
 		config_list.append((self.indent + _("HLS Explorer"), serviceapp_options_cfg.hls_explorer, _("Turn on explorer to retrieve different quality streams from HLS variant playlist and select them via subservices.")))
 		config_list.append((self.indent + _("Auto select stream"), serviceapp_options_cfg.autoselect_stream, _("Turn on auto-selection of streams according to set Connection speed.")))
 		config_list.append((self.indent + _("Connection speed"), serviceapp_options_cfg.connection_speed_kb, _("Set connection speed in kb/s, according to which you want to have streams auto-selected")))
@@ -206,7 +336,6 @@ class ServiceAppSettings(Setup):
 		config_list = [(_("Enigma2 playback system") + "*", config_serviceapp.servicemp3.replace, _("Select the player which will be used for Enigma2 playback."))]
 		if config_serviceapp.servicemp3.replace.value:
 			config_list.append((_("Player"), config_serviceapp.servicemp3.player, _("Select the player which will be used in serviceapp for Enigma2 playback.")))
-			self.serviceapp_passthrough_options(config_list)
 			config_list.append(self.spacer)
 			config_list.append((_("ServiceMp3 (%s)") % str(serviceapp_client.ID_SERVICEMP3),))
 			if config_serviceapp.servicemp3.player.value == "gstplayer":
@@ -221,6 +350,9 @@ class ServiceAppSettings(Setup):
 		config_list.append((_("ServiceExtEplayer3 (%s)") % str(serviceapp_client.ID_SERVICEEXTEPLAYER3),))
 		self.player_options("exteplayer3", "serviceexteplayer3", config_list)
 		config_list.append((_("Debug"), config_serviceapp.debug, _("Turn on debug messages")))
+		version = serviceapp_client.getVersion()
+		if version:
+			config_list.append((_("ServiceApp"), ConfigSelection([(version, _("version %s") % version)])))
 		self["config"].list = config_list
 
 	def keySave(self):
@@ -258,6 +390,8 @@ class ServiceAppDetectPlayers(Screen):
 
 	def __init__(self, session):
 		Screen.__init__(self, session)
+		# the title in the skin above is not translated
+		self.setTitle(_("ServiceApp - player check"))
 		self["text"] = Label()
 		self.players_iter = iter(
 			[
@@ -298,25 +432,27 @@ class ServiceAppDetectPlayers(Screen):
 			print("[ServiceApp] cannot detect gstplayer version(1)!")
 			return
 		try:
-			GSTPLAYER_VERSION = jsondata["GSTPLAYER_EXTENDED"]["version"]
-		except KeyError:
+			GSTPLAYER_VERSION = int(jsondata["GSTPLAYER_EXTENDED"]["version"])
+		except (KeyError, TypeError, ValueError):
 			print("[ServiceApp] cannot detect gstplayer version(2)!")
 		else:
 			print("[ServiceApp] found gstplayer - %d version" % GSTPLAYER_VERSION)
 
 	def detect_exteplayer3(self, data, retval, extra_args):
-		global EXTEPLAYER3_VERSION
-		EXTEPLAYER3_VERSION = None
-		jsondata = self._get_first_json_data_from_string(data)
-		if jsondata is None:
-			print("[ServiceApp] cannot detect exteplayer3 version(1)!")
-			return
-		try:
-			EXTEPLAYER3_VERSION = jsondata["EPLAYER3_EXTENDED"]["version"]
-		except KeyError:
-			print("[ServiceApp] cannot detect exteplayer3 version(2)!")
+		global EXTEPLAYER3_VERSION, EXTEPLAYER3_CAPS
+		caps = _exteplayer3_caps_from_output(data)
+		if caps is None:
+			EXTEPLAYER3_VERSION = None
+			EXTEPLAYER3_CAPS = {}
+			print("[ServiceApp] cannot detect exteplayer3 version!")
 		else:
-			print("[ServiceApp] found exteplayer3 - %d version" % EXTEPLAYER3_VERSION)
+			changed = caps != EXTEPLAYER3_CAPS
+			EXTEPLAYER3_VERSION = caps["version"]
+			EXTEPLAYER3_CAPS = caps
+			print("[ServiceApp] found exteplayer3 - %d version, %s" % (EXTEPLAYER3_VERSION, caps))
+			# the background detection sees no change afterwards and would not send them
+			if changed:
+				init_serviceapp_settings()
 
 
 def main(session, **kwargs):

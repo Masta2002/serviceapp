@@ -1,5 +1,9 @@
+# ENABLE_LOCALES: cJSON parses numbers with strtod(), which follows the
+# decimal point of the locale (',' on a German box); with it cJSON writes the
+# locale's decimal point into the number first (its CMake build sets it too)
 AM_CFLAGS = \
-	-Wall
+	-Wall \
+	-DENABLE_LOCALES
 
 AM_CPPFLAGS = \
 	@PYTHON_CPPFLAGS@ \
@@ -22,12 +26,28 @@ serviceapp_la_SOURCES = \
 	myconsole.cpp \
 	wrappers.cpp \
 	m3u8.cpp \
+	hlsexplorer.cpp \
 	gstplayer.cpp \
 	exteplayer3.cpp \
 	common.cpp \
 	cJSON/cJSON.c \
 	subtitles/subtitles.cpp \
 	subtitles/subrip.cpp
+
+noinst_HEADERS = \
+	common.h \
+	exteplayer3.h \
+	extplayer.h \
+	gstplayer.h \
+	hlsexplorer.h \
+	m3u8.h \
+	myconsole.h \
+	scriptrun.h \
+	serviceapp.h \
+	wrappers.h \
+	cJSON/cJSON.h \
+	subtitles/subrip.h \
+	subtitles/subtitles.h
 
 serviceapp_la_LDFLAGS = \
 	@UCHARDET_LIBS@ \

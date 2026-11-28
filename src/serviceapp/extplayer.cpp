@@ -1,7 +1,13 @@
+#include <algorithm>
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
 #include <time.h>
+#include <unistd.h>
 #include <extplayer.h>
 #include <cJSON/cJSON.h>
 #include <error.h>
+#include "common.h"
 
 void PlayerApp::handleJsonStr(const std::string& data)
 {
@@ -15,91 +21,101 @@ void PlayerApp::handleJsonStr(const std::string& data)
 	handleJsonOutput(json);
 	cJSON_Delete(json);
 }
-void PlayerApp::handleOutput(const std::string& mydata)
-{
-	//FIXME
-	std::size_t pos = 0;
-	std::size_t startpos = 0;
+/* a line longer than this is no message of the player: it is dropped and
+ * the parser starts again after its end */
+static const size_t MAX_LINE_LENGTH = 256 * 1024;
 
-	while((pos = mydata.find('\n', pos)) != std::string::npos)
+void PlayerApp::handleLine(const char *data, size_t len)
+{
+	/* a line that is not JSON (e.g. debug text on the same stderr channel)
+	 * is dropped alone */
+	if (len > 0 && data[0] == '{')
+		handleJsonStr(std::string(data, len));
+}
+
+void PlayerApp::handleOutput(const char *data, size_t len)
+{
+	/* only complete lines are parsed: a chunk that ended after an inner '}'
+	 * of a long line was taken for a whole message before, and the line was
+	 * lost. The rest of a line is kept until its '\n' comes. */
+	size_t start = 0;
+	while (start < len)
 	{
-		if (truncated)
+		const char *nl = (const char *)memchr(data + start, '\n', len - start);
+		if (!nl)
+			break;
+		size_t end = nl - data;
+		if (mDiscardLine)
 		{
-			if (mydata[pos-1] != '}')
-			{
-				jsonstr = "";
-				truncated = 0;
-				return;
-			}
-			handleJsonStr(jsonstr + mydata.substr(startpos, pos - startpos));
-			jsonstr = "";
-			truncated = 0;
+			/* the end of an overlong line: in sync again */
+			mDiscardLine = false;
+		}
+		else if (jsonstr.empty())
+		{
+			handleLine(data + start, end - start);
 		}
 		else
 		{
-			if (mydata[0] != '{')
-			{
-				jsonstr = "";
-				truncated = 0;
-				return;
-			}
-			handleJsonStr(mydata.substr(startpos, pos - startpos));
-			jsonstr = "";
-			truncated = 0;
+			jsonstr.append(data + start, end - start);
+			handleLine(jsonstr.data(), jsonstr.size());
 		}
-		pos+=1;
-		startpos = pos;
+		jsonstr.clear();
+		start = end + 1;
 	}
-	if (startpos != std::string::npos && startpos != mydata.length())
+	if (start < len && !mDiscardLine)
 	{
-		//std::cout << "remains: " << mydata.length()-startpos;
-		if (mydata[mydata.length()-1] == '}')
+		if (jsonstr.size() + (len - start) > MAX_LINE_LENGTH)
 		{
-			handleJsonStr(mydata.substr(startpos, mydata.length() - pos));
-			truncated = 0;
+			eWarning("PlayerApp::handleOutput - line longer than %zu bytes dropped", MAX_LINE_LENGTH);
+			jsonstr.clear();
+			mDiscardLine = true;
 		}
 		else
 		{
-			truncated = 1;
-			jsonstr = mydata.substr(startpos);
+			jsonstr.append(data + start, len - start);
 		}
 	}
 }
 
-void PlayerApp::stderrAvail(const char *data)
+void PlayerApp::stderrData(const char *data, int len)
 {
-	std::string mydata(data);
-	eLog(5, "PlayerApp::stderrAvail: %s", mydata.c_str());
-	if (parseOutput == STD_ERROR)
+	eLog(5, "PlayerApp::stderrData: %.*s", len, data);
+	if (parseOutput == STD_ERROR && len > 0)
 	{
-		handleOutput(mydata);
+		handleOutput(data, len);
 	}
 }
 
-void PlayerApp::stdoutAvail(const char *data)
+void PlayerApp::stdoutData(const char *data, int len)
 {
-	std::string mydata(data);
-	eLog(5, "PlayerApp::stdoutAvail: %s", mydata.c_str());
-	if (parseOutput == STD_OUTPUT)
+	eLog(5, "PlayerApp::stdoutData: %.*s", len, data);
+	if (parseOutput == STD_OUTPUT && len > 0)
 	{
-		handleOutput(mydata);
+		handleOutput(data, len);
 	}
 }
 
 void PlayerApp::appClosed(int retval)
 {
+	/* the last line of a player that ended without its '\n' */
+	if (!mDiscardLine && !jsonstr.empty())
+		handleLine(jsonstr.data(), jsonstr.size());
+	jsonstr.clear();
+	mDiscardLine = false;
 	handleProcessStopped(retval);
 }
 
 int PlayerApp::processStart(eMainloop *context)
 {
+	jsonstr.clear();
+	mDiscardLine = false;
 	console = new eConsoleContainer();
 	CONNECT(console->appClosed, PlayerApp::appClosed);
-	CONNECT(console->stdoutAvail, PlayerApp::stdoutAvail);
-	CONNECT(console->stderrAvail, PlayerApp::stderrAvail);
+	CONNECT(console->stdoutData, PlayerApp::stdoutData);
+	CONNECT(console->stderrData, PlayerApp::stderrData);
 	const std::vector<std::string> args = buildCommand();
 	eDebugNoNewLine("PlayerApp::processStart: ");
-	char **cargs = (char **) malloc(sizeof(char *) * args.size()+1);
+	std::vector<const char *> cargs(args.size()+1);
 	for (size_t i=0; i <= args.size(); i++)
 	{
 		// execvp needs args array terminated with NULL
@@ -110,17 +126,14 @@ int PlayerApp::processStart(eMainloop *context)
 		}
 		else
 		{
-			cargs[i] = strdup(args[i].c_str());
+			cargs[i] = args[i].c_str();
 			if (i != 0 && cargs[i][0] != '-')
 				eDebugNoNewLine("\"%s\" ", cargs[i]);
 			else
 				eDebugNoNewLine("%s ", cargs[i]);
 		}
 	}
-	int ret = console->execute(context, cargs[0], cargs);
-	for (size_t i=0; i < args.size(); i++)
-		free(cargs[i]);
-	free(cargs);
+	int ret = console->execute(context, cargs[0], cargs.data());
 	return ret;
 }
 
@@ -129,7 +142,10 @@ int PlayerApp::processSend(const std::string& data)
 	if (console && console->running())
 	{
 		eLog(5, "sending command \"%s\" ", data.c_str());
-		console->write(data.c_str(), data.length());
+		/* position, length and live audio polls: the next tick asks again,
+		 * they may go while the player does not read its stdin */
+		bool poll = data == "j\n" || data == "l\n" || data == "ac\n";
+		console->write(data.c_str(), data.length(), poll);
 		return 0;
 	}
 	return -1;
@@ -157,68 +173,163 @@ bool PlayerApp::processRunning()
 }
 
 
+static int64_t monotonicMs()
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+/* Waits on the calling thread until the backend thread clears flag (and
+ * signals cond), at most timeout ms; false on a timeout, the flag is cleared
+ * then, so a late answer finds nobody waiting. A loop on the flag: a single
+ * pthread_cond_timedwait took a spurious wakeup for "in time" (stop() then
+ * joined a running player, the GUI froze). The conds use CLOCK_MONOTONIC.
+ * Before, a pthread was created for every wait. */
+static bool waitForClear(pthread_mutex_t &mutex, pthread_cond_t &cond, bool &flag, long timeout, clockid_t clock = CLOCK_MONOTONIC)
+{
+	struct timespec ts;
+	clock_gettime(clock, &ts);
+	ts.tv_sec += timeout / 1000;
+	ts.tv_nsec += (timeout % 1000) * 1000000L;
+	// pthread_cond_timedwait requires tv_nsec in [0, 1e9)
+	if (ts.tv_nsec >= 1000000000L)
+	{
+		ts.tv_sec += ts.tv_nsec / 1000000000L;
+		ts.tv_nsec %= 1000000000L;
+	}
+	bool cleared = true;
+	pthread_mutex_lock(&mutex);
+	while (flag)
+	{
+		int ret = pthread_cond_timedwait(&cond, &mutex, &ts);
+		if (ret != 0 && ret != EINTR && flag)
+		{
+			// ETIMEDOUT (or an error that would only repeat)
+			flag = false;
+			cleared = false;
+			break;
+		}
+	}
+	pthread_mutex_unlock(&mutex);
+	return cleared;
+}
+
 void WaitThread::thread()
 {
 	hasStarted();
-	pthread_mutex_lock(&mutex);
-	if (!waitForUpdate)
-	{
-		eDebug("WaitThread - not waiting");
-		goto unlock;
-	}
-	struct timespec ts;
-	if (clock_gettime(CLOCK_REALTIME, &ts) == -1)
-	{
-		perror("WaitThread - cannot get clock:");
-		goto unlock;
-	}
-	ts.tv_sec += timeout / 1000;
-	ts.tv_nsec += (timeout % 1000) * 1000000;
-	eDebug("WaitThread - waiting for %ldms", timeout);
-	if (pthread_cond_timedwait(&cond, &mutex, &ts) == ETIMEDOUT)
-	{
-		eDebug("WaitThread - timed out");
-		waitForUpdate = false;
-		timedOut = true;
-		goto unlock;
-	}
-	eDebug("WaitThread - in time\n");
-unlock:
-	pthread_mutex_unlock(&mutex);
+	/* in a loop on the flag as well: a spurious wakeup is no answer */
+	timedOut = !waitForClear(mutex, cond, waitForUpdate, timeout, CLOCK_REALTIME);
 }
 
-
-void PlayerBackend::sendMessage(const Message& m, int timeout)
+bool PlayerBackend::postToPlayer(const Message& m)
 {
+	/* the loop of an ended player takes no more messages: they piled up in
+	 * mMessageThread for good (a live stream's getLength on every poll) */
+	if (!canPost())
+		return false;
+	mMessageThread.send(m);
+	return true;
+}
+
+void PlayerBackend::sendListRequest(const Message& m, bool& waitFlag, int timeout)
+{
+	if (!canPost())
+		return;
 	if (timeout > 0)
 	{
-		mWaitForUpdate = true;
-		WaitThread t(mWaitMutex, mWaitCond, mWaitForUpdate, timeout);
-		t.run();
+		pthread_mutex_lock(&mWaitMutex);
+		waitFlag = true;
+		pthread_mutex_unlock(&mWaitMutex);
 		mMessageThread.send(m);
-		t.kill();
+		bool inTime = waitForClear(mWaitMutex, mWaitCond, waitFlag, timeout);
+		if (mDebug)
+			eDebug("PlayerBackend::sendListRequest - answer %s", inTime ? "in time" : "timed out");
 	}
 	else
 	{
-		mWaitForUpdate = false;
 		mMessageThread.send(m);
 	}
 }
 
-void PlayerBackend::recvMessage()
+bool PlayerBackend::recvListAnswer(bool& waitFlag)
 {
 	pthread_mutex_lock(&mWaitMutex);
-	if (mWaitForUpdate)
+	bool waiting = waitFlag;
+	if (waiting)
 	{
-		mWaitForUpdate = false;
-		pthread_cond_signal(&mWaitCond);
+		waitFlag = false;
+		pthread_cond_broadcast(&mWaitCond);
 	}
 	pthread_mutex_unlock(&mWaitMutex);
+	return waiting;
+}
+
+void PlayerBackend::startPositionTimer()
+{
+	mTimer->start(mTimerDelay, false);
+	mTimerActive = true;
+}
+
+void PlayerBackend::setPositionInterval(int ms)
+{
+	if (ms < 20)
+		ms = 20;
+	if ((unsigned int)ms == mTimerDelay)
+		return;
+	mTimerDelay = ms;
+	/* the timer belongs to the backend thread: it restarts it there */
+	postToPlayer(Message(Message::tPositionInterval, ms));
 }
 
 void PlayerBackend::_updatePosition()
 {
 	pPlayer->sendUpdatePosition();
+
+	/* about every 2 s (whatever the poll interval) re-check the current
+	 * audio track: an ad break or programme change can switch 5.1 to 2.0 or
+	 * DD+ to Atmos on the same track, see recvAudioTrackCurrent() */
+	if (++mAudioCheckCounter * mTimerDelay >= 2000)
+	{
+		mAudioCheckCounter = 0;
+		pPlayer->sendPollAudioTrackCurrent();
+	}
+
+	/* about once a second the byte counters for the live bit rate; the
+	 * player decides whether it sends the request (exteplayer3 "BR") */
+	if (++mBitrateCheckCounter * mTimerDelay >= 1000)
+	{
+		mBitrateCheckCounter = 0;
+		pPlayer->sendUpdateBitrate();
+	}
+}
+
+/* kbit/s between two readings of a byte counter that wraps at 2^32 */
+static int bitrateKbps(int64_t bytes, int64_t lastBytes, int64_t ms)
+{
+	if (bytes < 0)
+		return -1; // no such track
+	if (lastBytes < 0)
+		return 0; // counting has just started
+	return (int)((((uint64_t)bytes - (uint64_t)lastBytes) & 0xffffffffULL) * 8 / (uint64_t)ms);
+}
+
+void PlayerBackend::recvBitrate(int64_t videoBytes, int64_t audioBytes)
+{
+	const int64_t now = monotonicMs();
+	const int64_t ms = now - mBitrateLastMs;
+	if (mBitrateLastMs && ms < 500)
+		return; // an answer to an older request, the next one measures
+	/* a gap of more than 5 s (pause, the poll stopped) only starts a new
+	 * measurement: averaged over it the rate would be far too low */
+	if (mBitrateLastMs && ms <= 5000)
+	{
+		mVideoKbps = bitrateKbps(videoBytes, mBitrateLastVideoBytes, ms);
+		mAudioKbps = bitrateKbps(audioBytes, mBitrateLastAudioBytes, ms);
+	}
+	mBitrateLastMs = now;
+	mBitrateLastVideoBytes = videoBytes;
+	mBitrateLastAudioBytes = audioBytes;
 }
 
 int PlayerBackend::start(const std::string& path, const std::map<std::string,std::string>& headers)
@@ -230,26 +341,32 @@ int PlayerBackend::start(const std::string& path, const std::map<std::string,std
 	run();
 	return 0;
 }
+/* arms the stop wait unless the player has ended already; false: ended */
+static bool armStopWait(pthread_mutex_t &mutex, bool &waitForStop, const std::atomic<bool> &ended)
+{
+	pthread_mutex_lock(&mutex);
+	bool arm = !ended;
+	waitForStop = arm;
+	pthread_mutex_unlock(&mutex);
+	return arm;
+}
+
 int PlayerBackend::stop()
 {
-	if (mThreadRunning)
+	mStopRequested = true;
+	/* a player that has ended already (recvStopped ran, the loop is about to
+	 * quit) answers no "q": the 3 + 2 s waits only blocked the GUI */
+	if (mThreadRunning && armStopWait(mWaitForStopMutex, mWaitForStop, mProcessEnded))
 	{
-		// wait 10 seconds for normal exit if timed out then kill process
-		mWaitForStop = true;
-		WaitThread t(mWaitForStopMutex, mWaitForStopCond, mWaitForStop, 3000);
-		t.run();
+		// wait 3 seconds for a normal exit, then SIGINT, then SIGKILL
 		mMessageThread.send(Message(Message::tStop));
-		t.kill();
-		if (t.isTimedOut())
+		if (!waitForClear(mWaitForStopMutex, mWaitForStopCond, mWaitForStop, 3000)
+			&& armStopWait(mWaitForStopMutex, mWaitForStop, mProcessEnded))
 		{
 			/* the join in kill() blocks the main loop until the app ends,
 			 * a SIGKILL follows when it ignores SIGINT */
-			mWaitForStop = true;
-			WaitThread t2(mWaitForStopMutex, mWaitForStopCond, mWaitForStop, 2000);
-			t2.run();
 			mMessageThread.send(Message(Message::tKill));
-			t2.kill();
-			if (t2.isTimedOut())
+			if (!waitForClear(mWaitForStopMutex, mWaitForStopCond, mWaitForStop, 2000))
 			{
 				mMessageThread.send(Message(Message::tForceKill));
 			}
@@ -263,40 +380,42 @@ int PlayerBackend::pause()
 {
 	if (!playbackStarted)
 		return -1;
-	mMessageThread.send(Message(Message::tPause));
-	return 0;
+	return postToPlayer(Message(Message::tPause)) ? 0 : -1;
 }
 
 int PlayerBackend::fastForward(int speed)
 {
 	if (!playbackStarted || !pPlayer->canWind())
 		return -1;
-	mMessageThread.send(Message(Message::tFastForward, speed));
-	return 0;
+	return postToPlayer(Message(Message::tFastForward, speed)) ? 0 : -1;
 }
 
 int PlayerBackend::resume()
 {
 	if (!playbackStarted)
 		return -1;
-	mMessageThread.send(Message(Message::tResume));
-	return 0;
+	return postToPlayer(Message(Message::tResume)) ? 0 : -1;
 }
 
 int PlayerBackend::seekTo(int seconds)
 {
 	if (!playbackStarted)
 		return -1;
-	mMessageThread.send(Message(Message::tSeekTo, seconds));
-	return 0;
+	return postToPlayer(Message(Message::tSeekTo, seconds)) ? 0 : -1;
+}
+
+int PlayerBackend::seekToMs(int mseconds)
+{
+	if (!playbackStarted)
+		return -1;
+	return postToPlayer(Message(Message::tSeekToMs, mseconds)) ? 0 : -1;
 }
 
 int PlayerBackend::seekRelative(int seconds)
 {
 	if (!playbackStarted)
 		return -1;
-	mMessageThread.send(Message(Message::tSeekRelative, seconds));
-	return 0;
+	return postToPlayer(Message(Message::tSeekRelative, seconds)) ? 0 : -1;
 }
 
 int PlayerBackend::getPlayPosition(int& mseconds)
@@ -320,18 +439,26 @@ int PlayerBackend::getLength(int& mseconds)
 	{
 		return -1;
 	}
-	if (!mLengthInMs) 
+	int length = mLengthInMs;
+	if (!length)
 	{
-		mMessageThread.send(Message(Message::tGetLength));
+		/* the GUI polls this several times a second; a live stream has no
+		 * length: once the player answered 0, ask only every 5 s (a length
+		 * may still come), before the first answer every 0.5 s */
+		int64_t now = monotonicMs();
+		if (now - mLastLengthAsk >= (mLengthZero ? 5000 : 500) && postToPlayer(Message(Message::tGetLength)))
+			mLastLengthAsk = now;
 		return -2;
 	}
-	mseconds = mLengthInMs;
+	mseconds = length;
 	return 0;
 }
 
 int PlayerBackend::getErrorMessage(errorMessage& error)
 {
-	if (!playbackStarted || !pErrorMessage)
+	// also before the start: the reason a stream could not be opened
+	eSingleLocker l_(mStreamsLock);
+	if (!pErrorMessage)
 	{
 		return -1;
 	}
@@ -339,19 +466,45 @@ int PlayerBackend::getErrorMessage(errorMessage& error)
 	return 0;
 }
 
+/* The GUI asks for the track counts often (skin converters, the InfoBar on
+ * every evUpdatedInfo); a wait blocked it up to 500 ms each time. The player
+ * sends both lists at the start and again when they change (a_l, s_l), so
+ * the cached count is the answer; only while no list is known yet and the
+ * player runs the caller waits, at most 200 ms. */
+static const int LIST_WAIT_MAX_MS = 200;
+
 int PlayerBackend::audioGetNumberOfTracks(int timeout)
 {
-	if (!mWaitForUpdate)
+	size_t count;
+	bool known;
 	{
-		Message m (Message::tAudioList);
-		sendMessage(m, timeout);
+		eSingleLocker l_(mStreamsLock);
+		count = mAudioStreams.size();
+		known = mAudioListKnown;
 	}
+	if (timeout < 0 || !canPost())
+		return count;
+	if (timeout == 0)
+	{
+		// asynchronous: the answer comes as audioTracksAvailable
+		sendListRequest(Message(Message::tAudioList), mWaitForAudioList, 0);
+		return count;
+	}
+	if (known || !playbackStarted)
+		return count;
+	pthread_mutex_lock(&mWaitMutex);
+	bool waiting = mWaitForAudioList;
+	pthread_mutex_unlock(&mWaitMutex);
+	if (!waiting)
+		sendListRequest(Message(Message::tAudioList), mWaitForAudioList, std::min(timeout, LIST_WAIT_MAX_MS));
+	eSingleLocker l_(mStreamsLock);
 	return mAudioStreams.size();
 }
 
 int PlayerBackend::audioGetCurrentTrackNum()
 {
 	int trackNum = 0, j=0;
+	eSingleLocker l_(mStreamsLock);
 	int trackId = pCurrentAudio ? pCurrentAudio->id : 0;
 	for (std::vector<audioStream>::const_iterator i(mAudioStreams.begin()); i!=mAudioStreams.end(); i++, j++)
 	{
@@ -364,11 +517,24 @@ int PlayerBackend::audioGetCurrentTrackNum()
 	return trackNum;
 }
 
+int PlayerBackend::audioSelectChannel(int channel)
+{
+	if (channel < 0 || channel > 2 || !pPlayer->canSelectChannel())
+		return -1;
+	mAudioChannel = channel;
+	return postToPlayer(Message(Message::tAudioChannel, channel)) ? 0 : -1;
+}
+
 int PlayerBackend::audioSelectTrack(int trackNum)
 {
+	eSingleLocker l_(mStreamsLock);
 	if (trackNum >= 0 && trackNum < (int) mAudioStreams.size())
 	{
-		mMessageThread.send(Message(Message::tAudioSelect, mAudioStreams[trackNum].id));
+		postToPlayer(Message(Message::tAudioSelect, mAudioStreams[trackNum].id));
+		/* the new track at once: the audio selection asks getCurrentTrack()
+		 * right after the switch, the answer a_s comes later and corrects
+		 * this if the switch failed */
+		pCurrentAudio = mAudioStreams[trackNum];
 		return 0;
 	}
 	return -1;
@@ -376,6 +542,7 @@ int PlayerBackend::audioSelectTrack(int trackNum)
 
 int PlayerBackend::audioGetTrackInfo(audioStream& trackInfo, int trackNum)
 {
+	eSingleLocker l_(mStreamsLock);
 	if (trackNum >= 0 && trackNum < (int) mAudioStreams.size())
 	{
 		trackInfo = mAudioStreams[trackNum];
@@ -386,17 +553,39 @@ int PlayerBackend::audioGetTrackInfo(audioStream& trackInfo, int trackNum)
 
 int PlayerBackend::subtitleGetNumberOfTracks(int timeout)
 {
-	if (!mWaitForUpdate)
+	size_t count;
+	bool known;
 	{
-		Message m(Message::tSubtitleList);
-		sendMessage(m, timeout);
+		eSingleLocker l_(mStreamsLock);
+		count = mSubtitleStreams.size();
+		known = mSubtitleListKnown;
 	}
+	if (timeout < 0 || !canPost())
+		return count;
+	if (timeout == 0)
+	{
+		/* asynchronous, only while no list is known (the player pushes its
+		 * changes): an answer that changes the list comes as
+		 * subtitleTracksChanged */
+		if (!known)
+			sendListRequest(Message(Message::tSubtitleList), mWaitForSubtitleList, 0);
+		return count;
+	}
+	if (known || !playbackStarted)
+		return count;
+	pthread_mutex_lock(&mWaitMutex);
+	bool waiting = mWaitForSubtitleList;
+	pthread_mutex_unlock(&mWaitMutex);
+	if (!waiting)
+		sendListRequest(Message(Message::tSubtitleList), mWaitForSubtitleList, std::min(timeout, LIST_WAIT_MAX_MS));
+	eSingleLocker l_(mStreamsLock);
 	return mSubtitleStreams.size();
 }
 
 int PlayerBackend::subtitleGetCurrentTrackNum()
 {
 	int trackNum = 0, j=0;
+	eSingleLocker l_(mStreamsLock);
 	int trackId = pCurrentSubtitle ? pCurrentSubtitle->id : 0;
 	for (std::vector<subtitleStream>::const_iterator i(mSubtitleStreams.begin()); i!=mSubtitleStreams.end(); i++, j++)
 	{
@@ -411,9 +600,20 @@ int PlayerBackend::subtitleGetCurrentTrackNum()
 
 int PlayerBackend::subtitleSelectTrack(int trackNum)
 {
+	eSingleLocker l_(mStreamsLock);
+	if (trackNum == -1)
+	{
+		// subtitles off: the player stops decoding and sending them
+		postToPlayer(Message(Message::tSubtitleSelect, -1));
+		pCurrentSubtitle.reset();
+		return 0;
+	}
 	if (trackNum >= 0 && trackNum < (int) mSubtitleStreams.size())
 	{
-		mMessageThread.send(Message(Message::tSubtitleSelect, mSubtitleStreams[trackNum].id));
+		postToPlayer(Message(Message::tSubtitleSelect, mSubtitleStreams[trackNum].id));
+		/* the new track at once: the GUI asks right after the selection,
+		 * the answer s_s comes later; it corrects this if it differs */
+		pCurrentSubtitle = mSubtitleStreams[trackNum];
 		return 0;
 	}
 	return -1;
@@ -421,6 +621,7 @@ int PlayerBackend::subtitleSelectTrack(int trackNum)
 
 int PlayerBackend::subtitleGetTrackInfo(subtitleStream& trackInfo, int trackNum)
 {
+	eSingleLocker l_(mStreamsLock);
 	if (trackNum >= 0 && trackNum < (int) mSubtitleStreams.size())
 	{
 		trackInfo = mSubtitleStreams[trackNum];
@@ -431,7 +632,8 @@ int PlayerBackend::subtitleGetTrackInfo(subtitleStream& trackInfo, int trackNum)
 
 int PlayerBackend::videoGetTrackInfo(videoStream& trackInfo, int trackNum)
 {
-	if (pCurrentVideo == NULL)
+	eSingleLocker l_(mStreamsLock);
+	if (!pCurrentVideo)
 		return -1;
 	trackInfo = *pCurrentVideo;
 	return 0;
@@ -447,6 +649,9 @@ void PlayerBackend::gotMessage(const PlayerBackend::Message& message)
 				eDebug("PlayerBackend::gotMessage - tStart");
 			if (pPlayer->start(this) < 0)
 			{
+				pthread_mutex_lock(&mWaitForStopMutex);
+				mProcessEnded = true; // stop() has nothing to wait for
+				pthread_mutex_unlock(&mWaitForStopMutex);
 				quit(0);
 				mMessageMain.send(Message(Message::stop));
 			}
@@ -459,8 +664,17 @@ void PlayerBackend::gotMessage(const PlayerBackend::Message& message)
 		case Message::tStop:
 			if(mDebug)
 				eDebug("PlayerBackend::gotMessage - tStop");
-			mTimer->stop();
+			if (mTimer)
+				mTimer->stop();
+			mTimerActive = false;
 			pPlayer->sendStop();
+			break;
+		case Message::tPositionInterval:
+			if(mDebug)
+				eDebug("PlayerBackend::gotMessage - tPositionInterval %d", message.dataInt);
+			// a stopped (paused) timer starts with the new interval on resume
+			if (mTimer && mTimerActive)
+				startPositionTimer();
 			break;
 		case Message::tKill:
 			if(mDebug)
@@ -510,12 +724,47 @@ void PlayerBackend::gotMessage(const PlayerBackend::Message& message)
 		case Message::tSubtitleSelect:
 			if(mDebug)
 				eDebug("PlayerBackend::gotMessage - tSubtitleSelect");
-			pPlayer->sendSubtitleSelectTrack(message.dataInt);
+			if (message.dataInt < 0)
+				pPlayer->sendSubtitleDisable();
+			else
+				pPlayer->sendSubtitleSelectTrack(message.dataInt);
 			break;
 		case Message::tSubtitleList:
 			if(mDebug)
 				eDebug("PlayerBackend::gotMessage - tSubtitleList");
 			pPlayer->sendUpdateSubtitleTracksList();
+			break;
+		case Message::tAudioChannel:
+			if(mDebug)
+				eDebug("PlayerBackend::gotMessage - tAudioChannel %d", message.dataInt);
+			pPlayer->sendAudioChannel(message.dataInt);
+			break;
+		case Message::subtitleFlush:
+			gotPlayerMessage(PlayerMessage::subtitleFlush);
+			break;
+		case Message::subtitleTracksChanged:
+			if(mDebug)
+				eDebug("PlayerBackend::gotMessage - subtitleTracksChanged");
+			gotPlayerMessage(PlayerMessage::subtitleTracksChanged);
+			break;
+		case Message::metadataChanged:
+			gotPlayerMessage(PlayerMessage::metadataChanged);
+			break;
+		case Message::tSeekToMs:
+			if(mDebug)
+				eDebug("PlayerBackend::gotMessage - tSeekToMs %d", message.dataInt);
+			pPlayer->sendSeekToMs(message.dataInt);
+			break;
+		case Message::chaptersChanged:
+			gotPlayerMessage(PlayerMessage::chaptersChanged);
+			break;
+		case Message::tSubtitleForcedOnly:
+			if(mDebug)
+				eDebug("PlayerBackend::gotMessage - tSubtitleForcedOnly %d", message.dataInt);
+			pPlayer->sendSubtitleForcedOnly(message.dataInt != 0);
+			break;
+		case Message::coverAvailable:
+			gotPlayerMessage(PlayerMessage::coverAvailable);
 			break;
 		case Message::tGetLength:
 			if(mDebug)
@@ -557,6 +806,11 @@ void PlayerBackend::gotMessage(const PlayerBackend::Message& message)
 				eDebug("PlayerBackend::gotMessage - videoProgressiveChanged");
 			gotPlayerMessage(PlayerMessage::videoProgressiveChanged);
 			break;
+		case Message::videoGammaChanged:
+			if(mDebug)
+				eDebug("PlayerBackend::gotMessage - videoGammaChanged");
+			gotPlayerMessage(PlayerMessage::videoGammaChanged);
+			break;
 		case Message::audioSelect:
 			if(mDebug)
 				eDebug("PlayerBackend::gotMessage - audioSelect");
@@ -565,6 +819,11 @@ void PlayerBackend::gotMessage(const PlayerBackend::Message& message)
 			if(mDebug)
 				eDebug("PlayerBackend::gotMessage - audioList");
 			gotPlayerMessage(PlayerMessage::audioTracksAvailable);
+			break;
+		case Message::audioChanged:
+			if(mDebug)
+				eDebug("PlayerBackend::gotMessage - audioChanged");
+			gotPlayerMessage(PlayerMessage::audioChanged);
 			break;
 		case Message::error:
 			if(mDebug)
@@ -610,21 +869,46 @@ void PlayerBackend::recvStarted(int status)
 	if (playbackStarted || status)
 		return;
 	playbackStarted = true;
-	mTimer->start(mTimerDelay, false);
+	startPositionTimer();
 	mMessageMain.send(Message(Message::start));
 }
 
 void PlayerBackend::recvStopped(int retval)
 {
 	pthread_mutex_lock(&mWaitForStopMutex);
+	mProcessEnded = true;
 	if (mWaitForStop)
 	{
 		mWaitForStop = false;
-		pthread_cond_signal(&mWaitForStopCond);
+		pthread_cond_broadcast(&mWaitForStopCond);
 	}
 	pthread_mutex_unlock(&mWaitForStopMutex);
 	if(mDebug)
 		eDebug("PlayerBackend::recvStopped - retval = %d", retval);
+	int sig = exitSignal(retval);
+	if (sig && !mStopRequested)
+	{
+		/* killed by a signal (SIGSEGV, the OOM killer) without our stop: an
+		 * error, not the end of the stream; a live stream counts it as a lost
+		 * connection. An error the player reported itself is kept. */
+		bool reported;
+		{
+			eSingleLocker l_(mStreamsLock);
+			reported = pErrorMessage.has_value();
+		}
+		if (!reported)
+		{
+			errorMessage e;
+			char buf[128];
+			/* TRANSLATORS: %d is the number of the signal that ended the player (11 SIGSEGV, 9 SIGKILL) */
+			snprintf(buf, sizeof(buf), SAPP_TR("player ended by signal %d"), sig);
+			e.code = retval;
+			e.message = buf;
+			eWarning("PlayerBackend::recvStopped - player ended by signal %d", sig);
+			recvErrorMessage(e);
+		}
+	}
+	mExitCode = retval;
 	quit(0);
 	mMessageMain.send(Message(Message::stop));
 }
@@ -636,6 +920,7 @@ void PlayerBackend::recvPaused(int status)
 	if (!status)
 	{
 		mTimer->stop();
+		mTimerActive = false;
 		mMessageMain.send(Message(Message::pause));
 	}
 }
@@ -646,7 +931,7 @@ void PlayerBackend::recvResumed(int status)
 		eDebug("PlayerBackend::recvResume - status = %d", status);
 	if (!status)
 	{
-		mTimer->start(mTimerDelay, false);
+		startPositionTimer();
 		mMessageMain.send(Message(Message::resume));
 	}
 }
@@ -655,10 +940,25 @@ void PlayerBackend::recvAudioTracksList(int status, std::vector<audioStream>& st
 {
 	if(!status)
 	{
-		mAudioStreams = streams;
+		{
+			eSingleLocker l_(mStreamsLock);
+			mAudioStreams = streams;
+			// keep what the player learned live, the list is the open-time snapshot
+			for (std::vector<audioStream>::iterator i(mAudioStreams.begin()); i != mAudioStreams.end(); ++i)
+			{
+				std::map<int, audioStream>::const_iterator l(mLiveAudio.find(i->id));
+				if (l == mLiveAudio.end())
+					continue;
+				if (l->second.channels > 0)
+					i->channels = l->second.channels;
+				if (!l->second.codec_name.empty())
+					i->codec_name = l->second.codec_name;
+			}
+			mAudioListKnown = true;
+		}
 		mMessageMain.send(Message(Message::audioList));
 	}
-	recvMessage();
+	recvListAnswer(mWaitForAudioList);
 }
 
 void PlayerBackend::recvAudioTrackCurrent(int status, audioStream& stream)
@@ -667,12 +967,38 @@ void PlayerBackend::recvAudioTrackCurrent(int status, audioStream& stream)
 		eDebug("PlayerBackend::recvAudioTrackCurrent - status = %d", status);
 	if(!status)
 	{
-		if (pCurrentAudio != NULL)
+		bool changed = false;
+		eSingleLocker l_(mStreamsLock);
+		pCurrentAudio = stream;
+
+		/* the answer to the periodic "ac" carries the live channel count and
+		 * codec name; update the track list entry the track info reads */
+		if (stream.channels > 0 || !stream.codec_name.empty())
 		{
-			delete pCurrentAudio;
-			pCurrentAudio = NULL;
+			audioStream &live = mLiveAudio[stream.id];
+			if (stream.channels > 0)
+				live.channels = stream.channels;
+			if (!stream.codec_name.empty())
+				live.codec_name = stream.codec_name;
+			for (std::vector<audioStream>::iterator i(mAudioStreams.begin()); i != mAudioStreams.end(); ++i)
+			{
+				if (i->id != stream.id)
+					continue;
+				if (stream.channels > 0 && i->channels != stream.channels)
+				{
+					i->channels = stream.channels;
+					changed = true;
+				}
+				if (!stream.codec_name.empty() && i->codec_name != stream.codec_name)
+				{
+					i->codec_name = stream.codec_name;
+					changed = true;
+				}
+				break;
+			}
 		}
-		pCurrentAudio = new audioStream(stream);
+		if (changed)
+			mMessageMain.send(Message(Message::audioChanged));
 	}
 } 
 
@@ -682,27 +1008,57 @@ void PlayerBackend::recvAudioTrackSelected(int status, int trackId)
 		eDebug("PlayerBackend::recvAudioTrackSelected - status = %d, trackId = %d", status, trackId);
 	if (!status)
 	{
+		eSingleLocker l_(mStreamsLock);
 		for (std::vector<audioStream>::const_iterator i(mAudioStreams.begin()); i!=mAudioStreams.end(); i++)
 		{
 			if (trackId == i->id)
 			{
-				if (pCurrentAudio != NULL)
-				{
-					delete pCurrentAudio;
-					pCurrentAudio = NULL;
-				}
-				pCurrentAudio = new audioStream(*i);
+				pCurrentAudio = *i;
 				break;
 			}
 		}
 	}
+	else
+	{
+		/* the switch failed: ask for the real track instead of the one
+		 * audioSelectTrack() assumed */
+		pPlayer->sendUpdateAudioTrackCurrent();
+	}
 }
 
 void PlayerBackend::recvSubtitleTracksList(int status, std::vector<subtitleStream>& streams)
-{ 
-	if(!status) 
+{
+	bool changed = false;
+	if(!status)
+	{
+		eSingleLocker l_(mStreamsLock);
+		changed = playbackStarted && streams.size() != mSubtitleStreams.size();
 		mSubtitleStreams = streams;
-	recvMessage();
+		mSubtitleListKnown = true;
+	}
+	/* a waiting GUI caller reads the new list itself; only the subtitle wait
+	 * counts, an audio list wait no longer hid this answer */
+	bool asked = recvListAnswer(mWaitForSubtitleList);
+	/* exteplayer3 sends the list again by itself when closed captions show
+	 * up; also the answer to a request nobody waited for */
+	if (changed && !asked)
+		mMessageMain.send(Message(Message::subtitleTracksChanged));
+}
+
+void PlayerBackend::recvSubtitleFlush()
+{
+	{
+		eSingleLocker s(mSubLock);
+		while (!mSubtitles.empty())
+		{
+			/* the pictures of a dropped graphic cue are not shown any more */
+			const std::vector<subtitleImage> &images = mSubtitles.front().images;
+			for (size_t i = 0; i < images.size(); i++)
+				unlink(images[i].file.c_str());
+			mSubtitles.pop();
+		}
+	}
+	mMessageMain.send(Message(Message::subtitleFlush));
 }
 
 void PlayerBackend::recvSubtitleTrackCurrent(int status, subtitleStream& stream)
@@ -711,12 +1067,8 @@ void PlayerBackend::recvSubtitleTrackCurrent(int status, subtitleStream& stream)
 		eDebug("PlayerBackend::recvSubtitleTrackCurrent - status = %d", status);
 	if(!status)
 	{
-		if (pCurrentSubtitle != NULL)
-		{
-			delete pCurrentSubtitle;
-			pCurrentSubtitle = NULL;
-		}
-		pCurrentSubtitle = new subtitleStream(stream);
+		eSingleLocker l_(mStreamsLock);
+		pCurrentSubtitle = stream;
 	}
 } 
 
@@ -726,19 +1078,21 @@ void PlayerBackend::recvSubtitleTrackSelected(int status, int trackId)
 		eDebug("PlayerBackend::recvSubtitleTrackSelected - status = %d, trackId = %d", status, trackId);
 	if (!status)
 	{
+		eSingleLocker l_(mStreamsLock);
 		for (std::vector<subtitleStream>::const_iterator i(mSubtitleStreams.begin()); i!=mSubtitleStreams.end(); i++)
 		{
 			if (trackId == i->id)
 			{
-				if (pCurrentSubtitle != NULL)
-				{
-					delete pCurrentSubtitle;
-					pCurrentSubtitle = NULL;
-				}
-				pCurrentSubtitle = new subtitleStream(*i);
+				pCurrentSubtitle = *i;
 				break;
 			}
 		}
+	}
+	else
+	{
+		/* the switch failed: ask for the real track instead of the one
+		 * subtitleSelectTrack() assumed */
+		pPlayer->sendUpdateSubtitleTrackCurrent();
 	}
 }
 
@@ -748,19 +1102,20 @@ void PlayerBackend::recvVideoTrackCurrent(int status, videoStream& stream)
 		eDebug("PlayerBackend::recvVideoTrackCurrent - status = %d", status);
 	if (!status)
 	{
+		eSingleLocker l_(mStreamsLock);
 		videoStream prev;
-		if (pCurrentVideo != NULL)
-		{
+		if (pCurrentVideo)
 			prev = *pCurrentVideo;
-			delete pCurrentVideo;
-			pCurrentVideo = NULL;
-		}
-		pCurrentVideo = new videoStream(stream);
+		pCurrentVideo = stream;
 		if (stream.progressive >= 0 && prev.progressive != stream.progressive)
 			mMessageMain.send(Message(Message::videoProgressiveChanged));
+		if (stream.gamma >= 0 && prev.gamma != stream.gamma)
+			mMessageMain.send(Message(Message::videoGammaChanged));
 		if (stream.framerate > 0 && prev.framerate != stream.framerate)
 			mMessageMain.send(Message(Message::videoFramerateChanged));
-		if ((stream.width > 0 && prev.width != stream.width) || (stream.height > 0 && prev.height != stream.height))
+		// also when a known size gets unknown (other track): no stale size
+		if ((prev.width != stream.width && (stream.width > 0 || prev.width > 0))
+			|| (prev.height != stream.height && (stream.height > 0 || prev.height > 0)))
 			mMessageMain.send(Message(Message::videoSizeChanged));
 	}
 }

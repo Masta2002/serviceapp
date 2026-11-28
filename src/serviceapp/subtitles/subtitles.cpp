@@ -16,8 +16,15 @@ static void skipBOM(std::istream& is)
     }
 }
 
+/* the whole file is read into memory, converted and parsed on the main
+ * thread: a subtitle file is far below this, anything larger is not one */
+#define SUBTITLE_MAX_FILE_SIZE (10 * 1024 * 1024)
+
 bool BaseSubtitleParser::parse(std::istream &is, int fps, subtitleMap &submap)
 {
+    /* a previous probe may have hit the end of the stream: with failbit
+     * set, seekg() does nothing and the parser would see no data */
+    is.clear();
     is.seekg(0, std::ios::beg);
     skipBOM(is);
     bool res = _parse(is, fps, submap);
@@ -27,6 +34,7 @@ bool BaseSubtitleParser::parse(std::istream &is, int fps, subtitleMap &submap)
 
 unsigned int BaseSubtitleParser::probe(std::istream &is)
 {
+    is.clear();
     is.seekg(0, std::ios::beg);
     skipBOM(is);
     unsigned int res = _probe(is);
@@ -36,14 +44,13 @@ unsigned int BaseSubtitleParser::probe(std::istream &is)
 
 void SubtitleParser::initParserList()
 {
-    m_parser_vec.push_back(new SubripParser);
+    m_parser_vec.push_back(std::make_unique<SubripParser>());
 };
 
 void SubtitleParser::cleanParserList()
 {
-    for (std::vector<BaseSubtitleParser*>::iterator it(m_parser_vec.begin()); it != m_parser_vec.end();)
+    for (std::vector<std::unique_ptr<BaseSubtitleParser> >::iterator it(m_parser_vec.begin()); it != m_parser_vec.end();)
     {
-        delete *it;
         it = m_parser_vec.erase(it);
     }
 };
@@ -51,11 +58,11 @@ void SubtitleParser::cleanParserList()
 bool SubtitleParser::parse(std::istream &is, int fps, subtitleMap& submap)
 {
     std::multimap<int, BaseSubtitleParser*> map;
-    for (std::vector<BaseSubtitleParser*>::const_iterator it(m_parser_vec.begin()); it != m_parser_vec.end(); it++)
+    for (std::vector<std::unique_ptr<BaseSubtitleParser> >::const_iterator it(m_parser_vec.begin()); it != m_parser_vec.end(); it++)
     {
         int score = (*it)->probe(is);
         if (score > PROB_SCORE_MIN)
-            map.insert(std::pair<int, BaseSubtitleParser*>(score, *it));
+            map.insert(std::pair<int, BaseSubtitleParser*>(score, it->get()));
     }
     for (std::multimap<int, BaseSubtitleParser*>::reverse_iterator it(map.rbegin()); it!=map.rend(); it++)
     {
@@ -110,29 +117,42 @@ const subtitleMap *SubtitleManager::load(const std::string &path, int video_fps,
                 }
             }
         }
-        std::ifstream ifs(path.c_str());
+        std::ifstream ifs(path.c_str(), std::ios::binary);
         if (!ifs.is_open())
         {
-            fprintf(stderr,"SubtitleManager::load(%s,video_fps=%d,subtitle_fps=%d) - cannot open file: %s\n", 
+            fprintf(stderr,"SubtitleManager::load(%s,video_fps=%d,subtitle_fps=%d) - cannot open file: %s\n",
                     path.c_str(), video_fps, subtitle_fps, strerror(errno));
             return NULL;
         }
-        std::stringstream ss;
-        ss << ifs.rdbuf();
-        std::string out;
+        ifs.seekg(0, std::ios::end);
+        std::streamoff size = ifs.tellg();
+        ifs.seekg(0, std::ios::beg);
+        if (size < 0 || size > SUBTITLE_MAX_FILE_SIZE)
+        {
+            fprintf(stderr,"SubtitleManager::load(%s,video_fps=%d,subtitle_fps=%d) - file size %lld not accepted (max. %d bytes)\n",
+                    path.c_str(), video_fps, subtitle_fps, (long long) size, SUBTITLE_MAX_FILE_SIZE);
+            return NULL;
+        }
+        /* read once into a string, convert, then one copy for the parser
+         * stream - the stringstream round trips copied the file 3-4 times */
+        std::string content((size_t) size, '\0');
+        ifs.read(&content[0], size);
+        content.resize((size_t) ifs.gcount());
         if (m_convert_to_utf8)
         {
-            if (convertToUTF8(ss.str(), out) != 0)
+            std::string out;
+            if (convertToUTF8(content, out) != 0)
             {
                 fprintf(stderr,"SubtitleManager::load(%s,video_fps=%d,subtitle_fps=%d) - error in convert to utf-8\n",
                         path.c_str(), video_fps, subtitle_fps);
             }
             else
             {
-                ss.str(std::string());
-                ss << out;
+                content.swap(out);
             }
         }
+        std::istringstream ss(content);
+        content = std::string();
         subtitleMap map;
         if (!m_parser.parse(ss, video_fps, map))
         {

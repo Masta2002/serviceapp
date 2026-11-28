@@ -54,13 +54,31 @@ def setUseUserSettings():
 	serviceapp.use_user_settings()
 
 
+def canRecord():
+	return bool(serviceapp.can_record())
+
+
+def getVersion():
+	# version of serviceapp (AC_INIT of configure.ac); an older library has none
+	try:
+		return serviceapp.version()
+	except AttributeError:
+		return None
+
+
+AUTOTURNON_SUBTITLES_OFF = 0
+AUTOTURNON_SUBTITLES_ALL = 1
+AUTOTURNON_SUBTITLES_FORCED = 2
+
+
 def setServiceAppSettings(settingId, HLSExplorer, autoSelectStream, connectionSpeedInKb, autoTurnOnSubtitles=True):
+	# autoTurnOnSubtitles: False/True as before or AUTOTURNON_SUBTITLES_*
 	return serviceapp.serviceapp_set_setting(
 		settingId,
 		HLSExplorer,
 		autoSelectStream,
 		connectionSpeedInKb,
-		autoTurnOnSubtitles
+		int(autoTurnOnSubtitles)
 	)
 
 
@@ -75,7 +93,10 @@ def setGstreamerPlayerSettings(settingId, videoSink, audioSink, subtitleEnabled,
 	)
 
 
-def setExtEplayer3Settings(settingId, aacSwDecoding, dtsSwDecoding, wmaSwDecoding, lpcmInjection, downmix, ac3SwDecoding=False, eac3SwDecoding=False, mp3SwDecoding=False, rtmpProtocol=0):
+def setExtEplayer3Settings(settingId, aacSwDecoding, dtsSwDecoding, wmaSwDecoding, lpcmInjection, downmix, ac3SwDecoding=False, eac3SwDecoding=False, mp3SwDecoding=False, rtmpProtocol=0, dtsAc3=False, truehdAc3=False, heaacAacLc=False, dtsEac3=False, truehdEac3=False, hlsQuality=0, hlsDefaultAudio=0, coverPath=None, graphicSubDir=None):
+	# dtsAc3 .. truehdEac3: exteplayer3 187 ("xcode" in EPLAYER3_EXTENDED), hlsQuality/hlsDefaultAudio: 185
+	# coverPath: file for the embedded cover ("cover" in EPLAYER3_EXTENDED), None: off
+	# graphicSubDir: graphic subtitles (PGS, DVB, XSUB) as PNG files below it (-G, exteplayer3 63), None: off
 	return serviceapp.exteplayer3_set_setting(
 		settingId,
 		aacSwDecoding,
@@ -86,5 +107,14 @@ def setExtEplayer3Settings(settingId, aacSwDecoding, dtsSwDecoding, wmaSwDecodin
 		ac3SwDecoding,
 		eac3SwDecoding,
 		mp3SwDecoding,
-		rtmpProtocol
+		rtmpProtocol,
+		bool(dtsAc3),
+		bool(truehdAc3),
+		bool(heaacAacLc),
+		bool(dtsEac3),
+		bool(truehdEac3),
+		int(hlsQuality),
+		int(hlsDefaultAudio),
+		coverPath or None,
+		graphicSubDir or None
 	)

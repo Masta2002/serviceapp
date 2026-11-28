@@ -2,6 +2,7 @@
 #define __serviceapp_subtitles_h
 
 #include <map>
+#include <memory>
 #include <vector>
 #include <iostream>
 #include <stdint.h>
@@ -18,7 +19,18 @@ struct subtitleStream
     std::string language_code; /* iso-639, if available. */
     std::string description; /* clear text codec description */
     std::string path; /* path to external subtitle */
-    subtitleStream(): id(-1){};
+    int forced; /* 1 for a forced track */
+    std::string title; /* track title ("SDH", "Forced", "CC1"), if the player sends it */
+    subtitleStream(): id(-1), forced(0){};
+};
+
+/* one picture of a graphic subtitle (PGS, DVB, XSUB): a PNG file exteplayer3
+ * wrote into its -G directory, position and size in the -W x -H window */
+struct subtitleImage
+{
+    int x, y, w, h;
+    std::string file; /* full path */
+    subtitleImage(): x(0), y(0), w(0), h(0){};
 };
 
 struct subtitleMessage
@@ -27,7 +39,9 @@ struct subtitleMessage
     uint32_t duration_ms;
     uint32_t end_ms;
     std::string text;
-    subtitleMessage(): start_ms(0), duration_ms(0), end_ms(0){};
+    bool graphic; /* a graphic page: images instead of text, none = clear the screen */
+    std::vector<subtitleImage> images;
+    subtitleMessage(): start_ms(0), duration_ms(0), end_ms(0), graphic(false){};
 };
 
 // endtime, message
@@ -47,7 +61,7 @@ public:
 
 class SubtitleParser
 {
-    std::vector<BaseSubtitleParser*> m_parser_vec;
+    std::vector<std::unique_ptr<BaseSubtitleParser> > m_parser_vec;
     void initParserList();
     void cleanParserList();
 public:

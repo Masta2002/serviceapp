@@ -4,18 +4,20 @@
 #include <string>
 #include <lib/base/ebase.h>
 #include <lib/python/connections.h>
-#include <queue>
+#include <deque>
 #include <vector>
 
 struct queue_data
 {
-	queue_data( char *data, int len )
-		:data(data), len(len), dataSent(0)
+	queue_data( const char *data, int len, bool droppable = false )
+		:data(data, data+len), len(len), dataSent(0), droppable(droppable)
 	{
 	}
-	char *data;
+	std::vector<char> data;
 	int len;
 	int dataSent;
+	/* a periodic poll the next tick repeats; it may go when the queue is full */
+	bool droppable;
 };
 
 class eConsoleContainer: public sigc::trackable, public iObject
@@ -26,7 +28,7 @@ class eConsoleContainer: public sigc::trackable, public iObject
 	int pid;
 	int killstate;
 	std::string m_cwd;
-	std::queue<struct queue_data> outbuf;
+	std::deque<struct queue_data> outbuf;
 	ePtr<eSocketNotifier> in, out, err;
 	std::vector<char> buffer;
 	void readyRead(int what);
@@ -45,13 +47,20 @@ public:
 	void sendCtrlC();
 	void sendKill();
 	void sendEOF();
-	void write( const char *data, int len );
+	/* droppable: a poll command that may be dropped while the app does not
+	 * read its stdin (the queue holds at most OUTBUF_MAX of them) */
+	void write( const char *data, int len, bool droppable = false );
 	void setFileFD(int num, int fd) { if (num >= 0 && num <= 2) filefd[num] = fd; }
 	bool running() { return (fd[0]!=-1) && (fd[1]!=-1) && (fd[2]!=-1); }
 	PSignal1<void, const char*> dataAvail;
 	PSignal1<void, const char*> stdoutAvail;
 	PSignal1<void, const char*> stderrAvail;
+	/* the same chunks with their length: a NUL byte in the output does not
+	 * cut them short */
+	sigc::signal<void(const char*, int)> stdoutData;
+	sigc::signal<void(const char*, int)> stderrData;
 	PSignal1<void,int> dataSent;
+	/* exit code of the app, 128 + signal number when a signal ended it */
 	PSignal1<void,int> appClosed;
 };
 

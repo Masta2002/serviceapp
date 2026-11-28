@@ -1,0 +1,90 @@
+name: Create Tag and Release on Version Change
+
+# As in E2iPlayer: when the version of AC_INIT in configure.ac changes on
+# openATV, the tag v<version> and a GitHub release with the commits since the
+# previous tag are created. Nothing happens when the tag exists already.
+# By hand: Actions tab -> "Create Tag and Release on Version Change".
+
+on:
+  push:
+    paths:
+      - configure.ac
+    branches:
+      - openATV
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tag-release
+  cancel-in-progress: false
+
+jobs:
+  tag_and_release:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Read the version of AC_INIT
+        id: get_version
+        run: |
+          VERSION=$(sed -n 's/^AC_INIT(\[serviceapp\], \[\([^]]*\)\].*/\1/p' configure.ac)
+          if [ -z "$VERSION" ]; then
+            echo "::error file=configure.ac::no version in AC_INIT([serviceapp], [<version>], ...)"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "AC_INIT version: $VERSION"
+
+      - name: Check if tag already exists
+        id: check_tag
+        run: |
+          if git ls-remote --tags origin | grep -q "refs/tags/v${{ steps.get_version.outputs.version }}$"; then
+            echo "Tag v${{ steps.get_version.outputs.version }} already exists."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create and push tag
+        if: steps.check_tag.outputs.skip != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.get_version.outputs.version }}"
+          git push origin "v${{ steps.get_version.outputs.version }}"
+
+      - name: Generate changelog
+        id: changelog
+        if: steps.check_tag.outputs.skip != 'true'
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 --exclude "v${{ steps.get_version.outputs.version }}" 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            echo "No previous tag found, showing the last 30 commits."
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges -n 30)
+          else
+            echo "Previous tag: $LAST_TAG"
+            CHANGELOG=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          fi
+          {
+            echo "changelog<<EOF_CHANGELOG"
+            echo "$CHANGELOG"
+            echo "EOF_CHANGELOG"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        if: steps.check_tag.outputs.skip != 'true'
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3  # v3.0.4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: v${{ steps.get_version.outputs.version }}
+          name: ServiceApp ${{ steps.get_version.outputs.version }}
+          body: |
+            ## Changes in this release
+            ${{ steps.changelog.outputs.changelog }}
+
+            ServiceApp is built by the image (OE recipe
+            `enigma2-plugin-systemplugins-serviceapp`), the release has no
+            packages of its own.

@@ -7,19 +7,25 @@
 #include <lib/dvb/subtitle.h>
 #include <lib/service/iservice.h>
 #include <limits>
+#include <memory>
+#include <set>
 
 #include "common.h"
 #include "extplayer.h"
+#include "hlsexplorer.h"
 #include "m3u8.h"
 #include "scriptrun.h"
 
+/* auto turn on subtitles: 0 and 1 are the former False/True */
+enum { SUBTITLES_AUTO_OFF = 0, SUBTITLES_AUTO_ALL = 1, SUBTITLES_AUTO_FORCED = 2 };
+
 struct eServiceAppOptions {
-	bool autoTurnOnSubtitles;
+	int autoTurnOnSubtitles;
 	bool preferEmbeddedSubtitles;
 	bool HLSExplorer;
 	bool autoSelectStream;
 	unsigned int connectionSpeedInKb;
-	eServiceAppOptions() : autoTurnOnSubtitles(true), preferEmbeddedSubtitles(false), HLSExplorer(true), autoSelectStream(true), connectionSpeedInKb(std::numeric_limits<unsigned int>::max()) {};
+	eServiceAppOptions() : autoTurnOnSubtitles(SUBTITLES_AUTO_ALL), preferEmbeddedSubtitles(false), HLSExplorer(true), autoSelectStream(true), connectionSpeedInKb(std::numeric_limits<unsigned int>::max()) {};
 };
 
 class eServiceApp : public sigc::trackable,
@@ -31,7 +37,8 @@ class eServiceApp : public sigc::trackable,
 					public iAudioTrackSelection,
 					public iSubtitleOutput,
 					public iSubserviceList,
-					public iServiceInformation {
+					public iServiceInformation,
+					public iCueSheet {
 	DECLARE_REF(eServiceApp);
 
 	eServiceReference m_ref;
@@ -43,20 +50,32 @@ class eServiceApp : public sigc::trackable,
 	std::vector<eServiceReference> m_subserviceref_vec;
 	std::vector<M3U8StreamInfo> m_subservice_vec;
 	bool m_subservices_checked;
-	void fillSubservices();
+	void fillSubservices(const std::vector<M3U8StreamInfo>& streams);
+	/* the master playlist is read off the main thread (HlsExplorer); start()
+	 * waits for it with m_hls_start_pending and goes on in startPlayer() */
+	std::unique_ptr<HlsExplorer> m_hls_explorer;
+	bool m_hls_start_pending = false;
+	bool exploreSubservices();
+	void subservicesExplored(const std::vector<M3U8StreamInfo>& streams);
+	void cancelSubservicesExplorer();
+	void startPlayer();
 
 	sigc::signal<void(iPlayableService*, int)> m_event;
-	eServiceAppOptions* options;
-	PlayerBackend* player;
-	BasePlayer* extplayer;
-	ResolveUrl* m_resolver;
+	/* the PlayerBackend uses the BasePlayer until it has been destroyed:
+	 * extplayer is declared before player, so even the implicit member
+	 * destruction (reverse order) ends player first; the destructor and
+	 * liveReconnect() also reset them explicitly in that order */
+	std::unique_ptr<eServiceAppOptions> options;
+	std::unique_ptr<BasePlayer> extplayer;
+	std::unique_ptr<PlayerBackend> player;
+	std::unique_ptr<ResolveUrl> m_resolver;
 	std::string cmd;
 	std::string m_resolve_uri;
 
 	bool m_event_started;
 	bool m_paused;
 	bool m_debug;
-	int m_framerate, m_width, m_height, m_progressive;
+	int m_framerate, m_width, m_height, m_progressive, m_gamma;
 
 	typedef std::map<uint32_t, subtitleMessage> subtitle_pages_map;
 	typedef std::pair<uint32_t, subtitleMessage> subtitle_pages_map_pair;
@@ -64,11 +83,21 @@ class eServiceApp : public sigc::trackable,
 
 	std::vector<SubtitleTrack> m_subtitle_tracks;
 	std::vector<subtitleStream> m_subtitle_streams;
+	/* the external .srt tracks (name, path), scanned once per start */
+	std::vector<std::pair<std::string, std::string>> m_external_subtitles;
+	bool m_external_subtitles_scanned = false;
+	void scanExternalSubtitles();
+	RESULT fillSubtitleList(std::vector<SubtitleTrack>& subtitlelist, int timeout);
 
 	subtitle_pages_map m_embedded_subtitle_pages;
 	subtitle_pages_map const* m_subtitle_pages;
-	SubtitleTrack const* m_selected_subtitle_track;
+	std::unique_ptr<SubtitleTrack const> m_selected_subtitle_track;
+	/* enableSubtitles() before the player listed any subtitle track (the
+	 * InfoBar never asks again): selected when the list arrives */
+	std::unique_ptr<SubtitleTrack const> m_pending_subtitle_track;
+	iSubtitleUser* m_pending_subtitle_user = nullptr;
 	subtitleMessage const* m_prev_subtitle_message;
+	std::string m_prev_subtitle_text; // the text shown with it (overlapping cues joined)
 	ePtr<eTimer> m_subtitle_sync_timer;
 	iSubtitleUser* m_subtitle_widget;
 	SubtitleManager m_subtitle_manager;
@@ -85,10 +114,78 @@ class eServiceApp : public sigc::trackable,
 	static bool isEmbeddedTrack(const SubtitleTrack& track);
 	static bool isExternalTrack(const SubtitleTrack& track);
 	void pullSubtitles();
+	void addSubtitles(std::queue<subtitleMessage>& pulled);
+	void addTextSubtitle(const subtitleMessage& sub);
 	void pushSubtitles();
+	void stopEmbeddedSubtitles(bool tell_player);
+	void discardQueuedSubtitles();
+
+	/* graphic subtitles (PGS, DVB, XSUB of exteplayer3): the page on the
+	 * widget, shown again every few seconds (the widget hides an
+	 * eDVBSubtitlePage after 7.5 s), cleared when its cue is over */
+	eDVBSubtitlePage m_graphic_page;
+	bool m_graphic_shown = false;
+	uint32_t m_graphic_start_ms = 0, m_graphic_end_ms = 0;
+	int64_t m_graphic_shown_at = 0;
+	void addGraphicSubtitle(const subtitleMessage& sub);
+	void removePastSubtitles(int32_t decoder_ms);
+	void showGraphicSubtitle(const subtitleMessage& sub);
+	void hideGraphicSubtitle();
+	void updateGraphicSubtitle(int32_t decoder_ms, int32_t& next_timer);
+	void clearEmbeddedSubtitlePages(bool hide, const std::set<std::string>* keep = NULL);
 	void signalEventUpdatedInfo();
 	void urlResolved(int success);
 	void passthroughFix();
+
+	/* picture size, frame rate and progressive from the video decoder
+	 * (/proc/stb/vmpeg/0) while the player reports a video track without
+	 * a picture size */
+	ePtr<eTimer> m_decoder_video_timer;
+	int m_decoder_video_checks;
+	pts_t m_decoder_video_position;
+	bool m_decoder_video;
+	void startDecoderVideoCheck();
+	void checkDecoderVideo();
+
+	/* a network stream without a length whose player ends by itself (server
+	 * or proxy closed the connection) is started again instead of leaving a
+	 * black picture; the InfoBar does nothing on evEOF of a live service */
+	ePtr<eTimer> m_live_reconnect_timer;
+	int m_live_reconnects;
+	time_t m_player_start_time;
+	bool m_player_started;
+	bool m_stopping;
+	bool m_reconnected;
+	int m_reconnect_channel; // dual mono selection of the old player
+	int m_clean_ends; // ends without an error, reset after a long run
+	/* checkLiveRestart() found a film without a length: no reconnect */
+	bool m_not_live = false;
+	/* the option set of this service (use_user_settings() at its creation):
+	 * g_useUserSettings is cleared by any ~eServiceApp, a later reconnect
+	 * built its player with another set */
+	bool m_user_settings = false;
+	/* sUser+12 of the service itself (the resolver failed), else the
+	 * player's error */
+	std::string m_error_message;
+	/* "Forced only" with a PGS track: only its forced pictures (so1) */
+	int m_forced_only_pid;
+	bool m_forced_only_active;
+	/* after a reconnect FFmpeg reconnects the stream itself; a film without
+	 * a length would then start again at byte 0 at its end, inside the same
+	 * player. Only while no end was clean: exteplayer3 >= 185 keeps its
+	 * position running over that restart (pts clock), the jump back that
+	 * checkLiveRestart() looks for is never seen with it */
+	bool m_ffmpeg_reconnect;
+	pts_t m_max_position;
+	/* play position (ms) at the last clean end, -1: none; a film without a
+	 * length ends again at the same position */
+	int m_last_clean_end_ms = -1;
+	ePtr<eTimer> m_live_check_timer;
+	void checkLiveRestart();
+	std::string m_start_path; // before a resolver replaced it
+	bool isLiveStream();
+	bool isPermanentPlayerError();
+	void liveReconnect();
 
 #ifdef HAVE_EPG
 	ePtr<eTimer> m_nownext_timer;
@@ -96,6 +193,26 @@ class eServiceApp : public sigc::trackable,
 	void updateEpgCacheNowNext();
 #endif
 	void gotExtPlayerMessage(int message);
+
+	/* cuesheet */
+	struct cueEntry {
+		pts_t where;
+		unsigned int what;
+		bool operator<(const struct cueEntry& o) const {
+			return where < o.where;
+		}
+		cueEntry(const pts_t& where, unsigned int what) : where(where), what(what) {}
+	};
+	std::multiset<cueEntry> m_cue_entries;
+	std::set<pts_t> m_chapter_marks; // chapters of the file (exteplayer3 c_l), not saved
+	int m_cuesheet_changed, m_cutlist_enabled;
+	bool m_cuesheet_loaded;
+	bool m_is_streaming;
+	pts_t m_last_seek_pos;
+	pts_t m_media_length;
+	pts_t m_pending_seek;
+	void loadCuesheet();
+	void saveCuesheet();
 
 public:
 	eServiceApp(eServiceReference ref);
@@ -151,8 +268,8 @@ public:
 		return -1;
 	};
 	RESULT cueSheet(ePtr<iCueSheet>& ptr) {
-		ptr = 0;
-		return -1;
+		ptr = this;
+		return 0;
 	};
 	RESULT subtitle(ePtr<iSubtitleOutput>& ptr) {
 		ptr = this;
@@ -200,6 +317,7 @@ public:
 	};
 	int setBufferSize(int size) {
 		(void)size;
+		return 0;
 	}
 
 	// iAudioTrackSelection
@@ -221,6 +339,11 @@ public:
 	// iSubserviceList
 	int getNumberOfSubservices();
 	RESULT getSubservice(eServiceReference& subservice, unsigned int n);
+
+	// iCueSheet
+	PyObject* getCutList();
+	void setCutList(SWIG_PYOBJECT(ePyObject));
+	void setCutListEnable(int enable);
 
 	// iServiceInformation
 	RESULT getName(std::string& name);
@@ -263,10 +386,7 @@ public:
 		ptr = new eServiceApp(ref);
 		return 0;
 	};
-	RESULT record(const eServiceReference&, ePtr<iRecordableService>& ptr) {
-		ptr = 0;
-		return -1;
-	};
+	RESULT record(const eServiceReference& ref, ePtr<iRecordableService>& ptr);
 	RESULT list(const eServiceReference&, ePtr<iListableService>& ptr) {
 		ptr = 0;
 		return -1;

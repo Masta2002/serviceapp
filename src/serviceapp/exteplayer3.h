@@ -31,6 +31,20 @@ extern const std::string EXT3_ARG_LCASE_B;
 extern const std::string EXT3_ARG_5;
 extern const std::string EXT3_ARG_6;
 extern const std::string EXT3_ARG_7;
+extern const std::string EXT3_TRANSCODE_DTS;
+extern const std::string EXT3_TRANSCODE_DTS_EAC3;
+extern const std::string EXT3_TRANSCODE_TRUEHD;
+extern const std::string EXT3_TRANSCODE_TRUEHD_EAC3;
+extern const std::string EXT3_TRANSCODE_HEAAC;
+extern const std::string EXT3_HLS_QUALITY;
+extern const std::string EXT3_HLS_DEFAULT_AUDIO;
+extern const std::string EXT3_COVER;
+extern const std::string EXT3_KEY;
+extern const std::string EXT3_GRAPHIC_SUBS;
+
+/* the window exteplayer3 scales graphic subtitles for (-W, -H) */
+#define EXT3_GRAPHIC_SUB_WIDTH  1280
+#define EXT3_GRAPHIC_SUB_HEIGHT 720
 
 struct ExtEplayer3Options : public IOption
 {
@@ -45,11 +59,29 @@ struct ExtEplayer3Options : public IOption
 class ExtEplayer3: public PlayerApp, public BasePlayer
 {
 	ExtEplayer3Options mPlayerOptions;
+	// current video track as passed on, and what the decoder reported
+	// for it with "v_e" (-1 unknown)
+	videoStream mVideo, mDecoderVideo;
+	// the player sent FF_ERROR
+	bool mErrorReported;
+	// "seekms" in EPLAYER3_EXTENDED: gf<s.ms>; written by the backend
+	// thread, atomic as the other EPLAYER3_EXTENDED fields
+	std::atomic<bool> mSeekMs;
+	// a live stream: FFmpeg reconnects an HTTP stream without a length itself
+	bool mLiveStream;
+	// the player reports byte counters ("BR"): announced ("br" in
+	// EPLAYER3_EXTENDED) or it answered one of the first requests
+	std::atomic<bool> mCanBitrate;
+	int mBitrateProbes; // requests without an answer so far (backend thread)
+	// graphic subtitles: the PNG directory of this player (-G), empty: off
+	std::string mGraphicSubDir;
+	void removeGraphicSubDir();
 	void handleProcessStopped(int retval);
 	void handleJsonOutput(cJSON* json);
 	std::vector<std::string> buildCommand();
 	public:
 	ExtEplayer3(ExtEplayer3Options& options);
+	~ExtEplayer3();
 	int start(eMainloop *context);
 
 	int sendStop();
@@ -61,12 +93,19 @@ class ExtEplayer3: public PlayerApp, public BasePlayer
 	int sendUpdatePosition();
 	int sendUpdateAudioTracksList();
 	int sendUpdateAudioTrackCurrent();
+	int sendPollAudioTrackCurrent();
 	int sendAudioSelectTrack(int trackId);
 	int sendUpdateSubtitleTracksList();
 	int sendUpdateSubtitleTrackCurrent();
 	int sendSubtitleSelectTrack(int trackId);
+	int sendSubtitleDisable();
 	int sendSeekTo(int seconds);
+	int sendSeekToMs(int mseconds);
 	int sendSeekRelative(int seconds);
 	int sendFastForward(int speed);
+	int sendAudioChannel(int channel);
+	int sendSubtitleForcedOnly(bool on);
+	int sendUpdateBitrate();
+	void setLiveStream(bool live){mLiveStream = live;}
 };
 #endif

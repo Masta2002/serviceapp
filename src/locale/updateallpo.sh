@@ -1,55 +1,107 @@
 #!/bin/bash
 # Script to generate po files outside of the normal build process
-#  
+#
 # Pre-requisite:
 # The following tools must be installed on your system and accessible from path
-# gawk, find, xgettext, sed, python, msguniq, msgmerge, msgattrib, msgfmt, msginit
+# gawk, find, xgettext, sed (gsed on macOS), msguniq, msgmerge, msgattrib, msgfmt, msginit
 #
-# Run this script from within the po folder.
+# Run this script from within the locale folder.
 #
 # Author: Pr2 for OpenPLi Team
 # Version: 1.0
+#          1.1 - GNU find on Linux (-s -X only on macOS); check for the gettext
+#                tools up front; drop the xml2po.py step (no such file, no xml
+#                with strings); charset UTF-8 in the final pot; msginit with
+#                the language, not the file name; skip the po rewrite when
+#                only the POT-Creation-Date header changed (no empty git diffs)
+#          1.2 - msgmerge --no-fuzzy-matching: no guessed (fuzzy) translations
+#          1.3 - only the pot rewrite is skipped on a pure POT-Creation-Date
+#                change, new languages and out-of-sync po files are still done
 #
-# Retrieve languages from Makefile.am LANGS variable for backward compatibility
+# The languages are the LANGS of Makefile.am: a new language needs its entry
+# there, or it is neither updated nor installed.
 #
+localgsed="sed"
+findoptions=""
+
+if [[ "$OSTYPE" == "darwin"* ]]
+	then
+		# Mac OSX
+		printf "Script running on Mac OSX [%s]\n" "$OSTYPE"
+		findoptions=" -s -X "
+		localgsed="gsed"
+fi
+
+# fail early with a clear message instead of a cryptic "command not found"
+for tool in gawk xgettext msguniq msgmerge msgattrib msgfmt msginit; do
+	if ! command -v $tool > /dev/null 2>&1; then
+		printf "Error: '%s' not found in PATH - install the gettext tools first.\n" "$tool" >&2
+		exit 1
+	fi
+done
+
 PluginName=ServiceApp
 printf "Po files update/creation from script starting.\n"
-languages=($(gawk ' BEGIN { FS=" " } 
+languages=($(gawk ' BEGIN { FS=" " }
 		/^LANGS/ {
 			for (i=3; i<=NF; i++)
 				printf "%s ", $i
 		} ' Makefile.am ))
-
-# If you want to define the language locally in this script uncomment and defined languages
-#languages=("ar" "bg" "ca" "cs" "da" "de" "el" "en" "es" "et" "fa" "fi" "fr" "fy" "he" "hk" "hr" "hu" "id" "is" "it" "ku" "lt" "lv" "nl" "nb" "nn" "pl" "pt" "pt_BR" "ro" "ru" "sk" "sl" "sr" "sv" "th" "tr" "uk" "zh")
 
 #
 # Arguments to generate the pot and po files are not retrieved from the Makefile.
 # So if parameters are changed in Makefile please report the same changes in this script.
 #
 
+# keep the current pot around so we can tell a real string change from a
+# pure POT-Creation-Date bump once the new one is built
+if [[ -f $PluginName.pot ]]; then
+	cp $PluginName.pot $PluginName.pot.bak
+fi
+
 printf "Creating temporary file $PluginName-py.pot\n"
-find -s -X .. -name "*.py" -exec xgettext --no-wrap -L Python --from-code=UTF-8 -kpgettext:1c,2 --add-comments="TRANSLATORS:" -d $PluginName -s -o $PluginName-py.pot {} \+
-sed --in-place $PluginName-py.pot --expression=s/CHARSET/UTF-8/
-printf "Creating temporary file $PluginName-xml.pot\n"
-find -s -X .. -name "*.xml" -exec python xml2po.py {} \+ > $PluginName-xml.pot
-printf "Merging pot files to create: $PluginName.pot\n"
-cat $PluginName-py.pot $PluginName-xml.pot | msguniq --no-wrap -o $PluginName.pot -
+find $findoptions .. -name "*.py" -exec xgettext --no-wrap -L Python --from-code=UTF-8 -kpgettext:1c,2 -k_ngettext:1,2 --add-comments="TRANSLATORS:" -d $PluginName -s -o $PluginName-py.pot {} \+
+printf "Creating temporary file $PluginName-cpp.pot\n"
+# texts of the C++ part the user sees: SAPP_TR("...") (common.h)
+find $findoptions ../serviceapp \( -name "*.cpp" -o -name "*.h" \) -exec xgettext --no-wrap -L C++ --from-code=UTF-8 -kSAPP_TR --add-comments="TRANSLATORS:" -d $PluginName -s -o $PluginName-cpp.pot {} \+
+printf "Merging to create: $PluginName.pot\n"
+if [[ -f $PluginName-cpp.pot ]]; then
+	msgcat --no-wrap --use-first $PluginName-py.pot $PluginName-cpp.pot -o $PluginName-all.pot
+else
+	cp $PluginName-py.pot $PluginName-all.pot
+fi
+msguniq --no-wrap --no-location -s -o $PluginName.pot $PluginName-all.pot
+$localgsed --in-place $PluginName.pot --expression=s/CHARSET/UTF-8/
+rm -f $PluginName-py.pot $PluginName-cpp.pot $PluginName-all.pot
+
+# if nothing but the auto-generated POT-Creation-Date line differs from the
+# previous pot, keep the previous one (no empty git diff); the languages are
+# still processed: a new LANGS entry gets its .po, an out-of-sync .po is merged
+if [[ -f $PluginName.pot.bak ]]; then
+	grep -v '^"POT-Creation-Date:' $PluginName.pot     > $PluginName.pot.new
+	grep -v '^"POT-Creation-Date:' $PluginName.pot.bak > $PluginName.pot.old
+	if diff -q $PluginName.pot.old $PluginName.pot.new > /dev/null; then
+		printf "No string changes (only POT-Creation-Date) - keeping the pot as it is.\n"
+		mv $PluginName.pot.bak $PluginName.pot
+	fi
+	rm -f $PluginName.pot.bak $PluginName.pot.old $PluginName.pot.new
+fi
+
 OLDIFS=$IFS
 IFS=" "
 for lang in "${languages[@]}" ; do
-	if [ -f $lang.po ]; then \
+	if [[ -f $lang.po ]]; then
 		printf "Updating existing translation file %s.po\n" $lang
-		msgmerge --backup=none --no-wrap -s -U $lang.po $PluginName.pot && touch $lang.po; \
-		msgattrib --no-wrap --no-obsolete $lang.po -o $lang.po; \
-		msgfmt -o $lang.mo $lang.po; \
-	else \
+		msgmerge --backup=none --no-wrap --no-fuzzy-matching -s -U $lang.po $PluginName.pot && touch $lang.po
+		msgattrib --no-wrap --no-obsolete $lang.po -o $lang.po
+		msgfmt -c -o $lang.mo $lang.po
+	else
 		printf "New file created: %s.po, please add it to github before commit\n" $lang
-		msginit -l $lang.po -o $lang.po -i $PluginName.pot --no-translator; \
-		msgfmt -o $lang.mo $lang.po; \
+		msginit -l $lang -o $lang.po -i $PluginName.pot --no-translator
+		msgfmt -c -o $lang.mo $lang.po
 	fi
 done
-rm $PluginName-py.pot $PluginName-xml.pot
 IFS=$OLDIFS
+# the .mo files are built by make, these were only a check
+find . -maxdepth 1 -name "*.mo" -type f -delete
 printf "Po files update/creation from script finished!\n"
-find -name "*.mo" -type f | xargs -L1 rm -rf

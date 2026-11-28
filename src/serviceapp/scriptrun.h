@@ -6,8 +6,20 @@
 #include <lib/python/connections.h>
 #include <lib/base/thread.h>
 
+#include <memory>
+
 #include "extplayer.h"
 #include "myconsole.h"
+
+/* stdout/stderr of the script kept in memory: the URL is the last line,
+ * a script printing a lot before it only costs memory */
+#define SCRIPT_MAX_OUTPUT ((size_t) 64 * 1024)
+/* the service waits for the resolved URL: a hanging script is killed and
+ * reported as failure instead of leaving the service waiting forever */
+#define RESOLVE_TIMEOUT_MS 30000
+/* after the kill, the hangup of the script's pipes normally ends the run;
+ * a descendant that keeps them open is given up on after this */
+#define RESOLVE_KILL_GRACE_MS 5000
 
 class scriptrun: public sigc::trackable
 {
@@ -26,6 +38,7 @@ public:
     ~scriptrun();
     void run(eMainloop *context);
     void stop();
+    void kill();
 
     std::string getStdOut(){return m_stdout;}
     std::string getStdErr(){return m_stderr;}
@@ -49,12 +62,16 @@ class ResolveUrl: public sigc::trackable, public eThread, public eMainloop
         Message(int type)
             :type(type) {}
     };
-    scriptrun *m_scriptrun;
+    std::unique_ptr<scriptrun> m_scriptrun;
     std::string m_url;
     int m_success;
 
     bool mThreadRunning;
     bool mStopped;
+    // resolve thread only: timeout timer state, scriptEnded() reported
+    ePtr<eTimer> mTimeoutTimer;
+    bool mTimedOut;
+    bool mEnded;
 
     eFixedMessagePump<Message> mMessageMain, mMessageThread;
     pthread_mutex_t mWaitForStopMutex;
@@ -65,6 +82,7 @@ class ResolveUrl: public sigc::trackable, public eThread, public eMainloop
     // eThread
     void thread();
     void thread_finished();
+    void resolveTimeout();
 
 public:
     ResolveUrl(const std::string &url);

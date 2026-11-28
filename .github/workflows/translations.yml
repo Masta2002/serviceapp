@@ -1,0 +1,52 @@
+name: Translations
+
+# Checks src/locale, changes nothing (the script is
+# .github/scripts/check-translations.sh, it also runs locally from the
+# repository root with the gettext tools in PATH):
+#   - LANGS of src/locale/Makefile.am and the .po files match
+#   - msgfmt -c on every .po
+#   - ServiceApp.pot up to date with the _() and SAPP_TR() strings
+#     (updateallpo.sh run)
+#   - every .po has the msgids of the .pot
+#   - no committed .mo
+# Fuzzy entries are warnings only.
+
+on:
+  push:
+    paths:
+      - 'src/plugin/**.py'
+      - 'src/serviceapp/**'
+      - 'src/locale/**'
+      - '.github/scripts/check-translations.sh'
+      - '.github/workflows/translations.yml'
+  pull_request:
+    paths:
+      - 'src/plugin/**.py'
+      - 'src/serviceapp/**'
+      - 'src/locale/**'
+      - '.github/scripts/check-translations.sh'
+      - '.github/workflows/translations.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: translations-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: .po / .pot check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Install gettext
+      run: |
+        sudo apt-get update -q
+        sudo apt-get install -y -q gettext
+
+    - name: Check
+      run: bash .github/scripts/check-translations.sh
